@@ -8,9 +8,9 @@ use craft\base\FieldInterface;
 use craft\elements\db\AssetQuery;
 use craft\elements\db\CategoryQuery;
 use craft\elements\db\ElementQuery;
+use craft\elements\db\EntryQuery;
 use craft\elements\db\TagQuery;
 use craft\elements\Entry;
-use craft\elements\MatrixBlock;
 use DateTime;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
@@ -174,6 +174,13 @@ class EmbeddingService extends Component
         }
 
         if ($fieldValue instanceof ElementQuery) {
+            if ($fieldValue instanceof EntryQuery) {
+                $entries = $fieldValue->all();
+                if (!empty($entries) && $entries[0] instanceof Entry && $entries[0]->getOwnerId() !== null) {
+                    return $this->extractTextFromIterable($entries);
+                }
+            }
+
             if ($fieldValue instanceof AssetQuery ||
                 $fieldValue instanceof CategoryQuery ||
                 $fieldValue instanceof TagQuery) {
@@ -244,15 +251,15 @@ class EmbeddingService extends Component
     /**
      * Extract text from iterable collections (Matrix blocks, Super Table rows).
      *
-     * Detects block elements by checking for MatrixBlock or SuperTableBlockElement
-     * instances and extracts text from their field layouts.
+     * Detects block elements by checking for nested Entry (Matrix in Craft 5) or
+     * SuperTableBlockElement instances and extracts text from their field layouts.
      */
     private function extractTextFromIterable(mixed $iterable): string
     {
         $textParts = [];
 
         foreach ($iterable as $item) {
-            if ($item instanceof MatrixBlock || $this->isSuperTableBlock($item)) {
+            if (($item instanceof Entry && $item->getOwnerId() !== null) || $this->isSuperTableBlock($item)) {
                 $blockText = $this->extractTextFromBlockElement($item);
                 if (TextValidator::isNotEmpty($blockText)) {
                     $textParts[] = $blockText;

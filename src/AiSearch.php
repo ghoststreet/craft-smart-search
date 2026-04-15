@@ -12,6 +12,7 @@ use craft\helpers\UrlHelper;
 use craft\services\Elements;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
+use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\jobs\DeleteEntryJob;
 use ghoststreet\craftaisearch\jobs\IndexEntryJob;
@@ -66,11 +67,15 @@ class AiSearch extends Plugin
                 return;
             }
 
-            if (!$this->databaseService->isSchemaInitialized()) {
-                $this->databaseService->initializeSchema();
-            }
+            try {
+                if (!$this->databaseService->isSchemaInitialized()) {
+                    $this->databaseService->initializeSchema();
+                }
 
-            Craft::$app->getCache()->set(DatabaseService::SCHEMA_CACHE_KEY, true, 3600);
+                Craft::$app->getCache()->set(DatabaseService::SCHEMA_CACHE_KEY, true, 3600);
+            } catch (DatabaseException $e) {
+                Logger::warning('Skipping schema initialization: ' . $e->getMessage());
+            }
         });
     }
 

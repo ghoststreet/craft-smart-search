@@ -3,6 +3,16 @@
 {% set title = 'AI Search' %}
 
 {% block content %}
+    {% if not stats.isConnected %}
+        <div class="readable">
+            <blockquote class="note warning">
+                <p><strong>Database not connected.</strong>
+                {% if stats.error %}{{ stats.error }}{% endif %}
+                Visit <a href="{{ cpUrl('ai-search/settings') }}">Settings</a> to configure your PostgreSQL connection.</p>
+            </blockquote>
+        </div>
+    {% endif %}
+
     {# Section 1: Index Status #}
     <h2>Index Status</h2>
 

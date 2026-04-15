@@ -26,9 +26,21 @@ class DataSyncController extends Controller
     {
         $this->requireAdmin();
 
+        try {
+            $stats = AiSearch::getInstance()->databaseService->getStats();
+        } catch (DatabaseException $e) {
+            $stats = [
+                'entryCount' => 0,
+                'chunkCount' => 0,
+                'lastIndexed' => null,
+                'isConnected' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+
         return $this->renderTemplate('ai-search/data-sync', [
             'plugin' => AiSearch::getInstance(),
-            'stats' => AiSearch::getInstance()->databaseService->getStats(),
+            'stats' => $stats,
             'syncStarted' => Craft::$app->getSession()->getFlash('ai-search-sync-started', false),
         ]);
     }
