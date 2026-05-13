@@ -21,6 +21,7 @@ use ghoststreet\craftaisearch\services\BM25Service;
 use ghoststreet\craftaisearch\services\DatabaseService;
 use ghoststreet\craftaisearch\services\EmbeddingService;
 use ghoststreet\craftaisearch\services\HybridSearchService;
+use ghoststreet\craftaisearch\services\IndexingDebugService;
 use ghoststreet\craftaisearch\services\OpenAIClientFactory;
 use ghoststreet\craftaisearch\services\RagSearchService;
 use ghoststreet\craftaisearch\services\SearchService;
@@ -44,6 +45,7 @@ use yii\web\Response;
  * @property-read BM25Service $bm25Service
  * @property-read HybridSearchService $hybridSearchService
  * @property-read RagSearchService $ragSearchService
+ * @property-read IndexingDebugService $indexingDebugService
  * @property-read OpenAIClientFactory $openAIClientFactory
  */
 class AiSearch extends Plugin
@@ -117,6 +119,7 @@ class AiSearch extends Plugin
                 'bm25Service' => BM25Service::class,
                 'hybridSearchService' => HybridSearchService::class,
                 'ragSearchService' => RagSearchService::class,
+                'indexingDebugService' => IndexingDebugService::class,
             ],
         ];
     }
@@ -152,6 +155,7 @@ class AiSearch extends Plugin
         }
 
         $subNav['data-sync'] = ['label' => 'Data Sync', 'url' => 'ai-search/data-sync'];
+        $subNav['debug'] = ['label' => 'Debug', 'url' => 'ai-search/debug'];
 
         $item['subnav'] = $subNav;
 
@@ -257,6 +261,9 @@ class AiSearch extends Plugin
                 $event->rules['ai-search/data-sync'] = 'ai-search/data-sync/index';
                 $event->rules['POST ai-search/data-sync/wipe-and-reindex'] = 'ai-search/data-sync/wipe-and-reindex';
                 $event->rules['POST ai-search/data-sync/get-stats'] = 'ai-search/data-sync/get-stats';
+
+                $event->rules['ai-search/debug'] = 'ai-search/debug/index';
+                $event->rules['ai-search/debug/entry'] = 'ai-search/debug/entry';
             }
         );
 

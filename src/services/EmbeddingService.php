@@ -308,27 +308,102 @@ class EmbeddingService extends Component
     {
         $textParts = [];
 
+        foreach ($this->inspectFieldsFromLayout($element) as $row) {
+            if ($row['indexed']) {
+                $textParts[] = $row['extractedText'];
+            }
+        }
+
+        return $textParts;
+    }
+
+    /**
+     * Per-field breakdown of how the indexer sees an element's field layout.
+     *
+     * Used by the debug view to verify which fields contribute text, which are skipped,
+     * and why. Mirrors extractFieldsFromLayout() so the report cannot drift from real
+     * indexing behavior.
+     *
+     * @return array<int, array{handle: string, type: string, searchable: bool, indexed: bool, reason: string, extractedText: string}>
+     */
+    public function inspectFieldsFromLayout(ElementInterface $element): array
+    {
+        $rows = [];
+
         $fieldLayout = $element->getFieldLayout();
         if ($fieldLayout === null) {
             return [];
         }
 
         foreach ($fieldLayout->getCustomFieldElements() as $layoutElement) {
-            if (!($layoutElement->searchable ?? true)) {
+            $field = $layoutElement->getField();
+            $searchable = (bool)($layoutElement->searchable ?? true);
+            $type = (new \ReflectionClass($field))->getShortName();
+
+            if (!$searchable) {
+                $rows[] = [
+                    'handle' => $field->handle,
+                    'type' => $type,
+                    'searchable' => false,
+                    'indexed' => false,
+                    'reason' => 'searchable=false',
+                    'extractedText' => '',
+                ];
                 continue;
             }
 
-            $field = $layoutElement->getField();
             $fieldValue = $element->getFieldValue($field->handle);
-            if ($fieldValue !== null) {
-                $extracted = $this->extractTextFromFieldValue($field, $fieldValue);
-                if (TextValidator::isNotEmpty($extracted)) {
-                    $textParts[] = $extracted;
-                }
+            if ($fieldValue === null) {
+                $rows[] = [
+                    'handle' => $field->handle,
+                    'type' => $type,
+                    'searchable' => true,
+                    'indexed' => false,
+                    'reason' => 'null value',
+                    'extractedText' => '',
+                ];
+                continue;
             }
+
+            $extracted = $this->extractTextFromFieldValue($field, $fieldValue);
+
+            if (!TextValidator::isNotEmpty($extracted)) {
+                $rows[] = [
+                    'handle' => $field->handle,
+                    'type' => $type,
+                    'searchable' => true,
+                    'indexed' => false,
+                    'reason' => 'no extractable text',
+                    'extractedText' => '',
+                ];
+                continue;
+            }
+
+            $rows[] = [
+                'handle' => $field->handle,
+                'type' => $type,
+                'searchable' => true,
+                'indexed' => true,
+                'reason' => '',
+                'extractedText' => $extracted,
+            ];
         }
 
-        return $textParts;
+        return $rows;
+    }
+
+    /**
+     * Run the full extraction + chunking pipeline without writing to the DB.
+     *
+     * @return string[]
+     */
+    public function previewChunks(ElementInterface $element): array
+    {
+        $text = $this->extractTextFromElement($element);
+        if (TextValidator::isEmpty($text)) {
+            return [];
+        }
+        return $this->chunkText($text);
     }
 
     /**

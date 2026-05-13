@@ -1,0 +1,124 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms.twig" as forms %}
+
+{% set title = 'Indexing Debug' %}
+
+{% set crumbs = [
+    { label: 'AI Search', url: cpUrl('ai-search') },
+] %}
+
+{% block content %}
+    {% if error %}
+        <div class="readable">
+            <blockquote class="note warning">
+                <p><strong>Database error.</strong> {{ error }}</p>
+            </blockquote>
+        </div>
+    {% endif %}
+
+    {% set siteOptions = [] %}
+    {% for site in sites %}
+        {% set siteOptions = siteOptions|merge([{ label: site.name, value: site.id }]) %}
+    {% endfor %}
+
+    {% set sectionOptions = [{ label: 'All indexable sections'|t('ai-search'), value: '' }] %}
+    {% for section in sections %}
+        {% if settings.indexableSections is empty or section.handle in settings.indexableSections %}
+            {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
+        {% endif %}
+    {% endfor %}
+
+    {% set statusOptions = [
+        { label: 'All'|t('ai-search'), value: '' },
+        { label: 'Indexed'|t('ai-search'), value: 'indexed' },
+        { label: 'Stale'|t('ai-search'), value: 'stale' },
+        { label: 'Not indexed'|t('ai-search'), value: 'not-indexed' },
+    ] %}
+
+    <form method="get" action="" class="flex" style="gap: 10px; margin-bottom: 18px; align-items: flex-end;">
+        {% if sites|length > 1 %}
+            {{ forms.selectField({
+                label: 'Site'|t('ai-search'),
+                name: 'siteId',
+                value: filters.siteId,
+                options: siteOptions,
+            }) }}
+        {% else %}
+            <input type="hidden" name="siteId" value="{{ filters.siteId }}">
+        {% endif %}
+
+        {{ forms.selectField({
+            label: 'Section'|t('ai-search'),
+            name: 'section',
+            value: filters.section,
+            options: sectionOptions,
+        }) }}
+
+        {{ forms.selectField({
+            label: 'Status'|t('ai-search'),
+            name: 'status',
+            value: filters.status,
+            options: statusOptions,
+        }) }}
+
+        <div class="field">
+            <button type="submit" class="btn submit">{{ 'Filter'|t('ai-search') }}</button>
+        </div>
+    </form>
+
+    <p class="light">{{ result.total }} entries · page {{ result.page }}</p>
+
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Section</th>
+                <th>Status</th>
+                <th>Chunks</th>
+                <th>Last indexed</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in result.rows %}
+                <tr>
+                    <td>
+                        <a href="{{ cpUrl('ai-search/debug/entry', { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: '(untitled)' }}</a>
+                    </td>
+                    <td>{{ row.section }}</td>
+                    <td>
+                        {% if row.status == 'indexed' %}
+                            <span class="status green"></span> Indexed
+                        {% elseif row.status == 'stale' %}
+                            <span class="status orange"></span> Stale
+                        {% else %}
+                            <span class="status off"></span> Not indexed
+                        {% endif %}
+                    </td>
+                    <td>{{ row.chunkCount }}</td>
+                    <td>
+                        {% if row.lastIndexed %}
+                            {{ row.lastIndexed|date('M j, Y g:i A') }}
+                        {% else %}
+                            <span class="light">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="light">No entries.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% set totalPages = (result.total / result.pageSize)|round(0, 'ceil') %}
+    {% if totalPages > 1 %}
+        <div style="margin-top: 14px;">
+            {% if result.page > 1 %}
+                <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ page: result.page - 1 })) }}">&laquo; Prev</a>
+            {% endif %}
+            <span class="light">Page {{ result.page }} of {{ totalPages }}</span>
+            {% if result.page < totalPages %}
+                <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ page: result.page + 1 })) }}">Next &raquo;</a>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock %}

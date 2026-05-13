@@ -322,6 +322,71 @@ class DatabaseService extends Component
         return AiSearch::getInstance()->getSettings()->vectorDimensions;
     }
 
+    /**
+     * Return a map keyed by "elementId-siteId" with chunkCount and lastIndexed,
+     * for use by the debug view to determine per-entry indexing status.
+     *
+     * @return array<string, array{chunkCount: int, lastIndexed: string}>
+     * @throws DatabaseException
+     */
+    public function getIndexedSummary(?int $siteId = null): array
+    {
+        $db = $this->getConnection();
+
+        try {
+            $sql = '
+                SELECT "elementId", "siteId", COUNT(*) AS "chunkCount", MAX("dateUpdated") AS "lastIndexed"
+                FROM ' . self::TABLE_NAME;
+            $params = [];
+            if ($siteId !== null) {
+                $sql .= ' WHERE "siteId" = :siteId';
+                $params[':siteId'] = $siteId;
+            }
+            $sql .= ' GROUP BY "elementId", "siteId"';
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+
+            $map = [];
+            while ($row = $stmt->fetch()) {
+                $key = $row['elementId'] . '-' . $row['siteId'];
+                $map[$key] = [
+                    'chunkCount' => (int)$row['chunkCount'],
+                    'lastIndexed' => $row['lastIndexed'],
+                ];
+            }
+            return $map;
+        } catch (PDOException $e) {
+            Logger::exception($e, 'getIndexedSummary');
+            throw DatabaseException::queryFailed('getIndexedSummary', $e);
+        }
+    }
+
+    /**
+     * Fetch all chunk rows for an element, ordered by chunkIndex.
+     *
+     * @return array<int, array{chunkIndex: int, totalChunks: int, content: ?string, dateUpdated: string}>
+     * @throws DatabaseException
+     */
+    public function getVectorsForElement(int $elementId, int $siteId): array
+    {
+        $db = $this->getConnection();
+
+        try {
+            $stmt = $db->prepare('
+                SELECT "chunkIndex", "totalChunks", content, "dateUpdated"
+                FROM ' . self::TABLE_NAME . '
+                WHERE "elementId" = :elementId AND "siteId" = :siteId
+                ORDER BY "chunkIndex" ASC
+            ');
+            $stmt->execute([':elementId' => $elementId, ':siteId' => $siteId]);
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            Logger::exception($e, 'getVectorsForElement');
+            throw DatabaseException::queryFailed('getVectorsForElement', $e);
+        }
+    }
+
     public function getStats(bool $useCache = true): array
     {
         $cache = Craft::$app->getCache();

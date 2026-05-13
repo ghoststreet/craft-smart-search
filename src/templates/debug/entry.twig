@@ -1,0 +1,119 @@
+{% extends "_layouts/cp" %}
+
+{% set entry = inspection.entry %}
+{% set title = 'Debug: ' ~ (entry.title ?: '(untitled)') %}
+
+{% set crumbs = [
+    { label: 'AI Search', url: cpUrl('ai-search') },
+    { label: 'Debug', url: cpUrl('ai-search/debug') },
+] %}
+
+{% macro truncate(text, length) %}
+    {%- if text|length > length -%}
+        {{ text[:length] }}…
+    {%- else -%}
+        {{ text }}
+    {%- endif -%}
+{% endmacro %}
+
+{% from _self import truncate %}
+
+{% block content %}
+    <h2>Entry</h2>
+    <table class="data fullwidth">
+        <tbody>
+            <tr><th class="light">ID</th><td>{{ entry.id }}</td></tr>
+            <tr><th class="light">Title</th><td>{{ entry.title }}</td></tr>
+            <tr><th class="light">Section</th><td>{{ entry.section.name ?? '—' }}</td></tr>
+            <tr><th class="light">Site</th><td>{{ entry.site.name }}</td></tr>
+            <tr><th class="light">Date updated</th><td>{{ entry.dateUpdated|date('M j, Y g:i A') }}</td></tr>
+            <tr><th class="light">URL</th><td>{% if entry.url %}<a href="{{ entry.url }}">{{ entry.url }}</a>{% else %}<span class="light">—</span>{% endif %}</td></tr>
+            <tr><th class="light">Edit</th><td><a href="{{ entry.cpEditUrl }}">Open in editor</a></td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>Fields ({{ inspection.fields|length }})</h2>
+    <p class="light">Per-field breakdown of how the indexer sees this entry. The <em>Searchable</em> flag is Craft's native field-layout setting.</p>
+
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th>Handle</th>
+                <th>Type</th>
+                <th>Searchable</th>
+                <th>Indexed</th>
+                <th>Extracted text</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for field in inspection.fields %}
+                <tr>
+                    <td><code>{{ field.handle }}</code></td>
+                    <td>{{ field.type }}</td>
+                    <td>
+                        {% if field.searchable %}
+                            <span class="status green"></span> Yes
+                        {% else %}
+                            <span class="status off"></span> No
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if field.indexed %}
+                            <span class="status green"></span> Yes
+                        {% else %}
+                            <span class="status off"></span> No <span class="light">({{ field.reason }})</span>
+                        {% endif %}
+                    </td>
+                    <td style="max-width: 480px;">
+                        {% if field.extractedText %}
+                            <span style="white-space: pre-wrap;">{{ truncate(field.extractedText, 300) }}</span>
+                        {% else %}
+                            <span class="light">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="light">No custom fields.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>Chunks ({{ inspection.chunks|length }})</h2>
+    <p class="light">Stored rows from <code>aisearch_vectors</code>. Concatenating these (after the title prefix) reconstructs the indexed text.</p>
+
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tokens</th>
+                <th>Content</th>
+                <th>Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for chunk in inspection.chunks %}
+                <tr>
+                    <td>{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</td>
+                    <td>~{{ chunk.estimatedTokens }}</td>
+                    <td style="max-width: 600px;">
+                        {% if chunk.content %}
+                            <details>
+                                <summary><span style="white-space: pre-wrap;">{{ truncate(chunk.content, 500) }}</span></summary>
+                                <pre style="white-space: pre-wrap; margin-top: 8px;">{{ chunk.content }}</pre>
+                            </details>
+                        {% else %}
+                            <span class="light">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ chunk.dateUpdated|date('M j, Y g:i A') }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4" class="light">No chunks stored — this entry is not indexed.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
