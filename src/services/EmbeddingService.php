@@ -204,16 +204,18 @@ class EmbeddingService extends Component
             return $this->extractTextFromArray($fieldValue);
         }
 
-        if (is_iterable($fieldValue)) {
-            return $this->extractTextFromIterable($fieldValue);
-        }
-
+        // getPlainText/__toString must run before is_iterable: CKEditor/Redactor
+        // FieldData implements IteratorAggregate yielding chunk objects, not text.
         if (is_object($fieldValue) && method_exists($fieldValue, 'getPlainText')) {
             return $fieldValue->getPlainText();
         }
 
         if (is_object($fieldValue) && method_exists($fieldValue, '__toString')) {
             return strip_tags((string)$fieldValue);
+        }
+
+        if (is_iterable($fieldValue)) {
+            return $this->extractTextFromIterable($fieldValue);
         }
 
         return '';
