@@ -26,21 +26,9 @@ class DataSyncController extends Controller
     {
         $this->requireAdmin();
 
-        try {
-            $stats = AiSearch::getInstance()->databaseService->getStats();
-        } catch (DatabaseException $e) {
-            $stats = [
-                'entryCount' => 0,
-                'chunkCount' => 0,
-                'lastIndexed' => null,
-                'isConnected' => false,
-                'error' => $e->getMessage(),
-            ];
-        }
-
         return $this->renderTemplate('ai-search/data-sync', [
             'plugin' => AiSearch::getInstance(),
-            'stats' => $stats,
+            'stats' => AiSearch::getInstance()->databaseService->getStatsSafe(),
             'syncStarted' => Craft::$app->getSession()->getFlash('ai-search-sync-started', false),
         ]);
     }
@@ -122,7 +110,7 @@ class DataSyncController extends Controller
                 'queueRemaining' => $queueTotal,
             ]);
         } catch (\Throwable $e) {
-            return $this->asJson(ApiResponseHelper::error($e));
+            return ApiResponseHelper::jsonError($this, $e, 'getStats');
         }
     }
 }

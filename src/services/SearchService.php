@@ -15,9 +15,9 @@ use yii\base\Component;
 
 /**
  * Search Service — entry point for vector similarity searches.
- * Delegates to HybridSearchService when hybrid mode is enabled, otherwise
- * runs a pure semantic search against pgvector. Handles element loading,
- * deduplication across chunks, and over-fetching to ensure enough unique entries.
+ * Public search() always runs hybrid (vector + BM25 via RRF) for best quality.
+ * semanticSearch / semanticSearchRaw remain available for internal callers
+ * (e.g. HybridSearchService precomputed-vector path).
  */
 class SearchService extends Component
 {
@@ -29,13 +29,9 @@ class SearchService extends Component
     /**
      * @throws SearchException If database query fails
      */
-    public function search(string $query, int $limit = 10, ?int $siteId = null, bool $useHybrid = true, ?string $embeddingModel = null): array
+    public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
     {
-        if ($useHybrid) {
-            return AiSearch::getInstance()->hybridSearchService->search($query, $limit, $siteId, $embeddingModel);
-        }
-
-        return $this->semanticSearch($query, $limit, $siteId, true, $embeddingModel);
+        return AiSearch::getInstance()->hybridSearchService->search($query, $limit, $siteId, $embeddingModel);
     }
 
     /**

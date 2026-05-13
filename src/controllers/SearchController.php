@@ -6,10 +6,11 @@ use Craft;
 use craft\elements\Entry;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\AiSearchException;
 use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
+use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftaisearch\helpers\SearchResultFormatter;
+use Throwable;
 use yii\web\Response;
 use yii\web\UnauthorizedHttpException;
 
@@ -21,8 +22,14 @@ class SearchController extends Controller
     public $defaultAction = 'semantic-search';
     protected array|int|bool $allowAnonymous = self::ALLOW_ANONYMOUS_LIVE;
 
+    /** Short hex id tagging every log line and JSON response for this request. */
+    private string $requestId = '';
+
+    /** Monotonic start time for total-request timing. */
+    private float $startTime = 0.0;
+
     /**
-     * Validate API token before processing any search action.
+     * Validate API token and stamp the request with a correlation id.
      * If no token is configured in settings, requests are allowed unauthenticated.
      */
     public function beforeAction($action): bool
@@ -30,6 +37,9 @@ class SearchController extends Controller
         if (!parent::beforeAction($action)) {
             return false;
         }
+
+        $this->requestId = bin2hex(random_bytes(4));
+        $this->startTime = microtime(true);
 
         $token = AiSearch::getInstance()->getSettings()->getApiToken();
 
@@ -47,21 +57,27 @@ class SearchController extends Controller
             return true;
         }
 
+        Logger::warning('auth failed', [
+            'requestId' => $this->requestId,
+            'action' => $action->id,
+            'ip' => $request->getUserIP(),
+        ]);
+
         throw new UnauthorizedHttpException('Invalid or missing API token.');
     }
 
     /**
      * Craft default search API endpoint
-     *
-     * @return Response
      */
     public function actionCraftSearch(): Response
     {
         $params = RequestParameterExtractor::extractSearchParams();
 
         if ($params['validationError'] !== null) {
-            return $this->asJson($params['validationError'])->setStatusCode(400);
+            return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
         }
+
+        $this->logRequest('craftSearch', $params);
 
         try {
             $searchQuery = Entry::find();
@@ -78,67 +94,61 @@ class SearchController extends Controller
 
             $formattedResults = $this->formatElementResults($entries, [], SearchResultFormatter::TYPE_CRAFT);
 
-            return $this->asJson([
-                'success' => true,
+            return $this->successResponse('craftSearch', [
                 'query' => $params['query'],
-                'results' => array_values($formattedResults),
+                'results' => $formattedResults,
                 'count' => count($formattedResults),
             ]);
-        } catch (AiSearchException $e) {
-            return $this->asJson(ApiResponseHelper::error($e))->setStatusCode(500);
+        } catch (Throwable $e) {
+            return ApiResponseHelper::jsonError($this, $e, 'craftSearch', $this->errorContext($params));
         }
     }
 
     /**
-     * Semantic search API endpoint
-     *
-     * @return Response
+     * Hybrid (vector + BM25) search API endpoint.
      */
     public function actionSemanticSearch(): Response
     {
         $params = RequestParameterExtractor::extractSearchParams();
-        $hybrid = (bool)Craft::$app->getRequest()->getParam('hybrid', true);
 
         if ($params['validationError'] !== null) {
-            return $this->asJson($params['validationError'])->setStatusCode(400);
+            return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
         }
+
+        $this->logRequest('semanticSearch', $params);
 
         try {
             $results = AiSearch::getInstance()->searchService->search(
                 $params['query'],
                 $params['limit'],
-                $params['siteId'],
-                $hybrid
+                $params['siteId']
             );
 
-            $resultType = $hybrid ? SearchResultFormatter::TYPE_HYBRID : SearchResultFormatter::TYPE_SEMANTIC;
-            $formattedResults = $this->formatSearchResults($results, $resultType);
+            $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_HYBRID);
 
-            return $this->asJson([
-                'success' => true,
+            return $this->successResponse('semanticSearch', [
                 'query' => $params['query'],
-                'hybrid' => $hybrid,
-                'semanticResults' => array_values($formattedResults),
+                'semanticResults' => $formattedResults,
                 'semanticCount' => count($formattedResults),
             ]);
-        } catch (AiSearchException $e) {
-            return $this->asJson(ApiResponseHelper::error($e))->setStatusCode(500);
+        } catch (Throwable $e) {
+            return ApiResponseHelper::jsonError($this, $e, 'semanticSearch', $this->errorContext($params));
         }
     }
 
     /**
      * RAG search API endpoint with AI summary
      * Uses hybrid search + OpenAI for intelligent responses
-     *
-     * @return Response
      */
     public function actionRagSearch(): Response
     {
         $params = RequestParameterExtractor::extractSearchParams(20);
 
         if ($params['validationError'] !== null) {
-            return $this->asJson($params['validationError'])->setStatusCode(400);
+            return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
         }
+
+        $this->logRequest('ragSearch', $params);
 
         try {
             $response = AiSearch::getInstance()->ragSearchService->search(
@@ -153,16 +163,15 @@ class SearchController extends Controller
                 SearchResultFormatter::TYPE_RAG
             );
 
-            return $this->asJson([
-                'success' => true,
+            return $this->successResponse('ragSearch', [
                 'query' => $params['query'],
                 'summary' => $response['summary'] ?? null,
                 'sources' => $formattedSources,
                 'count' => count($formattedSources),
                 'confidence' => $response['confidence'] ?? null,
             ]);
-        } catch (AiSearchException $e) {
-            return $this->asJson(ApiResponseHelper::error($e))->setStatusCode(500);
+        } catch (Throwable $e) {
+            return ApiResponseHelper::jsonError($this, $e, 'ragSearch', $this->errorContext($params));
         }
     }
 
@@ -208,5 +217,43 @@ class SearchController extends Controller
         }
 
         return $formatted;
+    }
+
+    private function logRequest(string $action, array $params): void
+    {
+        Logger::info('search request', [
+            'requestId' => $this->requestId,
+            'action' => $action,
+            'q' => mb_substr($params['query'], 0, 100),
+            'limit' => $params['limit'],
+            'siteId' => $params['siteId'],
+        ]);
+    }
+
+    private function successResponse(string $action, array $body): Response
+    {
+        $elapsedMs = (int)round((microtime(true) - $this->startTime) * 1000);
+        $resultCount = $body['count'] ?? $body['semanticCount'] ?? null;
+
+        Logger::timing("{$action} response", $elapsedMs, [
+            'requestId' => $this->requestId,
+            'results' => $resultCount,
+        ]);
+
+        return $this->asJson(['success' => true, 'requestId' => $this->requestId] + $body);
+    }
+
+    private function withRequestId(array $payload): array
+    {
+        return ['requestId' => $this->requestId] + $payload;
+    }
+
+    private function errorContext(array $params): array
+    {
+        return [
+            'requestId' => $this->requestId,
+            'q' => mb_substr($params['query'] ?? '', 0, 100),
+            'siteId' => $params['siteId'] ?? null,
+        ];
     }
 }

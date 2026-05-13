@@ -61,9 +61,16 @@ class DebugController extends Controller
         $siteId = (int)$request->getRequiredQueryParam('siteId');
 
         $plugin = AiSearch::getInstance();
-        $inspection = $plugin->indexingDebugService->inspectElement($elementId, $siteId);
 
-        if ($inspection === null) {
+        try {
+            $inspection = $plugin->indexingDebugService->inspectElement($elementId, $siteId);
+            $error = null;
+        } catch (DatabaseException $e) {
+            $inspection = null;
+            $error = $e->getMessage();
+        }
+
+        if ($inspection === null && $error === null) {
             throw new NotFoundHttpException('Entry not found');
         }
 
@@ -72,6 +79,7 @@ class DebugController extends Controller
         return $this->renderTemplate('ai-search/debug/entry', [
             'plugin' => $plugin,
             'inspection' => $inspection,
+            'error' => $error,
             'selectedSubnavItem' => 'debug',
         ]);
     }

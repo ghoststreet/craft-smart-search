@@ -3,7 +3,10 @@
 namespace ghoststreet\craftaisearch\helpers;
 
 use Craft;
+use craft\web\Controller;
+use ghoststreet\craftaisearch\exceptions\AiSearchException;
 use Throwable;
+use yii\web\Response;
 
 /**
  * Helper for creating standardized API responses.
@@ -22,22 +25,38 @@ final class ApiResponseHelper
      * Create an error response array.
      *
      * @param Throwable $e The exception that occurred
+     * @param string $operation Short operation label for log correlation
+     * @param array $context Extra log context (e.g. requestId, query)
      * @return array{success: false, error: string, trace?: string}
      */
-    public static function error(Throwable $e): array
+    public static function error(Throwable $e, string $operation = 'API error', array $context = []): array
     {
-        Logger::exception($e, 'API error');
+        Logger::exception($e, $operation, $context);
 
         $response = [
             'success' => false,
             'error' => $e->getMessage(),
         ];
 
+        if (!empty($context['requestId'])) {
+            $response['requestId'] = $context['requestId'];
+        }
+
         if (Craft::$app->getConfig()->getGeneral()->devMode) {
             $response['trace'] = $e->getTraceAsString();
         }
 
         return $response;
+    }
+
+    /**
+     * Build a JSON error Response with status code derived from the exception type.
+     * AiSearchException subclasses provide their own httpStatus(); everything else is 500.
+     */
+    public static function jsonError(Controller $controller, Throwable $e, string $operation = 'API error', array $context = []): Response
+    {
+        $status = $e instanceof AiSearchException ? $e->httpStatus() : 500;
+        return $controller->asJson(self::error($e, $operation, $context))->setStatusCode($status);
     }
 
     /**

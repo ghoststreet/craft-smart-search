@@ -429,6 +429,26 @@ class DatabaseService extends Component
     }
 
     /**
+     * Like getStats(), but returns a canonical disconnected-shape on failure
+     * instead of throwing. Use from CP pages that need to render even when
+     * the vector DB is unreachable.
+     */
+    public function getStatsSafe(bool $useCache = true): array
+    {
+        try {
+            return $this->getStats($useCache);
+        } catch (DatabaseException $e) {
+            return [
+                'entryCount' => 0,
+                'chunkCount' => 0,
+                'lastIndexed' => null,
+                'isConnected' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Parse a PostgreSQL connection URI (postgresql://user:pass@host:port/db) into
      * its component parts. Returns null if the URI does not match the expected format.
      *

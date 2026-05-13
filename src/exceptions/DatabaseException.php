@@ -40,7 +40,9 @@ class DatabaseException extends AiSearchException
     public static function configurationIncomplete(array $missingFields): self
     {
         $fieldList = implode(', ', $missingFields);
-        return new self("PostgreSQL configuration incomplete. Missing: {$fieldList}");
+        $e = new self("PostgreSQL configuration incomplete. Missing: {$fieldList}");
+        $e->httpStatus = 503;
+        return $e;
     }
 
     /**
@@ -48,10 +50,12 @@ class DatabaseException extends AiSearchException
      */
     public static function connectionError(string $message, Throwable $previous): self
     {
-        return new self(
+        $e = new self(
             "PostgreSQL connection error: {$message}",
             0,
             $previous
         );
+        $e->httpStatus = 503;
+        return $e;
     }
 }

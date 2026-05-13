@@ -4,7 +4,6 @@ namespace ghoststreet\craftaisearch\controllers;
 
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
-use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use yii\web\Response;
 
 /**
@@ -21,22 +20,10 @@ class DashboardController extends Controller
 
         $plugin = AiSearch::getInstance();
 
-        try {
-            $stats = $plugin->databaseService->getStats();
-        } catch (DatabaseException $e) {
-            $stats = [
-                'entryCount' => 0,
-                'chunkCount' => 0,
-                'lastIndexed' => null,
-                'isConnected' => false,
-                'error' => $e->getMessage(),
-            ];
-        }
-
         return $this->renderTemplate('ai-search/index', [
             'plugin' => $plugin,
             'settings' => $plugin->getSettings(),
-            'stats' => $stats,
+            'stats' => $plugin->databaseService->getStatsSafe(),
             'selectedSubnavItem' => 'dashboard',
         ]);
     }

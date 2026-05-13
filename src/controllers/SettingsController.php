@@ -27,8 +27,12 @@ class SettingsController extends Controller
 
     /**
      * Save plugin settings from the CP form submission.
+     *
+     * On validation failure, re-renders the form with the rejected (unsaved)
+     * model so field-level errors and the user's input are preserved. Mirrors
+     * craft\controllers\PluginsController::actionSavePluginSettings.
      */
-    public function actionSave(): Response
+    public function actionSave(): ?Response
     {
         $this->requireAdmin();
         $this->requirePostRequest();
@@ -37,22 +41,13 @@ class SettingsController extends Controller
         $plugin = AiSearch::getInstance();
 
         if (!Craft::$app->getPlugins()->savePluginSettings($plugin, $settings)) {
-            Craft::$app->getSession()->setError(
-                Craft::t('ai-search', 'Could not save settings.')
+            return $this->asFailure(
+                Craft::t('ai-search', 'Could not save settings.'),
+                routeParams: ['settings' => $plugin->getSettings()],
             );
-
-            return $this->renderTemplate('ai-search/settings', [
-                'plugin' => $plugin,
-                'settings' => $plugin->getSettings(),
-                'selectedSubnavItem' => 'settings',
-            ]);
         }
 
-        Craft::$app->getSession()->setNotice(
-            Craft::t('ai-search', 'Settings saved.')
-        );
-
-        return $this->redirectToPostedUrl();
+        return $this->asSuccess(Craft::t('ai-search', 'Settings saved.'));
     }
 
     /**

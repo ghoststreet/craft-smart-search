@@ -12,17 +12,16 @@ use ghoststreet\craftaisearch\AiSearch;
 class AiSearchVariable
 {
     /**
-     * Perform a hybrid or semantic search from Twig templates.
+     * Perform a hybrid (vector + BM25) search from Twig templates.
      *
      * @param string $query The search query
      * @param int $limit Maximum number of results
      * @param int|null $siteId Optional site ID filter
-     * @param bool $hybrid Whether to use hybrid search (default: true)
      * @return array Search results with element, score, and content
      */
-    public function search(string $query, int $limit = 10, ?int $siteId = null, bool $hybrid = true): array
+    public function search(string $query, int $limit = 10, ?int $siteId = null): array
     {
-        return AiSearch::getInstance()->searchService->search($query, $limit, $siteId, $hybrid);
+        return AiSearch::getInstance()->searchService->search($query, $limit, $siteId);
     }
 
     /**

@@ -10,4 +10,10 @@ use RuntimeException;
  */
 abstract class AiSearchException extends RuntimeException
 {
+    protected int $httpStatus = 500;
+
+    public function httpStatus(): int
+    {
+        return $this->httpStatus;
+    }
 }
