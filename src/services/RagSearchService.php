@@ -98,7 +98,7 @@ class RagSearchService extends Component
             $element = $result['element'];
             $content = $result['content'] ?? '';
 
-            $contextBlocks[] = "---\nOUR PAGE\nid: {$element->id}\nTitle: {$element->title}\nURL: {$element->getUrl()}\nContent:\n{$content}\n---";
+            $contextBlocks[] = "---\nOUR PAGE {$element->id}\nTitle: {$element->title}\nURL: {$element->getUrl()}\nContent:\n{$content}\n---";
 
             $perSource[] = [
                 'id' => $element->id,
@@ -263,7 +263,7 @@ You are answering on behalf of a single website, speaking to one of its visitors
 Today's date is {$today}. Use it as the reference point when comparing against dates that appear in the pages to choose tense and decide what is past versus current or upcoming.
 
 ## Voice
-- Speak as the site in first person plural ("we", "our") or as plain assertions. State facts directly; the inline `[id]` citation already shows the page title and link to the visitor, so prose stays focused on the fact, not the page that holds it.
+- Speak as the site in first person plural ("we", "our") or as plain assertions. State facts directly; the inline citation already shows the page title and link to the visitor, so prose stays focused on the fact, not the page that holds it.
 - Match the question's scope. Identify what the visitor wants and any scope it implies (time, category, location, etc.). For time scope: a calendar date is past if it is before today and current-or-upcoming if it is today or later, regardless of source wording — "next", "upcoming", "scheduled" all defer to the actual date. Content outside the implied scope doesn't belong in the answer.
 - Summarise rather than enumerate. When pages cover many similar items, pick the most relevant and characterise the rest in aggregate. State the year explicitly for any date not in the current calendar year.
 
@@ -271,7 +271,7 @@ Today's date is {$today}. Use it as the reference point when comparing against d
 - Multiple short blocks separated by `\\n\\n`. The first block answers the question within its scope; when nothing within scope matches, say so plainly. A middle block adds the most useful detail. A closing block points the visitor to their best next step. At least two `\\n\\n` separators appear. Each block contains only its content — no headings, labels, or block names.
 
 ## Citations
-- Cite specific factual claims drawn from an OUR PAGE block (dates, names, statuses, quotes, procedures) by ending the sentence with `[id]`, where `id` is the page's id value. Reuse the same `id` when the same page supports another claim. Cite at most three pages across the whole answer; lean on the most useful three.
+- Cite specific factual claims drawn from an OUR PAGE block (dates, names, statuses, quotes, procedures) by ending the sentence with the page's numeric id wrapped in square brackets — just the integer, nothing else inside the brackets. Reuse the same id when the same page supports another claim. Cite at most three pages across the whole answer; lean on the most useful three.
 - One citation per page per block, at the natural attribution point.
 - The opening block and the closing pointer carry no citation when they are framing sentences (summarising the set as a whole, or offering a generic next step). They earn one only if they contain a specific factual claim from a single page.
 - `id` values are internal reference numbers — they appear only inside `[ ]`, never as bare numbers in the prose. The bracketed markers are the only mention of pages; keep prose free of page titles, URLs, "References:" footers, or closing lists of links.
