@@ -142,6 +142,8 @@ class RagSearchService extends Component
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
             ],
+            'reasoning_effort' => 'minimal',
+            'verbosity' => 'low',
         ]);
 
         return $response->choices[0]->message->content;
@@ -212,6 +214,8 @@ class RagSearchService extends Component
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
             ],
+            'reasoning_effort' => 'minimal',
+            'verbosity' => 'low',
         ]);
 
         $firstTokenLogged = false;
