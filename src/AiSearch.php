@@ -214,9 +214,9 @@ class AiSearch extends Plugin
                     !$element->getIsRevision() &&
                     $element->getUrl() !== null &&
                     $this->isSectionAllowed($element)) {
-                    $job = $element->getStatus() === Entry::STATUS_ENABLED
-                        ? new IndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
-                        : new DeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]);
+                    $job = $element->getStatus() === Entry::STATUS_DISABLED
+                        ? new DeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
+                        : new IndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]);
                     Craft::$app->getQueue()->push($job);
                 }
             }

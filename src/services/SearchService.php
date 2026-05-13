@@ -135,7 +135,7 @@ class SearchService extends Component
     private function loadAndAttachElements(array $results): array
     {
         $ids = array_unique(array_column($results, 'elementId'));
-        $elements = Entry::find()->id($ids)->status(Entry::STATUS_ENABLED)->indexBy('id')->all();
+        $elements = Entry::find()->id($ids)->indexBy('id')->all();
 
         $loaded = [];
         foreach ($results as $result) {

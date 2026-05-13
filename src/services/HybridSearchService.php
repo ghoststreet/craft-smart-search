@@ -127,7 +127,7 @@ class HybridSearchService extends Component
     private function loadElementsWithScores(array $scoredResults, int $limit): array
     {
         $allIds = array_keys($scoredResults);
-        $elements = Entry::find()->id($allIds)->status(Entry::STATUS_ENABLED)->indexBy('id')->all();
+        $elements = Entry::find()->id($allIds)->indexBy('id')->all();
 
         $missingCount = 0;
         $noUrlCount = 0;

@@ -106,7 +106,9 @@
                                     <span class="status green"></span> {{ 'Yes'|t('ai-search') }}
                                 {% else %}
                                     <span class="status off"></span> {{ 'No'|t('ai-search') }}
-                                    {% if field.reason %}<br><span class="light">{{ field.reason }}</span>{% endif %}
+                                {% endif %}
+                                {% if field.reason %}
+                                    <span class="info">{{ field.reason }}</span>
                                 {% endif %}
                             </td>
                             <td>

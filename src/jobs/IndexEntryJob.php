@@ -36,7 +36,7 @@ class IndexEntryJob extends BaseJob
         }
 
         // Status may have flipped between enqueue and execution.
-        if ($entry->getStatus() !== Entry::STATUS_ENABLED) {
+        if ($entry->getStatus() === Entry::STATUS_DISABLED) {
             AiSearch::getInstance()->embeddingService->deleteVector($this->entryId, $this->siteId);
             Logger::info('Skipped indexing disabled entry; removed any existing vectors', [
                 'entryId' => $this->entryId,
