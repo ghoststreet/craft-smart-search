@@ -1,0 +1,17 @@
+{# @var chunk dict #}
+<div class="chunk-row pane">
+    <header>
+        <span class="index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
+        <span class="tokens">~{{ chunk.estimatedTokens }} {{ 'tokens'|t('ai-search') }}</span>
+        <span class="spacer"></span>
+        <span class="updated">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
+    </header>
+    {% if chunk.content %}
+        <details>
+            <summary>{{ chunk.content|slice(0, 160) }}{% if chunk.content|length > 160 %}…{% endif %}</summary>
+            <pre class="chunk-content">{{ chunk.content }}</pre>
+        </details>
+    {% else %}
+        <div style="padding: 12px 14px;"><span class="light">—</span></div>
+    {% endif %}
+</div>

@@ -1,17 +1,20 @@
 {% extends "_layouts/cp" %}
 {% import "_includes/forms.twig" as forms %}
 
-{% set title = 'Indexing Debug' %}
+{% set title = 'Indexing Debug'|t('ai-search') %}
+{% set fullPageForm = false %}
 
 {% set crumbs = [
     { label: 'AI Search', url: cpUrl('ai-search') },
 ] %}
 
+{% set counts = result.counts ?? { indexed: 0, stale: 0, 'not-indexed': 0, total: result.total } %}
+
 {% block content %}
     {% if error %}
         <div class="readable">
             <blockquote class="note warning">
-                <p><strong>Database error.</strong> {{ error }}</p>
+                <p><strong>{{ 'Database error.'|t('ai-search') }}</strong> {{ error }}</p>
             </blockquote>
         </div>
     {% endif %}
@@ -35,90 +38,129 @@
         { label: 'Not indexed'|t('ai-search'), value: 'not-indexed' },
     ] %}
 
-    <form method="get" action="" class="flex" style="gap: 10px; margin-bottom: 18px; align-items: flex-end;">
-        {% if sites|length > 1 %}
+    <form method="get" action="" class="ai-search-toolbar">
+        <div id="toolbar" class="flex flex-nowrap">
+            {% if sites|length > 1 %}
+                {{ forms.selectField({
+                    label: 'Site'|t('ai-search'),
+                    name: 'siteId',
+                    value: filters.siteId,
+                    options: siteOptions,
+                }) }}
+            {% else %}
+                <input type="hidden" name="siteId" value="{{ filters.siteId }}">
+            {% endif %}
+
             {{ forms.selectField({
-                label: 'Site'|t('ai-search'),
-                name: 'siteId',
-                value: filters.siteId,
-                options: siteOptions,
+                label: 'Section'|t('ai-search'),
+                name: 'section',
+                value: filters.section,
+                options: sectionOptions,
             }) }}
-        {% else %}
-            <input type="hidden" name="siteId" value="{{ filters.siteId }}">
-        {% endif %}
 
-        {{ forms.selectField({
-            label: 'Section'|t('ai-search'),
-            name: 'section',
-            value: filters.section,
-            options: sectionOptions,
-        }) }}
+            {{ forms.selectField({
+                label: 'Status'|t('ai-search'),
+                name: 'status',
+                value: filters.status,
+                options: statusOptions,
+            }) }}
 
-        {{ forms.selectField({
-            label: 'Status'|t('ai-search'),
-            name: 'status',
-            value: filters.status,
-            options: statusOptions,
-        }) }}
-
-        <div class="field">
-            <button type="submit" class="btn submit">{{ 'Filter'|t('ai-search') }}</button>
+            <div class="field">
+                <div class="heading">&nbsp;</div>
+                <div class="input">
+                    <button type="submit" class="btn submit">{{ 'Filter'|t('ai-search') }}</button>
+                </div>
+            </div>
         </div>
     </form>
 
-    <p class="light">{{ result.total }} entries · page {{ result.page }}</p>
+    <div class="ai-search-stats">
+        <div class="meta-item">
+            <span class="count">{{ counts.total }}</span>
+            <span class="label">{{ 'Total'|t('ai-search') }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="status green"></span>
+            <span class="count">{{ counts.indexed }}</span>
+            <span class="label">{{ 'Indexed'|t('ai-search') }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="status orange"></span>
+            <span class="count">{{ counts.stale }}</span>
+            <span class="label">{{ 'Stale'|t('ai-search') }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="status off"></span>
+            <span class="count">{{ counts['not-indexed'] }}</span>
+            <span class="label">{{ 'Not indexed'|t('ai-search') }}</span>
+        </div>
+    </div>
 
-    <table class="data fullwidth">
-        <thead>
-            <tr>
-                <th>Title</th>
-                <th>Section</th>
-                <th>Status</th>
-                <th>Chunks</th>
-                <th>Last indexed</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in result.rows %}
+    {% if result.rows|length %}
+        <table class="data fullwidth">
+            <thead>
                 <tr>
-                    <td>
-                        <a href="{{ cpUrl('ai-search/debug/entry', { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: '(untitled)' }}</a>
-                    </td>
-                    <td>{{ row.section }}</td>
-                    <td>
-                        {% if row.status == 'indexed' %}
-                            <span class="status green"></span> Indexed
-                        {% elseif row.status == 'stale' %}
-                            <span class="status orange"></span> Stale
-                        {% else %}
-                            <span class="status off"></span> Not indexed
-                        {% endif %}
-                    </td>
-                    <td>{{ row.chunkCount }}</td>
-                    <td>
-                        {% if row.lastIndexed %}
-                            {{ row.lastIndexed|date('M j, Y g:i A') }}
-                        {% else %}
-                            <span class="light">—</span>
-                        {% endif %}
-                    </td>
+                    <th scope="col">{{ 'Title'|t('ai-search') }}</th>
+                    <th scope="col">{{ 'Section'|t('ai-search') }}</th>
+                    <th scope="col" class="thin">{{ 'Status'|t('ai-search') }}</th>
+                    <th scope="col" class="thin">{{ 'Chunks'|t('ai-search') }}</th>
+                    <th scope="col" class="thin">{{ 'Last indexed'|t('ai-search') }}</th>
                 </tr>
-            {% else %}
-                <tr><td colspan="5" class="light">No entries.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for row in result.rows %}
+                    <tr>
+                        <td class="cell-bold">
+                            <a href="{{ cpUrl('ai-search/debug/entry', { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: '(untitled)'|t('ai-search') }}</a>
+                        </td>
+                        <td>{{ row.section }}</td>
+                        <td class="thin">
+                            {% if row.status == 'indexed' %}
+                                <span class="status green"></span> {{ 'Indexed'|t('ai-search') }}
+                            {% elseif row.status == 'stale' %}
+                                <span class="status orange"></span> {{ 'Stale'|t('ai-search') }}
+                            {% else %}
+                                <span class="status off"></span> {{ 'Not indexed'|t('ai-search') }}
+                            {% endif %}
+                        </td>
+                        <td class="thin">{{ row.chunkCount }}</td>
+                        <td class="thin">
+                            {% if row.lastIndexed %}
+                                {{ row.lastIndexed|date('M j, Y g:i A') }}
+                            {% else %}
+                                <span class="light">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="zilch">
+            <p>{{ 'No entries match these filters.'|t('ai-search') }}</p>
+        </div>
+    {% endif %}
 
     {% set totalPages = (result.total / result.pageSize)|round(0, 'ceil') %}
     {% if totalPages > 1 %}
-        <div style="margin-top: 14px;">
-            {% if result.page > 1 %}
-                <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ page: result.page - 1 })) }}">&laquo; Prev</a>
-            {% endif %}
-            <span class="light">Page {{ result.page }} of {{ totalPages }}</span>
-            {% if result.page < totalPages %}
-                <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ page: result.page + 1 })) }}">Next &raquo;</a>
-            {% endif %}
+        <div class="pagination">
+            <div class="btngroup">
+                {% if result.page > 1 %}
+                    <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ page: result.page - 1 })) }}">
+                        <span data-icon="leftangle"></span> {{ 'Prev'|t('ai-search') }}
+                    </a>
+                {% else %}
+                    <span class="btn disabled"><span data-icon="leftangle"></span> {{ 'Prev'|t('ai-search') }}</span>
+                {% endif %}
+                {% if result.page < totalPages %}
+                    <a class="btn" href="{{ url(craft.app.request.pathInfo, filters|merge({ page: result.page + 1 })) }}">
+                        {{ 'Next'|t('ai-search') }} <span data-icon="rightangle"></span>
+                    </a>
+                {% else %}
+                    <span class="btn disabled">{{ 'Next'|t('ai-search') }} <span data-icon="rightangle"></span></span>
+                {% endif %}
+            </div>
+            <span class="page-label">{{ 'Page {p} of {t}'|t('ai-search', { p: result.page, t: totalPages }) }}</span>
         </div>
     {% endif %}
 {% endblock %}

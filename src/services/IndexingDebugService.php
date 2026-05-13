@@ -59,6 +59,12 @@ class IndexingDebugService extends Component
         $summary = AiSearch::getInstance()->databaseService->getIndexedSummary($siteId);
 
         $rows = [];
+        $counts = [
+            self::STATUS_INDEXED => 0,
+            self::STATUS_STALE => 0,
+            self::STATUS_NOT_INDEXED => 0,
+            'total' => 0,
+        ];
         foreach ($entries as $entry) {
             if ($entry->getUrl() === null) {
                 continue;
@@ -72,6 +78,9 @@ class IndexingDebugService extends Component
                 $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
                 $status = $entryUpdated > $vectorUpdated ? self::STATUS_STALE : self::STATUS_INDEXED;
             }
+
+            $counts[$status]++;
+            $counts['total']++;
 
             if ($statusFilter !== null && $status !== $statusFilter) {
                 continue;
@@ -100,6 +109,7 @@ class IndexingDebugService extends Component
             'total' => $total,
             'page' => $page,
             'pageSize' => self::PAGE_SIZE,
+            'counts' => $counts,
         ];
     }
 
