@@ -6,7 +6,6 @@ use Craft;
 use craft\web\Controller;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\helpers\ErrorPresenter;
-use ghoststreet\craftaisearch\models\Settings;
 use yii\web\Response;
 
 /**
@@ -27,54 +26,30 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function actionSaveQuickStart(): ?Response
-    {
-        return $this->saveTab(Settings::SCENARIO_QUICK_START);
-    }
-
-    public function actionSaveBehavior(): ?Response
-    {
-        return $this->saveTab(Settings::SCENARIO_BEHAVIOR);
-    }
-
-    public function actionSaveDatabase(): ?Response
-    {
-        return $this->saveTab(Settings::SCENARIO_DATABASE);
-    }
-
-    public function actionSaveAdvanced(): ?Response
-    {
-        return $this->saveTab(Settings::SCENARIO_ADVANCED);
-    }
-
-    /**
-     * Persists only the attributes owned by the given tab's scenario, leaving
-     * every other tab's stored values untouched. Yii's scenario filtering on
-     * `setAttributes()` discards any posted keys outside the scenario's
-     * attribute list, and `validate()` runs only the rules tagged for that
-     * scenario — so a blank required field on another tab cannot block this
-     * save.
-     */
-    private function saveTab(string $scenario): ?Response
+    public function actionSave(): ?Response
     {
         $this->requireAdmin();
         $this->requirePostRequest();
 
         $plugin = AiSearch::getInstance();
         $settings = $plugin->getSettings();
-        $settings->setScenario($scenario);
         $settings->setAttributes(Craft::$app->getRequest()->getBodyParam('settings', []));
 
         if (!$settings->validate()
             || !Craft::$app->getPlugins()->savePluginSettings($plugin, $settings->toArray())
         ) {
-            return $this->asFailure(
+            return $this->asModelFailure(
+                $settings,
                 Craft::t('ai-search', 'Could not save settings.'),
-                routeParams: ['settings' => $settings],
+                'settings',
             );
         }
 
-        return $this->asSuccess(Craft::t('ai-search', 'Settings saved.'));
+        return $this->asModelSuccess(
+            $settings,
+            Craft::t('ai-search', 'Settings saved.'),
+            'settings',
+        );
     }
 
     /**

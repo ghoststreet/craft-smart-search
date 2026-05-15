@@ -107,6 +107,35 @@ class Settings extends Model
         return array_merge(parent::scenarios(), self::SCENARIO_ATTRIBUTES);
     }
 
+    private const TAB_TO_SCENARIO = [
+        'tab-quick-start'     => self::SCENARIO_QUICK_START,
+        'tab-behavior'        => self::SCENARIO_BEHAVIOR,
+        'tab-vector-database' => self::SCENARIO_DATABASE,
+        'tab-advanced'        => self::SCENARIO_ADVANCED,
+    ];
+
+    /**
+     * Flat list of validation errors for every attribute owned by the given tab.
+     * Used by the settings template to drive Craft's native per-tab error badge.
+     *
+     * @return string[]
+     */
+    public function errorsForTab(string $tabId): array
+    {
+        $scenario = self::TAB_TO_SCENARIO[$tabId] ?? null;
+        if ($scenario === null) {
+            return [];
+        }
+
+        $errors = [];
+        foreach (self::SCENARIO_ATTRIBUTES[$scenario] as $attribute) {
+            foreach ($this->getErrors($attribute) as $message) {
+                $errors[] = $message;
+            }
+        }
+        return $errors;
+    }
+
     /**
      * Validation rules for all plugin settings, grouped by feature area.
      *
