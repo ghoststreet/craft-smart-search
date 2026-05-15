@@ -21,6 +21,7 @@ use ghoststreet\craftaisearch\helpers\ContentPatterns;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TextValidator;
 use ghoststreet\craftaisearch\helpers\TokenEstimator;
+use ghoststreet\craftaisearch\models\Settings;
 use ghoststreet\craftaisearch\helpers\UsageTracker;
 use ghoststreet\craftaisearch\helpers\VectorFormatter;
 use OpenAI\Client;
@@ -129,7 +130,7 @@ class EmbeddingService extends Component
                 'input' => $normalizedText,
             ];
 
-            $params['dimensions'] = $settings->vectorDimensions;
+            $params['dimensions'] = Settings::VECTOR_DIMENSIONS;
 
             $response = $client->embeddings()->create($params);
 

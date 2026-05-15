@@ -212,11 +212,11 @@
         <p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghost-street/craft-ai-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
 
         {% namespace 'settings' %}
-            {{ forms.autosuggestField({ label: 'Host', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost') }) }}
-            {{ forms.autosuggestField({ label: 'Port', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort') }) }}
-            {{ forms.autosuggestField({ label: 'Database', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase') }) }}
-            {{ forms.autosuggestField({ label: 'User', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser') }) }}
-            {{ forms.autosuggestField({ label: 'Password', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword') }) }}
+            {{ forms.autosuggestField({ label: 'Host', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost') }) }}
+            {{ forms.autosuggestField({ label: 'Port', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, required: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort') }) }}
+            {{ forms.autosuggestField({ label: 'Database', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase') }) }}
+            {{ forms.autosuggestField({ label: 'User', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser') }) }}
+            {{ forms.autosuggestField({ label: 'Password', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, required: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword') }) }}
             {{ forms.selectField({
                 label: 'SSL mode', id: 'postgresqlSslMode', name: 'postgresqlSslMode', value: settings.postgresqlSslMode,
                 options: [
@@ -231,18 +231,6 @@
             }) }}
             {{ forms.textField({ label: 'Vectors schema name', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, required: true, errors: settings.getErrors('vectorsSchemaName') }) }}
             {{ forms.textField({ label: 'Vectors table name', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, errors: settings.getErrors('vectorsTableName') }) }}
-            {{ forms.selectField({
-                label: 'Vector dimensions',
-                instructions: 'Changing requires full reindex.',
-                id: 'vectorDimensions', name: 'vectorDimensions', value: settings.vectorDimensions,
-                options: [
-                    { label: '512', value: 512 },
-                    { label: '1024', value: 1024 },
-                    { label: '1536 (default)', value: 1536 },
-                    { label: '3072 (text-embedding-3-large only)', value: 3072 },
-                ],
-                errors: settings.getErrors('vectorDimensions'),
-            }) }}
         {% endnamespace %}
 
         <div class="buttons settings__db-test">

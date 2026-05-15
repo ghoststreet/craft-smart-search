@@ -57,7 +57,7 @@ class Settings extends Model
 
     public int $excerptLength = 200;
 
-    public int $vectorDimensions = 1536;
+    public const VECTOR_DIMENSIONS = 1536;
 
     public int $historyRetentionDays = 30;
 
@@ -92,7 +92,7 @@ class Settings extends Model
         self::SCENARIO_DATABASE    => [
             'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
             'postgresqlPassword', 'postgresqlSslMode',
-            'vectorsSchemaName', 'vectorsTableName', 'vectorDimensions',
+            'vectorsSchemaName', 'vectorsTableName',
         ],
         self::SCENARIO_ADVANCED    => [
             'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
@@ -140,7 +140,14 @@ class Settings extends Model
             [['ragEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $advanced],
 
             // PostgreSQL validation
-            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode', 'postgresqlPort'], 'string', 'on' => $database],
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlPort', 'postgresqlSslMode'], 'required', 'on' => $database],
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode'], 'string', 'on' => $database],
+            [['postgresqlPort'], function ($attribute) {
+                $value = $this->$attribute;
+                if (!is_string($value) && !is_int($value)) {
+                    $this->addError($attribute, 'Port must be a string or integer.');
+                }
+            }, 'on' => $database],
             [['postgresqlPassword'], 'string', 'on' => $database],
             [['postgresqlPassword'], 'validateEnvSecret', 'on' => $database],
             [['postgresqlPort'], 'default', 'value' => 5432],
@@ -197,11 +204,6 @@ class Settings extends Model
             // Display validation
             [['excerptLength'], 'integer', 'min' => 50, 'max' => 500, 'on' => $advanced],
             [['excerptLength'], 'default', 'value' => 200],
-
-            // Vector dimensions validation
-            [['vectorDimensions'], 'integer', 'on' => $database],
-            [['vectorDimensions'], 'in', 'range' => [512, 1024, 1536, 3072], 'on' => $database],
-            [['vectorDimensions'], 'default', 'value' => 1536],
 
             // History tracking validation
             [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365, 'on' => $advanced],
