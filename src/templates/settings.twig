@@ -490,6 +490,34 @@
                 required: true,
                 errors: settings.getErrors('maxSemanticResults'),
             }) }}
+
+            <hr>
+
+            <h2>Search History</h2>
+            <p class="light">Track every search to monitor token usage, costs, and performance. Result content is deleted after the retention period, but token and cost statistics are kept permanently for the dashboard.</p>
+
+            {{ forms.lightswitchField({
+                label: 'Enable search history tracking',
+                instructions: 'When enabled, every semantic and RAG search is recorded with token usage, cost, and timing.',
+                id: 'historyEnabled',
+                name: 'historyEnabled',
+                on: settings.historyEnabled,
+                errors: settings.getErrors('historyEnabled'),
+            }) }}
+
+            {{ forms.textField({
+                label: 'History retention (days)',
+                instructions: 'Number of days to keep stored queries and result data before pruning. Token/cost statistics are kept permanently. Range: 1-365, default: 30',
+                id: 'historyRetentionDays',
+                name: 'historyRetentionDays',
+                value: settings.historyRetentionDays,
+                type: 'number',
+                min: '1',
+                max: '365',
+                placeholder: '30',
+                required: true,
+                errors: settings.getErrors('historyRetentionDays'),
+            }) }}
             {% endnamespace %}
         </div>
 

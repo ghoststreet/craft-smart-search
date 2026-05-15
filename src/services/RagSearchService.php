@@ -9,6 +9,7 @@ use ghoststreet\craftaisearch\exceptions\SearchException;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TimingProfiler;
 use ghoststreet\craftaisearch\helpers\TokenEstimator;
+use ghoststreet\craftaisearch\helpers\UsageTracker;
 use ghoststreet\craftaisearch\models\Settings;
 use RuntimeException;
 use yii\base\Component;
@@ -146,6 +147,13 @@ class RagSearchService extends Component
             'verbosity' => 'low',
         ]);
 
+        $usage = $response->usage ?? null;
+        UsageTracker::addRag(
+            $settings->ragModel,
+            (int)($usage->promptTokens ?? 0),
+            (int)($usage->completionTokens ?? 0)
+        );
+
         return $response->choices[0]->message->content;
     }
 
@@ -216,12 +224,22 @@ class RagSearchService extends Component
             ],
             'reasoning_effort' => 'minimal',
             'verbosity' => 'low',
+            'stream_options' => ['include_usage' => true],
         ]);
 
         $firstTokenLogged = false;
         $startedAt = microtime(true);
 
         foreach ($stream as $response) {
+            $usage = $response->usage ?? null;
+            if ($usage !== null) {
+                UsageTracker::addRag(
+                    $settings->ragModel,
+                    (int)($usage->promptTokens ?? 0),
+                    (int)($usage->completionTokens ?? 0)
+                );
+            }
+
             $delta = $response->choices[0]->delta->content ?? null;
             if ($delta === null || $delta === '') {
                 continue;

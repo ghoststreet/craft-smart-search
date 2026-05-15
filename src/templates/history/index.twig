@@ -1,0 +1,153 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Search History' %}
+{% set selectedSubnavItem = 'history' %}
+
+{% set items = page.items %}
+{% set totalPages = page.pages %}
+{% set currentPage = page.page %}
+{% set typeFilter = filters.type %}
+{% set daysFilter = filters.days %}
+{% set errorsOnly = filters.errorsOnly %}
+
+{% block content %}
+    <h2>Statistics{% if daysFilter %} (last {{ daysFilter }} days){% endif %}</h2>
+    <table class="data fullwidth">
+        <tbody>
+            <tr>
+                <th class="light">Total Searches</th>
+                <td>{{ stats.searches|number_format }}</td>
+                <th class="light">Total Tokens</th>
+                <td>{{ stats.tokens|number_format }}</td>
+            </tr>
+            <tr>
+                <th class="light">Total Cost</th>
+                <td>${{ stats.cost|number_format(6) }}</td>
+                <th class="light">Avg Cost / Search</th>
+                <td>${{ stats.avgCostPerSearch|number_format(6) }}</td>
+            </tr>
+            <tr>
+                <th class="light">Avg Duration</th>
+                <td>{{ stats.avgDurationMs|number_format }} ms</td>
+                <th class="light">Errors</th>
+                <td>{{ stats.errorCount|number_format }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% if stats.byType is not empty %}
+        <p class="light" style="margin-top: 8px;">
+            {% for type, t in stats.byType %}
+                <strong>{{ type }}</strong>: {{ t.count }} searches · {{ t.tokens|number_format }} tokens · ${{ t.cost|number_format(6) }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}
+            {% endfor %}
+        </p>
+    {% endif %}
+
+    <hr>
+
+    <form method="get" action="{{ cpUrl('ai-search/history') }}" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
+        <div class="field">
+            <div class="heading"><label>Type</label></div>
+            <div class="input">
+                <div class="select">
+                    <select name="type">
+                        <option value="">All</option>
+                        <option value="semantic"{% if typeFilter == 'semantic' %} selected{% endif %}>Semantic</option>
+                        <option value="rag"{% if typeFilter == 'rag' %} selected{% endif %}>RAG</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="field">
+            <div class="heading"><label>Time Range</label></div>
+            <div class="input">
+                <div class="select">
+                    <select name="days">
+                        <option value="">All time</option>
+                        <option value="1"{% if daysFilter == 1 %} selected{% endif %}>Last 24 hours</option>
+                        <option value="7"{% if daysFilter == 7 %} selected{% endif %}>Last 7 days</option>
+                        <option value="30"{% if daysFilter == 30 %} selected{% endif %}>Last 30 days</option>
+                        <option value="90"{% if daysFilter == 90 %} selected{% endif %}>Last 90 days</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="field">
+            <div class="heading"><label>&nbsp;</label></div>
+            <div class="input">
+                <label>
+                    <input type="checkbox" name="errorsOnly" value="1"{% if errorsOnly %} checked{% endif %}>
+                    Errors only
+                </label>
+            </div>
+        </div>
+        <div class="field">
+            <button type="submit" class="btn">Filter</button>
+        </div>
+        <div class="field" style="margin-left: auto;">
+            {% if currentUser.admin %}
+                <form method="post" action="" style="display: inline;" onsubmit="return confirm('This will permanently delete all stored queries and result data. Token/cost statistics will be preserved. Continue?');">
+                    {{ csrfInput() }}
+                    {{ actionInput('ai-search/history/clear') }}
+                    <button type="submit" class="btn submit"{% if detailsCount == 0 %} disabled{% endif %}>
+                        Clear History ({{ detailsCount }})
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </form>
+
+    <h2>Searches ({{ page.total|number_format }})</h2>
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Query</th>
+                <th class="rightalign">Results</th>
+                <th class="rightalign">Tokens</th>
+                <th class="rightalign">Cost</th>
+                <th class="rightalign">Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+                {% set href = cpUrl('ai-search/history/' ~ item.id) %}
+                <tr>
+                    <td><a href="{{ href }}">{{ item.dateCreated|date('M j, Y g:i:s A') }}</a></td>
+                    <td>
+                        <span class="status {% if item.type == 'rag' %}on{% else %}orange{% endif %}"></span>
+                        {{ item.type }}
+                        {% if item.hasError %}<span class="status off" title="Error"></span>{% endif %}
+                    </td>
+                    <td>
+                        {% if item.detailsId %}
+                            <a href="{{ href }}">{{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}</a>
+                        {% else %}
+                            <span class="light">— cleared</span>
+                        {% endif %}
+                    </td>
+                    <td class="rightalign">{{ item.resultsCount }}</td>
+                    <td class="rightalign">{{ item.totalTokens|number_format }}{% if item.embeddingCached %} <span class="light" title="Embedding served from cache">·c</span>{% endif %}</td>
+                    <td class="rightalign">${{ item.cost|number_format(6) }}</td>
+                    <td class="rightalign">{{ item.durationMs|number_format }} ms</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="centeralign light">No searches recorded yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if totalPages > 1 %}
+        <nav style="margin-top: 16px; display: flex; gap: 4px; align-items: center;">
+            {% set baseParams = { type: typeFilter, days: daysFilter, errorsOnly: errorsOnly ? 1 : null } %}
+            {% if currentPage > 1 %}
+                <a class="btn" href="{{ cpUrl('ai-search/history', baseParams|merge({ page: currentPage - 1 })) }}">‹ Prev</a>
+            {% endif %}
+            <span class="light" style="margin: 0 8px;">Page {{ currentPage }} of {{ totalPages }}</span>
+            {% if currentPage < totalPages %}
+                <a class="btn" href="{{ cpUrl('ai-search/history', baseParams|merge({ page: currentPage + 1 })) }}">Next ›</a>
+            {% endif %}
+        </nav>
+    {% endif %}
+{% endblock %}

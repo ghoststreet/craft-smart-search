@@ -21,6 +21,7 @@ use ghoststreet\craftaisearch\helpers\ContentPatterns;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TextValidator;
 use ghoststreet\craftaisearch\helpers\TokenEstimator;
+use ghoststreet\craftaisearch\helpers\UsageTracker;
 use ghoststreet\craftaisearch\helpers\VectorFormatter;
 use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
@@ -101,6 +102,7 @@ class EmbeddingService extends Component
             Logger::debug('Embedding cache hit (request-level)', [
                 'textPreview' => substr($normalizedText, 0, 50) . '...',
             ]);
+            UsageTracker::markEmbeddingCached($model);
             return self::$requestEmbeddingCache[$requestCacheKey];
         }
 
@@ -111,6 +113,7 @@ class EmbeddingService extends Component
 
             if ($cachedEmbedding !== false && is_array($cachedEmbedding)) {
                 self::$requestEmbeddingCache[$requestCacheKey] = $cachedEmbedding;
+                UsageTracker::markEmbeddingCached($model);
                 return $cachedEmbedding;
             }
         }
@@ -128,6 +131,9 @@ class EmbeddingService extends Component
             $response = $client->embeddings()->create($params);
 
             $embedding = $response->embeddings[0]->embedding;
+
+            $promptTokens = (int)($response->usage->promptTokens ?? $response->usage->totalTokens ?? 0);
+            UsageTracker::addEmbedding($model, $promptTokens);
 
             self::$requestEmbeddingCache[$requestCacheKey] = $embedding;
 

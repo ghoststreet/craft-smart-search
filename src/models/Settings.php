@@ -49,6 +49,9 @@ class Settings extends Model
 
     public int $vectorDimensions = 1536;
 
+    public bool $historyEnabled = true;
+    public int $historyRetentionDays = 30;
+
     /**
      * Validation rules for all plugin settings, grouped by feature area.
      */
@@ -122,6 +125,12 @@ class Settings extends Model
             [['vectorDimensions'], 'integer'],
             [['vectorDimensions'], 'in', 'range' => [512, 1024, 1536, 3072]],
             [['vectorDimensions'], 'default', 'value' => 1536],
+
+            // History tracking validation
+            [['historyEnabled'], 'boolean'],
+            [['historyEnabled'], 'default', 'value' => true],
+            [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365],
+            [['historyRetentionDays'], 'default', 'value' => 30],
         ];
     }
 

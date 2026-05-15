@@ -20,6 +20,7 @@ use ghoststreet\craftaisearch\models\Settings;
 use ghoststreet\craftaisearch\services\BM25Service;
 use ghoststreet\craftaisearch\services\DatabaseService;
 use ghoststreet\craftaisearch\services\EmbeddingService;
+use ghoststreet\craftaisearch\services\HistoryService;
 use ghoststreet\craftaisearch\services\HybridSearchService;
 use ghoststreet\craftaisearch\services\IndexingDebugService;
 use ghoststreet\craftaisearch\services\OpenAIClientFactory;
@@ -47,6 +48,7 @@ use yii\web\Response;
  * @property-read RagSearchService $ragSearchService
  * @property-read IndexingDebugService $indexingDebugService
  * @property-read OpenAIClientFactory $openAIClientFactory
+ * @property-read HistoryService $historyService
  */
 class AiSearch extends Plugin
 {
@@ -120,6 +122,7 @@ class AiSearch extends Plugin
                 'hybridSearchService' => HybridSearchService::class,
                 'ragSearchService' => RagSearchService::class,
                 'indexingDebugService' => IndexingDebugService::class,
+                'historyService' => HistoryService::class,
             ],
         ];
     }
@@ -155,6 +158,7 @@ class AiSearch extends Plugin
         }
 
         $subNav['data-sync'] = ['label' => 'Data Sync', 'url' => 'ai-search/data-sync'];
+        $subNav['history'] = ['label' => 'History', 'url' => 'ai-search/history'];
         $subNav['debug'] = ['label' => 'Debug', 'url' => 'ai-search/debug'];
 
         $item['subnav'] = $subNav;
@@ -265,6 +269,11 @@ class AiSearch extends Plugin
 
                 $event->rules['ai-search/debug'] = 'ai-search/debug/index';
                 $event->rules['ai-search/debug/entry'] = 'ai-search/debug/entry';
+
+                $event->rules['ai-search/history'] = 'ai-search/history/index';
+                $event->rules['ai-search/history/<id:\\d+>'] = 'ai-search/history/detail';
+                $event->rules['POST ai-search/history/prune'] = 'ai-search/history/prune';
+                $event->rules['POST ai-search/history/clear'] = 'ai-search/history/clear';
             }
         );
 

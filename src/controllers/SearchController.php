@@ -10,6 +10,7 @@ use ghoststreet\craftaisearch\helpers\ApiResponseHelper;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftaisearch\helpers\SearchResultFormatter;
+use ghoststreet\craftaisearch\helpers\UsageTracker;
 use Throwable;
 use yii\web\Response;
 use yii\web\UnauthorizedHttpException;
@@ -40,6 +41,7 @@ class SearchController extends Controller
 
         $this->requestId = bin2hex(random_bytes(4));
         $this->startTime = microtime(true);
+        UsageTracker::reset();
 
         $token = AiSearch::getInstance()->getSettings()->getApiToken();
 
@@ -126,12 +128,22 @@ class SearchController extends Controller
 
             $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_HYBRID);
 
+            $this->recordHistory('semantic', $params, [
+                'resultsCount' => count($formattedResults),
+                'results' => $formattedResults,
+            ]);
+
             return $this->successResponse('semanticSearch', [
                 'query' => $params['query'],
                 'semanticResults' => $formattedResults,
                 'semanticCount' => count($formattedResults),
             ]);
         } catch (Throwable $e) {
+            $this->recordHistory('semantic', $params, [
+                'resultsCount' => 0,
+                'results' => null,
+                'errorMessage' => $e->getMessage(),
+            ]);
             return ApiResponseHelper::jsonError($this, $e, 'semanticSearch', $this->errorContext($params));
         }
     }
@@ -163,6 +175,13 @@ class SearchController extends Controller
                 SearchResultFormatter::TYPE_RAG
             );
 
+            $this->recordHistory('rag', $params, [
+                'resultsCount' => count($formattedSources),
+                'results' => $formattedSources,
+                'summary' => $response['summary'] ?? null,
+                'confidence' => $response['confidence'] ?? null,
+            ]);
+
             return $this->successResponse('ragSearch', [
                 'query' => $params['query'],
                 'summary' => $response['summary'] ?? null,
@@ -171,6 +190,11 @@ class SearchController extends Controller
                 'confidence' => $response['confidence'] ?? null,
             ]);
         } catch (Throwable $e) {
+            $this->recordHistory('rag', $params, [
+                'resultsCount' => 0,
+                'results' => null,
+                'errorMessage' => $e->getMessage(),
+            ]);
             return ApiResponseHelper::jsonError($this, $e, 'ragSearch', $this->errorContext($params));
         }
     }
@@ -218,6 +242,10 @@ class SearchController extends Controller
 
         $this->logRequest('ragStream', $params);
 
+        $formattedSources = [];
+        $summaryBuffer = '';
+        $errorMessage = null;
+
         try {
             $generator = AiSearch::getInstance()->ragSearchService->searchStream(
                 $params['query'],
@@ -228,14 +256,15 @@ class SearchController extends Controller
             foreach ($generator as $event) {
                 switch ($event['type']) {
                     case 'sources':
-                        $formatted = $this->formatElementResults(
+                        $formattedSources = $this->formatElementResults(
                             array_column($event['sources'], 'element'),
                             $event['sources'],
                             SearchResultFormatter::TYPE_RAG
                         );
-                        $this->emitSse('sources', ['sources' => $formatted, 'requestId' => $this->requestId]);
+                        $this->emitSse('sources', ['sources' => $formattedSources, 'requestId' => $this->requestId]);
                         break;
                     case 'token':
+                        $summaryBuffer .= $event['text'];
                         $this->emitSse('token', ['t' => $event['text']]);
                         break;
                     case 'done':
@@ -248,9 +277,17 @@ class SearchController extends Controller
                 }
             }
         } catch (Throwable $e) {
+            $errorMessage = $e->getMessage();
             Logger::exception($e, 'ragStream', $this->errorContext($params));
-            $this->emitSse('error', ['message' => $e->getMessage(), 'requestId' => $this->requestId]);
+            $this->emitSse('error', ['message' => $errorMessage, 'requestId' => $this->requestId]);
         }
+
+        $this->recordHistory('rag', $params, [
+            'resultsCount' => count($formattedSources),
+            'results' => $formattedSources,
+            'summary' => $summaryBuffer !== '' ? $summaryBuffer : null,
+            'errorMessage' => $errorMessage,
+        ]);
 
         Craft::$app->end();
         return $response;
@@ -334,6 +371,37 @@ class SearchController extends Controller
     private function withRequestId(array $payload): array
     {
         return ['requestId' => $this->requestId] + $payload;
+    }
+
+    /**
+     * Persist a search to history. Failures are swallowed so they never break the response.
+     * Pulls token usage from UsageTracker (populated during the search).
+     *
+     * $extra keys: resultsCount, results, summary?, confidence?, errorMessage?
+     */
+    private function recordHistory(string $type, array $params, array $extra): void
+    {
+        try {
+            $usage = UsageTracker::snapshot();
+            $user = Craft::$app->getUser()->getIdentity();
+
+            AiSearch::getInstance()->historyService->record(array_merge([
+                'requestId' => $this->requestId,
+                'type' => $type,
+                'query' => $params['query'] ?? '',
+                'userId' => $user?->id,
+                'siteId' => $params['siteId'] ?? null,
+                'durationMs' => (int)round((microtime(true) - $this->startTime) * 1000),
+                'embeddingTokens' => $usage['embeddingTokens'],
+                'ragInputTokens' => $usage['ragInputTokens'],
+                'ragOutputTokens' => $usage['ragOutputTokens'],
+                'embeddingCached' => $usage['embeddingCached'],
+                'embeddingModel' => $usage['embeddingModel'],
+                'ragModel' => $usage['ragModel'],
+            ], $extra));
+        } catch (Throwable $e) {
+            Logger::warning('recordHistory failed: ' . $e->getMessage());
+        }
     }
 
     private function errorContext(array $params): array

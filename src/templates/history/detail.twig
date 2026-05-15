@@ -1,0 +1,378 @@
+{% extends "_layouts/cp" %}
+
+{% set title = row.type|upper ~ ' Search' %}
+{% set selectedSubnavItem = 'history' %}
+
+{% set embeddingCost = embeddingRates ? (row.embeddingTokens / 1000000) * embeddingRates.input : 0 %}
+{% set ragInputCost = ragRates ? (row.ragInputTokens / 1000000) * ragRates.input : 0 %}
+{% set ragOutputCost = ragRates ? (row.ragOutputTokens / 1000000) * ragRates.output : 0 %}
+
+{% set isCleared = row.detailsId is null %}
+
+{% set typeStatus = row.type == 'rag' ? 'live' : 'pending' %}
+{% set confidenceColor = {high: 'green', medium: 'orange', low: 'red'}[row.confidence|default('medium')] %}
+
+{% set crumbs = [
+    { label: 'AI Search', url: cpUrl('ai-search') },
+    { label: 'History', url: cpUrl('ai-search/history') },
+] %}
+
+{% block content %}
+<div class="aisearch-history-detail">
+
+    {# ── Header ── #}
+    <div class="pane ai-pane-header">
+        <div class="flex flex-nowrap" style="align-items: center; gap: 12px; flex-wrap: wrap;">
+            <span class="status {{ typeStatus }}"></span>
+            <h1 style="margin: 0;">{{ row.type|upper }}</h1>
+
+            {% if row.confidence %}
+                <span class="chip small {{ confidenceColor }}">
+                    {{ row.confidence }} confidence
+                </span>
+            {% endif %}
+
+            {% if row.hasError %}
+                <span class="chip small red"><span class="status off"></span> Error</span>
+            {% endif %}
+
+            {% if row.embeddingCached %}
+                <span class="chip small">cached embedding</span>
+            {% endif %}
+
+            <div class="flex-grow"></div>
+
+            <span class="light" title="{{ row.dateCreated }}">
+                {{ row.dateCreated|date('M j, Y g:i:s A') }}
+            </span>
+        </div>
+
+        <dl class="ai-meta-grid">
+            <div>
+                <dt>Request ID</dt>
+                <dd><code>{{ row.requestId }}</code></dd>
+            </div>
+            <div>
+                <dt>User</dt>
+                <dd>{{ row.userId ? 'User #' ~ row.userId : 'Anonymous' }}</dd>
+            </div>
+            <div>
+                <dt>Site</dt>
+                <dd>{{ row.siteId ? 'Site #' ~ row.siteId : '—' }}</dd>
+            </div>
+            <div>
+                <dt>Results</dt>
+                <dd>{{ row.resultsCount }}</dd>
+            </div>
+        </dl>
+    </div>
+
+    {# ── Stat cards strip ── #}
+    <div class="ai-stat-grid">
+        <div class="pane ai-stat">
+            <div class="ai-stat-label">Duration</div>
+            <div class="ai-stat-value">{{ row.durationMs|number_format }}<span class="ai-stat-unit">ms</span></div>
+        </div>
+        <div class="pane ai-stat">
+            <div class="ai-stat-label">Total tokens</div>
+            <div class="ai-stat-value">{{ row.totalTokens|number_format }}</div>
+            <div class="ai-stat-sub light">
+                {{ row.embeddingTokens|number_format }} emb · {{ row.ragInputTokens|number_format }} in · {{ row.ragOutputTokens|number_format }} out
+            </div>
+        </div>
+        <div class="pane ai-stat">
+            <div class="ai-stat-label">Total cost</div>
+            <div class="ai-stat-value">${{ row.cost }}</div>
+        </div>
+        <div class="pane ai-stat">
+            <div class="ai-stat-label">Models</div>
+            <div class="ai-stat-value-small">
+                <div><span class="light">embed:</span> {{ row.embeddingModel ?? '—' }}</div>
+                <div><span class="light">rag:</span> {{ row.ragModel ?? '—' }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ai-two-col">
+
+        {# ── Left: content ── #}
+        <div class="ai-col-main">
+            {% if isCleared %}
+                <div class="pane">
+                    <blockquote class="note">
+                        <p>Result content for this search was cleared by retention or manual purge.<br>
+                        Token and cost statistics in the cards above are preserved.</p>
+                    </blockquote>
+                </div>
+            {% else %}
+                <div class="pane">
+                    <h2>Query</h2>
+                    <div class="ai-query">{{ row.query }}</div>
+                </div>
+
+                {% if row.errorMessage %}
+                    <div class="pane">
+                        <h2 class="error">Error</h2>
+                        <pre class="ai-pre">{{ row.errorMessage }}</pre>
+                    </div>
+                {% endif %}
+
+                {% if row.summary %}
+                    <div class="pane">
+                        <h2>Summary</h2>
+                        <div class="readable ai-summary">{{ row.summary|md|raw }}</div>
+                    </div>
+                {% endif %}
+
+                <div class="pane">
+                    <h2>Results <span class="light">({{ row.resultsCount }})</span></h2>
+                    {% if row.results %}
+                        <table class="data fullwidth ai-results-table">
+                            <thead>
+                                <tr>
+                                    <th class="thin">#</th>
+                                    <th>Title</th>
+                                    <th>URL</th>
+                                    <th class="thin">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in row.results %}
+                                    <tr>
+                                        <td class="thin light">{{ loop.index }}</td>
+                                        <td>
+                                            <strong>{{ r.title ?: (r.id ? '#' ~ r.id : '—') }}</strong>
+                                        </td>
+                                        <td>
+                                            {% if r.url %}
+                                                <a href="{{ r.url }}" target="_blank" rel="noopener" class="ai-url">{{ r.url }}</a>
+                                            {% else %}—{% endif %}
+                                        </td>
+                                        <td class="thin"><code>{{ r.type ?? '—' }}</code></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="light">No results.</p>
+                    {% endif %}
+                </div>
+
+                <div class="pane">
+                    <details>
+                        <summary><strong>Raw JSON</strong></summary>
+                        <pre class="ai-pre ai-json">{{ row.results|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) }}</pre>
+                    </details>
+                    <p class="light" style="margin-top: 10px; font-size: 12px;">
+                        Trace this request in the log:<br>
+                        <code>tail -f storage/logs/ai-search.log | grep {{ row.requestId }}</code>
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+
+        {# ── Right: token/cost breakdown ── #}
+        <div class="ai-col-side">
+            <div class="pane">
+                <h2>Tokens</h2>
+                <table class="data fullwidth ai-kv-table">
+                    <tbody>
+                        <tr>
+                            <th>Embedding</th>
+                            <td class="rightalign">
+                                {{ row.embeddingTokens|number_format }}
+                                {% if row.embeddingCached %}<span class="light"> · cached</span>{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>RAG input</th>
+                            <td class="rightalign">{{ row.ragInputTokens|number_format }}</td>
+                        </tr>
+                        <tr>
+                            <th>RAG output</th>
+                            <td class="rightalign">{{ row.ragOutputTokens|number_format }}</td>
+                        </tr>
+                        <tr class="ai-kv-total">
+                            <th>Total</th>
+                            <td class="rightalign">{{ row.totalTokens|number_format }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pane">
+                <h2>Cost</h2>
+                <table class="data fullwidth ai-kv-table">
+                    <tbody>
+                        <tr>
+                            <th>
+                                Embedding
+                                {% if embeddingRates %}<span class="light">${{ embeddingRates.input }}/1M</span>{% endif %}
+                            </th>
+                            <td class="rightalign">${{ embeddingCost|number_format(6) }}</td>
+                        </tr>
+                        <tr>
+                            <th>
+                                RAG input
+                                {% if ragRates %}<span class="light">${{ ragRates.input }}/1M</span>{% endif %}
+                            </th>
+                            <td class="rightalign">${{ ragInputCost|number_format(6) }}</td>
+                        </tr>
+                        <tr>
+                            <th>
+                                RAG output
+                                {% if ragRates %}<span class="light">${{ ragRates.output }}/1M</span>{% endif %}
+                            </th>
+                            <td class="rightalign">${{ ragOutputCost|number_format(6) }}</td>
+                        </tr>
+                        <tr class="ai-kv-total">
+                            <th>Total</th>
+                            <td class="rightalign">${{ row.cost }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% css %}
+.aisearch-history-detail .pane {
+    margin-bottom: 14px;
+}
+.aisearch-history-detail .pane h2 {
+    margin-top: 0;
+}
+
+/* Header */
+.ai-pane-header h1 {
+    font-size: 22px;
+    letter-spacing: 0.5px;
+}
+.ai-meta-grid {
+    margin: 14px 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px 24px;
+}
+.ai-meta-grid > div { margin: 0; }
+.ai-meta-grid dt {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--medium-text-color, #8f98a3);
+    margin-bottom: 2px;
+}
+.ai-meta-grid dd { margin: 0; font-size: 13px; }
+.ai-meta-grid code {
+    font-size: 12px;
+    background: var(--gray-050, #f3f7fc);
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+/* Chips */
+.chip.small {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--gray-100, #e4edf6);
+    color: var(--text-color, #3f4d5a);
+}
+.chip.small.green { background: #d8f1e0; color: #1f7d3c; }
+.chip.small.orange { background: #ffe6c7; color: #8a4d00; }
+.chip.small.red { background: #fbdcdc; color: #a3252a; }
+
+/* Stat cards */
+.ai-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+.ai-stat { padding: 16px 18px; margin-bottom: 0 !important; }
+.ai-stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--medium-text-color, #8f98a3);
+    margin-bottom: 6px;
+}
+.ai-stat-value {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.1;
+}
+.ai-stat-value-small {
+    font-size: 13px;
+    line-height: 1.5;
+}
+.ai-stat-unit {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--medium-text-color, #8f98a3);
+    margin-left: 4px;
+}
+.ai-stat-sub {
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+/* Two column layout */
+.ai-two-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 14px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .ai-two-col { grid-template-columns: 1fr; }
+}
+
+/* Query */
+.ai-query {
+    font-size: 16px;
+    padding: 12px 14px;
+    background: var(--gray-050, #f3f7fc);
+    border-left: 3px solid var(--link-color, #3486f0);
+    border-radius: 3px;
+}
+
+/* Summary */
+.ai-summary { font-size: 14px; line-height: 1.6; }
+.ai-summary p { margin-bottom: 1em; }
+
+/* Results table */
+.ai-results-table .ai-url {
+    font-size: 12px;
+    word-break: break-all;
+}
+
+/* Key/value tables in sidebar */
+.ai-kv-table th { font-weight: normal; }
+.ai-kv-table th .light { display: block; font-size: 11px; }
+.ai-kv-total th, .ai-kv-total td {
+    font-weight: 700;
+    border-top: 1px solid var(--hairline-color, #e2e4e8);
+}
+
+/* Code / pre */
+.ai-pre {
+    background: var(--gray-050, #f3f7fc);
+    border: 1px solid var(--hairline-color, #e2e4e8);
+    border-radius: 4px;
+    padding: 12px;
+    font-size: 12px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.ai-json { max-height: 400px; }
+{% endcss %}
