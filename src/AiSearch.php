@@ -228,7 +228,10 @@ class AiSearch extends Plugin
 
                 $event->rules['ai-search/settings'] = 'ai-search/settings/index';
 
-                $event->rules['POST ai-search/settings/save'] = 'ai-search/settings/save';
+                $event->rules['POST ai-search/settings/save-quick-start'] = 'ai-search/settings/save-quick-start';
+                $event->rules['POST ai-search/settings/save-behavior'] = 'ai-search/settings/save-behavior';
+                $event->rules['POST ai-search/settings/save-database'] = 'ai-search/settings/save-database';
+                $event->rules['POST ai-search/settings/save-advanced'] = 'ai-search/settings/save-advanced';
                 $event->rules['POST ai-search/settings/test-database-connection'] = 'ai-search/settings/test-database-connection';
                 $event->rules['POST ai-search/settings/test-api-key'] = 'ai-search/settings/test-api-key';
 

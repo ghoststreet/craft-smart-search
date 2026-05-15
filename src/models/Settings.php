@@ -12,6 +12,11 @@ class Settings extends Model
 {
     public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/';
 
+    public const SCENARIO_QUICK_START = 'quickStart';
+    public const SCENARIO_BEHAVIOR    = 'behavior';
+    public const SCENARIO_DATABASE    = 'database';
+    public const SCENARIO_ADVANCED    = 'advanced';
+
     public ?string $openaiApiKey = null;
     public ?string $apiToken = null;
 
@@ -71,98 +76,144 @@ class Settings extends Model
     public bool $exposeStackTraces = false;
 
     /**
+     * Maps each CP settings tab to the attributes it owns. Drives both `scenarios()`
+     * (mass-assignment filtering) and the `on` tag on every rule below.
+     */
+    private const SCENARIO_ATTRIBUTES = [
+        self::SCENARIO_QUICK_START => ['openaiApiKey', 'hybridEmbeddingModel', 'ragModel', 'costBudgetDailyGlobal'],
+        self::SCENARIO_BEHAVIOR    => [
+            'minimumSimilarityThreshold', 'rrfSemanticWeight', 'rrfBm25Weight', 'rrfK',
+            'minSemanticThreshold', 'singleSignalPenalty', 'maxSemanticResults',
+            'embeddingCacheTtl',
+            'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
+            'rateLimitRagPerMinute', 'rateLimitRagPerHour',
+            'ragConcurrencyPerIp', 'ragConcurrencyGlobal',
+        ],
+        self::SCENARIO_DATABASE    => [
+            'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
+            'postgresqlPassword', 'postgresqlSslMode',
+            'vectorsSchemaName', 'vectorsTableName', 'vectorDimensions',
+        ],
+        self::SCENARIO_ADVANCED    => [
+            'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
+            'ragEmbeddingModel', 'maxPromptTokens', 'ragCustomPrompt',
+            'apiToken', 'allowedOrigins', 'exposeStackTraces',
+            'historyRetentionDays', 'excerptLength',
+        ],
+    ];
+
+    public function scenarios(): array
+    {
+        return array_merge(parent::scenarios(), self::SCENARIO_ATTRIBUTES);
+    }
+
+    /**
      * Validation rules for all plugin settings, grouped by feature area.
+     *
+     * Each rule is tagged with `on` so it only runs under its tab's scenario
+     * (and the default scenario for programmatic saves). `default` rules are
+     * left untagged so missing numeric values are filled in regardless of which
+     * tab triggered the save.
      */
     public function rules(): array
     {
+        $quickStart = [self::SCENARIO_DEFAULT, self::SCENARIO_QUICK_START];
+        $behavior   = [self::SCENARIO_DEFAULT, self::SCENARIO_BEHAVIOR];
+        $database   = [self::SCENARIO_DEFAULT, self::SCENARIO_DATABASE];
+        $advanced   = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
+
         return [
             // OpenAI API validation
-            [['openaiApiKey'], 'required'],
-            [['openaiApiKey'], 'validateEnvSecret'],
+            [['openaiApiKey'], 'required', 'on' => $quickStart],
+            [['openaiApiKey'], 'validateEnvSecret', 'on' => $quickStart],
 
             // API token validation
-            [['apiToken'], 'string'],
-            [['apiToken'], 'validateOptionalEnvSecret'],
+            [['apiToken'], 'string', 'on' => $advanced],
+            [['apiToken'], 'validateOptionalEnvSecret', 'on' => $advanced],
 
             // Embedding model validation
-            [['hybridEmbeddingModel', 'ragEmbeddingModel'], 'required'],
-            [['hybridEmbeddingModel', 'ragEmbeddingModel'], 'string'],
-            [['hybridEmbeddingModel', 'ragEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large']],
+            [['hybridEmbeddingModel'], 'required', 'on' => $quickStart],
+            [['hybridEmbeddingModel'], 'string', 'on' => $quickStart],
+            [['hybridEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $quickStart],
+            [['ragEmbeddingModel'], 'required', 'on' => $advanced],
+            [['ragEmbeddingModel'], 'string', 'on' => $advanced],
+            [['ragEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $advanced],
 
             // PostgreSQL validation
-            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode', 'postgresqlPort'], 'string'],
-            [['postgresqlPassword'], 'string'],
-            [['postgresqlPassword'], 'validateEnvSecret'],
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode', 'postgresqlPort'], 'string', 'on' => $database],
+            [['postgresqlPassword'], 'string', 'on' => $database],
+            [['postgresqlPassword'], 'validateEnvSecret', 'on' => $database],
             [['postgresqlPort'], 'default', 'value' => 5432],
-            [['postgresqlSslMode'], 'required'],
-            [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full']],
+            [['postgresqlSslMode'], 'required', 'on' => $database],
+            [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $database],
 
             // Vectors table identifier validation
-            [['vectorsTableName', 'vectorsSchemaName'], 'required'],
+            [['vectorsTableName', 'vectorsSchemaName'], 'required', 'on' => $database],
             [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
-                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).'],
+                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
+                'on' => $database],
 
             // Hybrid search validation
-            [['minimumSimilarityThreshold'], 'number', 'min' => 0, 'max' => 1],
+            [['minimumSimilarityThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
             [['minimumSimilarityThreshold'], 'default', 'value' => 0.90],
-            [['rrfK'], 'integer', 'min' => 1, 'max' => 1000],
+            [['rrfK'], 'integer', 'min' => 1, 'max' => 1000, 'on' => $behavior],
             [['rrfK'], 'default', 'value' => 60],
-            [['rrfSemanticWeight', 'rrfBm25Weight'], 'number', 'min' => 0, 'max' => 1],
+            [['rrfSemanticWeight', 'rrfBm25Weight'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
             [['rrfSemanticWeight'], 'default', 'value' => 0.3],
             [['rrfBm25Weight'], 'default', 'value' => 0.7],
 
             // RAG Search validation
-            [['ragModel'], 'required'],
-            [['ragModel'], 'string'],
-            [['ragModel'], 'in', 'range' => ['gpt-5.4-nano']],
-            [['ragCustomPrompt'], 'string'],
-            [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000],
+            [['ragModel'], 'required', 'on' => $quickStart],
+            [['ragModel'], 'string', 'on' => $quickStart],
+            [['ragModel'], 'in', 'range' => ['gpt-5.4-nano'], 'on' => $quickStart],
+            [['ragCustomPrompt'], 'string', 'on' => $advanced],
+            [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000, 'on' => $advanced],
             [['maxPromptTokens'], 'default', 'value' => 6000],
 
             // Content Chunking validation
-            [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500],
+            [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500, 'on' => $advanced],
             [['minChunkTokens'], 'default', 'value' => 100],
-            [['targetChunkTokens'], 'integer', 'min' => 100, 'max' => 1000],
+            [['targetChunkTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $advanced],
             [['targetChunkTokens'], 'default', 'value' => 400],
-            [['maxChunkTokens'], 'integer', 'min' => 200, 'max' => 2000],
+            [['maxChunkTokens'], 'integer', 'min' => 200, 'max' => 2000, 'on' => $advanced],
             [['maxChunkTokens'], 'default', 'value' => 600],
-            [['overlapTokens'], 'integer', 'min' => 0, 'max' => 200],
+            [['overlapTokens'], 'integer', 'min' => 0, 'max' => 200, 'on' => $advanced],
             [['overlapTokens'], 'default', 'value' => 40],
-            [['chunkThresholdTokens'], 'integer', 'min' => 100, 'max' => 1000],
+            [['chunkThresholdTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $advanced],
             [['chunkThresholdTokens'], 'default', 'value' => 500],
 
             // Cache validation
-            [['embeddingCacheTtl'], 'integer', 'min' => 0, 'max' => 2592000],
+            [['embeddingCacheTtl'], 'integer', 'min' => 0, 'max' => 2592000, 'on' => $behavior],
             [['embeddingCacheTtl'], 'default', 'value' => 604800],
 
             // Hybrid Search Advanced validation
-            [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1],
+            [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
             [['minSemanticThreshold'], 'default', 'value' => 0.20],
-            [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1],
+            [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1, 'on' => $behavior],
             [['singleSignalPenalty'], 'default', 'value' => 0.5],
-            [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500],
+            [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500, 'on' => $behavior],
             [['maxSemanticResults'], 'default', 'value' => 100],
 
             // Display validation
-            [['excerptLength'], 'integer', 'min' => 50, 'max' => 500],
+            [['excerptLength'], 'integer', 'min' => 50, 'max' => 500, 'on' => $advanced],
             [['excerptLength'], 'default', 'value' => 200],
 
             // Vector dimensions validation
-            [['vectorDimensions'], 'integer'],
-            [['vectorDimensions'], 'in', 'range' => [512, 1024, 1536, 3072]],
+            [['vectorDimensions'], 'integer', 'on' => $database],
+            [['vectorDimensions'], 'in', 'range' => [512, 1024, 1536, 3072], 'on' => $database],
             [['vectorDimensions'], 'default', 'value' => 1536],
 
             // History tracking validation
-            [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365],
+            [['historyRetentionDays'], 'integer', 'min' => 1, 'max' => 365, 'on' => $advanced],
             [['historyRetentionDays'], 'default', 'value' => 30],
 
             // Security / rate-limit / budget validation
-            [['allowedOrigins'], 'string'],
+            [['allowedOrigins'], 'string', 'on' => $advanced],
             [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
               'rateLimitRagPerMinute', 'rateLimitRagPerHour',
-              'ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000],
-            [['costBudgetDailyGlobal'], 'number', 'min' => 0],
-            [['exposeStackTraces'], 'boolean'],
+              'ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $behavior],
+            [['costBudgetDailyGlobal'], 'number', 'min' => 0, 'on' => $quickStart],
+            [['exposeStackTraces'], 'boolean', 'on' => $advanced],
             [['exposeStackTraces'], 'default', 'value' => false],
         ];
     }

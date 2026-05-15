@@ -1,7 +1,7 @@
 {% extends "_layouts/cp" %}
 
 {% set title = 'Settings' %}
-{% set fullPageForm = true %}
+{% set fullPageForm = false %}
 
 {% set tabs = {
     'tab-quick-start':     { label: 'Quick start', url: '#tab-quick-start' },
@@ -13,11 +13,13 @@
 {% import '_includes/forms.twig' as forms %}
 
 {% block content %}
-    <input type="hidden" name="action" value="ai-search/settings/save">
-    {{ redirectInput('ai-search/settings') }}
-
     {# ────── Quick start ────── #}
     <div id="tab-quick-start">
+        <form method="post" accept-charset="UTF-8" data-saveshortcut>
+        {{ csrfInput() }}
+        {{ actionInput('ai-search/settings/save-quick-start') }}
+        {{ redirectInput('ai-search/settings') }}
+
         <h2>OpenAI</h2>
         <p class="light">Required to generate embeddings and run RAG. <a href="https://github.com/ghost-street/craft-ai-search#setup" target="_blank">Setup docs →</a></p>
 
@@ -77,10 +79,19 @@
             }) }}
         {% endnamespace %}
 
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Save'|t('app') }}</button>
+        </div>
+        </form>
     </div>
 
     {# ────── Search behavior ────── #}
     <div id="tab-behavior" class="hidden">
+        <form method="post" accept-charset="UTF-8" data-saveshortcut>
+        {{ csrfInput() }}
+        {{ actionInput('ai-search/settings/save-behavior') }}
+        {{ redirectInput('ai-search/settings') }}
+
         <h2>Result ranking</h2>
         <p class="light">Hybrid search combines keyword (BM25) and semantic (vector) signals. Weights should add up to 1.0.</p>
 
@@ -183,10 +194,20 @@
                 </div>
             </details>
         {% endnamespace %}
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Save'|t('app') }}</button>
+        </div>
+        </form>
     </div>
 
     {# ────── Vector Database ────── #}
     <div id="tab-vector-database" class="hidden">
+        <form method="post" accept-charset="UTF-8" data-saveshortcut>
+        {{ csrfInput() }}
+        {{ actionInput('ai-search/settings/save-database') }}
+        {{ redirectInput('ai-search/settings') }}
+
         <h2>Database</h2>
         <p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghost-street/craft-ai-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
 
@@ -228,10 +249,20 @@
             <button type="button" class="btn" data-craftsearch-control="test-db">Test connection</button>
             <span class="settings__test-result" data-craftsearch-target="test-db-result"></span>
         </div>
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Save'|t('app') }}</button>
+        </div>
+        </form>
     </div>
 
     {# ────── Advanced ────── #}
     <div id="tab-advanced" class="hidden">
+        <form method="post" accept-charset="UTF-8" data-saveshortcut>
+        {{ csrfInput() }}
+        {{ actionInput('ai-search/settings/save-advanced') }}
+        {{ redirectInput('ai-search/settings') }}
+
         <h2>Chunking</h2>
 
         {% namespace 'settings' %}
@@ -323,6 +354,11 @@
                 required: true, errors: settings.getErrors('excerptLength'),
             }) }}
         {% endnamespace %}
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Save'|t('app') }}</button>
+        </div>
+        </form>
     </div>
 {% endblock %}
 
