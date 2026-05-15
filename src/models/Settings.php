@@ -22,7 +22,6 @@ class Settings extends Model
     public ?string $apiToken = null;
 
     public string $hybridEmbeddingModel = 'text-embedding-3-small';
-    public string $ragEmbeddingModel = 'text-embedding-3-small';
 
     public ?string $postgresqlHost = null;
     public string|int $postgresqlPort = 5432;
@@ -97,7 +96,7 @@ class Settings extends Model
             'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
         ],
         self::SCENARIO_AI_ANSWERS    => [
-            'ragEmbeddingModel', 'ragModel', 'maxPromptTokens', 'ragCustomPrompt',
+            'ragModel', 'maxPromptTokens', 'ragCustomPrompt',
             'costBudgetDailyGlobal',
             'rateLimitRagPerMinute', 'rateLimitRagPerHour',
             'ragConcurrencyPerIp', 'ragConcurrencyGlobal',
@@ -228,9 +227,6 @@ class Settings extends Model
             [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $hybridSearch],
 
             // AI Answers — models and prompt
-            [['ragEmbeddingModel'], 'required', 'on' => $aiAnswers],
-            [['ragEmbeddingModel'], 'string', 'on' => $aiAnswers],
-            [['ragEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $aiAnswers],
             [['ragModel'], 'required', 'on' => $aiAnswers],
             [['ragModel'], 'string', 'on' => $aiAnswers],
             [['ragModel'], 'in', 'range' => ['gpt-5.4-nano'], 'on' => $aiAnswers],

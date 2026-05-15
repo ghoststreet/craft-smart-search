@@ -45,8 +45,7 @@ class RagSearchService extends Component
                     fn() => AiSearch::getInstance()->hybridSearchService->search(
                         $query,
                         $limit,
-                        $siteId,
-                        $settings->ragEmbeddingModel
+                        $siteId
                     )
                 );
 
@@ -189,8 +188,7 @@ class RagSearchService extends Component
             $searchResults = AiSearch::getInstance()->hybridSearchService->search(
                 $query,
                 $limit,
-                $siteId,
-                $settings->ragEmbeddingModel
+                $siteId
             );
 
             $sources = $this->buildSourceList($searchResults, $limit);

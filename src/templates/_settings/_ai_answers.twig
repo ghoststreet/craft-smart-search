@@ -4,17 +4,6 @@
 
 {% namespace 'settings' %}
     {{ forms.selectField({
-        label: 'Query embedding model',
-        instructions: "Used to embed the user's question at query time. Can differ from the corpus embedding model in Hybrid Search without triggering a reindex.",
-        id: 'ragEmbeddingModel', name: 'ragEmbeddingModel', value: settings.ragEmbeddingModel,
-        options: [
-            { label: 'text-embedding-3-small (recommended)', value: 'text-embedding-3-small' },
-            { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
-        ],
-        required: true, errors: settings.getErrors('ragEmbeddingModel'),
-    }) }}
-
-    {{ forms.selectField({
         label: 'Answer model',
         instructions: 'OpenAI model that generates summaries for /api/rag-search.',
         id: 'ragModel', name: 'ragModel',
