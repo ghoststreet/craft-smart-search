@@ -1,12 +1,12 @@
 {% import '_includes/forms.twig' as forms %}
 
 <h2>API access</h2>
-<p class="light">Controls who can call the plugin's search and AI-answer endpoints.</p>
+<p class="light">Control who can call the plugin's search endpoints.</p>
 
 {% namespace 'settings' %}
     {{ forms.autosuggestField({
         label: 'API token',
-        instructions: 'Optional bearer token required on every search API request. Reference an env var.',
+        instructions: 'Bearer token required on every API request. Leave empty to allow requests from your own site (CSRF and origin checks still apply).',
         id: 'apiToken', name: 'apiToken',
         value: settings.apiToken, suggestEnvVars: true,
         errors: settings.getErrors('apiToken'),
@@ -22,7 +22,7 @@
 {% namespace 'settings' %}
     {{ forms.autosuggestField({
         label: 'Allowed origins',
-        instructions: 'Comma-separated additional origins for headless front-ends. Same-origin always allowed.',
+        instructions: 'Comma-separated list of extra origins permitted to call the API from the browser. Requests from the same origin as your Craft site are always allowed.',
         id: 'allowedOrigins', name: 'allowedOrigins',
         value: settings.allowedOrigins, suggestEnvVars: true,
         placeholder: 'https://app.example.com',
@@ -33,11 +33,12 @@
 <hr>
 
 <h2>Diagnostics</h2>
+<p class="light">Control how long detailed search history is kept for debugging and analytics.</p>
 
 {% namespace 'settings' %}
     {{ forms.textField({
         label: 'History retention (days)',
-        instructions: 'Query/results details are pruned after this many days. Token and cost statistics are kept permanently.',
+        instructions: 'Number of days to keep query text and result payloads. Token usage and cost are kept permanently so long-term stats stay accurate.',
         id: 'historyRetentionDays', name: 'historyRetentionDays',
         value: settings.historyRetentionDays, type: 'number', min: '1', max: '365',
         required: true, errors: settings.getErrors('historyRetentionDays'),
