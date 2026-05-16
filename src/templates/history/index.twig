@@ -47,22 +47,24 @@
 
     <hr>
 
-    <form method="get" action="{{ cpUrl('ai-search/history') }}" class="filter-bar">
-        {{ f.typeSelect(typeFilter) }}
-        {{ f.daysSelect(daysFilter) }}
-        {{ f.sitesSelect(sites, siteFilter) }}
-        {{ f.errorsOnlyCheckbox(errorsOnly) }}
-        {{ f.submitButton() }}
-        <div class="field filter-bar__spacer">
-            {% if currentUser.admin %}
-                <form method="post" action="" class="filter-bar__inline-form" data-craftsearch-confirm="This will permanently delete all stored queries and result data. Token/cost statistics will be preserved. Continue?">
-                    {{ csrfInput() }}
-                    {{ actionInput('ai-search/history/clear') }}
-                    <button type="submit" class="btn submit"{% if detailsCount == 0 %} disabled{% endif %}>
-                        Clear History ({{ detailsCount }})
-                    </button>
-                </form>
-            {% endif %}
+    <form method="get" action="{{ cpUrl('ai-search/history') }}">
+        <div class="filter-bar">
+            {{ f.typeSelect(typeFilter) }}
+            {{ f.daysSelect(daysFilter) }}
+            {{ f.sitesSelect(sites, siteFilter) }}
+            {{ f.errorsOnlyCheckbox(errorsOnly) }}
+            {{ f.submitButton() }}
+            <div class="filter-bar__spacer">
+                {% if currentUser.admin %}
+                    <form method="post" action="" class="filter-bar__inline-form" data-craftsearch-confirm="This will permanently delete all stored queries and result data. Token/cost statistics will be preserved. Continue?">
+                        {{ csrfInput() }}
+                        {{ actionInput('ai-search/history/clear') }}
+                        <button type="submit" class="btn submit"{% if detailsCount == 0 %} disabled{% endif %}>
+                            Clear History ({{ detailsCount }})
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
         </div>
     </form>
 

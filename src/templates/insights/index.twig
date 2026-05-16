@@ -8,101 +8,204 @@
 {% set siteId = filters.siteId %}
 {% set tabParams = { days: days, siteId: siteId } %}
 
-{% block content %}
-    <ul class="pill-tabs">
-        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'queries' })) }}"{% if tab == 'queries' %} class="sel"{% endif %}>Top queries</a></li>
-        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'zero-results' })) }}"{% if tab == 'zero-results' %} class="sel"{% endif %}>Zero results</a></li>
-        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'trending' })) }}"{% if tab == 'trending' %} class="sel"{% endif %}>Trending</a></li>
-        <li><a href="{{ cpUrl('ai-search/insights', tabParams|merge({ tab: 'history' })) }}"{% if tab == 'history' %} class="sel"{% endif %}>History log</a></li>
-    </ul>
+{% set tabs = {
+    queries:        { label: 'Top queries',  url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'queries' })) },
+    'zero-results': { label: 'Zero results', url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'zero-results' })) },
+    trending:       { label: 'Trending',     url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'trending' })) },
+    history:        { label: 'History log',  url: cpUrl('ai-search/insights', tabParams|merge({ tab: 'history' })) },
+} %}
+{% set selectedTab = tab %}
 
-    <form method="get" action="{{ cpUrl('ai-search/insights') }}" class="filter-bar">
-        <input type="hidden" name="tab" value="{{ tab }}">
-        {{ f.daysSelect(days, 'Time range') }}
-        {{ f.sitesSelect(sites, siteId) }}
-        {% if tab == 'history' %}
-            {{ f.typeSelect(filters.type) }}
-            {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+{% block content %}
+    {% if tab == 'history' %}
+        <div class="kpi-grid kpi-grid--compact">
+            <div class="kpi-card kpi-card--compact">
+                <span class="cp-icon kpi-card__icon">{{ iconSvg('magnifying-glass') }}</span>
+                <div class="kpi-card__body">
+                    <div class="kpi-card__label">Searches</div>
+                    <div class="kpi-card__value">{{ stats.searches|number_format }}</div>
+                </div>
+            </div>
+            <div class="kpi-card kpi-card--compact">
+                <span class="cp-icon kpi-card__icon">{{ iconSvg('hashtag') }}</span>
+                <div class="kpi-card__body">
+                    <div class="kpi-card__label">Tokens</div>
+                    <div class="kpi-card__value">{{ stats.tokens|number_format }}</div>
+                </div>
+            </div>
+            <div class="kpi-card kpi-card--compact">
+                <span class="cp-icon kpi-card__icon">{{ iconSvg('coin') }}</span>
+                <div class="kpi-card__body">
+                    <div class="kpi-card__label">Total cost</div>
+                    <div class="kpi-card__value">${{ stats.cost|number_format(6) }}</div>
+                </div>
+            </div>
+            <div class="kpi-card kpi-card--compact">
+                <span class="cp-icon kpi-card__icon">{{ iconSvg('gauge-high') }}</span>
+                <div class="kpi-card__body">
+                    <div class="kpi-card__label">Avg duration</div>
+                    <div class="kpi-card__value">{{ stats.avgDurationMs|number_format }}<span class="kpi-card__value-unit"> ms</span></div>
+                </div>
+            </div>
+            <div class="kpi-card kpi-card--compact{% if stats.errorCount > 0 %} kpi-card--error{% endif %}">
+                <span class="cp-icon kpi-card__icon">{{ iconSvg('triangle-exclamation') }}</span>
+                <div class="kpi-card__body">
+                    <div class="kpi-card__label">Errors</div>
+                    <div class="kpi-card__value{% if stats.errorCount > 0 %} kpi-card__error{% endif %}">{{ stats.errorCount|number_format }}</div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="filter-bar">
+        <form method="get" action="{{ cpUrl('ai-search/insights') }}" class="filter-bar__form">
+            <input type="hidden" name="tab" value="{{ tab }}">
+            <div class="filter-bar__group">
+                {{ f.daysSelect(days, 'Time range') }}
+                {{ f.sitesSelect(sites, siteId) }}
+                {% if tab == 'history' %}
+                    {{ f.typeSelect(filters.type) }}
+                    {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+                {% endif %}
+                {{ f.submitButton() }}
+            </div>
+        </form>
+        {% if tab == 'history' and currentUser.admin %}
+            <form method="post" class="filter-bar__spacer" data-craftsearch-confirm="Permanently delete all stored queries and result data? Token/cost statistics are preserved.">
+                {{ csrfInput() }}
+                {{ actionInput('ai-search/insights/clear') }}
+                <button type="submit" class="btn" data-icon="trash"{% if detailsCount == 0 %} disabled{% endif %}>Clear history ({{ detailsCount }})</button>
+            </form>
         {% endif %}
-        {{ f.submitButton() }}
-    </form>
+    </div>
 
     {% if tab == 'queries' %}
-        <table class="data fullwidth">
-            <thead><tr><th>Query</th><th class="rightalign">Hits</th><th class="rightalign">0-result</th><th>Last seen</th></tr></thead>
-            <tbody>
-                {% for k in rows %}
-                    <tr>
-                        <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
-                        <td class="rightalign">{{ k.hits|number_format }}</td>
-                        <td class="rightalign">{% if k.zeroHits > 0 %}<span class="light">{{ k.zeroHits }}</span>{% else %}—{% endif %}</td>
-                        <td><span class="light">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="4" class="centeralign light">No queries recorded.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% if page.items|length %}
+            <div class="tableview">
+                <table class="data fullwidth big">
+                    <thead>
+                        <tr>
+                            <th scope="col">Query</th>
+                            <th scope="col" class="rightalign">Hits</th>
+                            <th scope="col" class="rightalign">Zero results</th>
+                            <th scope="col" class="rightalign">Avg results</th>
+                            <th scope="col" class="rightalign">Avg time</th>
+                            <th scope="col" class="rightalign">Errors</th>
+                            <th scope="col">Last seen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for k in page.items %}
+                            {% set zeroPct = k.hits > 0 ? (k.zeroHits / k.hits * 100)|round : 0 %}
+                            <tr>
+                                <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                                <td class="rightalign">{{ k.hits|number_format }}</td>
+                                <td class="rightalign">
+                                    {% if k.zeroHits > 0 %}<span class="status orange"></span> {{ k.zeroHits }} ({{ zeroPct }}%)
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td class="rightalign light">{{ k.avgResults|number_format(1) }}</td>
+                                <td class="rightalign light">{{ k.avgDurationMs|round }} ms</td>
+                                <td class="rightalign">
+                                    {% if k.errors > 0 %}<span class="status red"></span> {{ k.errors }}{% else %}—{% endif %}
+                                </td>
+                                <td><span class="light" title="{{ k.lastSeen|date('Y-m-d H:i:s') }}">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="zilch small">No queries recorded.</div>
+        {% endif %}
+
+        {% include 'ai-search/_components/pagination-cp' with {
+            currentPage: page.page,
+            totalPages: page.pages,
+            path: 'ai-search/insights',
+            baseParams: { tab: 'queries', days: days, siteId: siteId },
+        } only %}
 
     {% elseif tab == 'zero-results' %}
         <p class="light">Queries that returned no results. These often reveal missing content or overly strict thresholds.</p>
-        <table class="data fullwidth">
-            <thead><tr><th>Query</th><th class="rightalign">Hits</th><th>Last seen</th></tr></thead>
-            <tbody>
-                {% for k in rows %}
-                    <tr>
-                        <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
-                        <td class="rightalign">{{ k.hits|number_format }}</td>
-                        <td><span class="light">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="3" class="centeralign light">All searches returned results.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% if page.items|length %}
+            <div class="tableview">
+                <table class="data fullwidth big">
+                    <thead>
+                        <tr>
+                            <th scope="col">Query</th>
+                            <th scope="col" class="rightalign">Hits</th>
+                            <th scope="col" class="rightalign">Avg time</th>
+                            <th scope="col" class="rightalign">Errors</th>
+                            <th scope="col">Last seen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for k in page.items %}
+                            <tr>
+                                <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                                <td class="rightalign">{{ k.hits|number_format }}</td>
+                                <td class="rightalign light">{{ k.avgDurationMs|round }} ms</td>
+                                <td class="rightalign">
+                                    {% if k.errors > 0 %}<span class="status red"></span> {{ k.errors }}{% else %}—{% endif %}
+                                </td>
+                                <td><span class="light" title="{{ k.lastSeen|date('Y-m-d H:i:s') }}">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="zilch small">All searches returned results.</div>
+        {% endif %}
+
+        {% include 'ai-search/_components/pagination-cp' with {
+            currentPage: page.page,
+            totalPages: page.pages,
+            path: 'ai-search/insights',
+            baseParams: { tab: 'zero-results', days: days, siteId: siteId },
+        } only %}
 
     {% elseif tab == 'trending' %}
         <p class="light">Queries whose frequency rose in the last 7 days vs the prior 7-day window.</p>
-        <table class="data fullwidth">
-            <thead><tr><th>Query</th><th class="rightalign">Recent</th><th class="rightalign">Prior</th><th class="rightalign">Δ</th></tr></thead>
-            <tbody>
-                {% for k in rows %}
-                    <tr>
-                        <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
-                        <td class="rightalign">{{ k.recent }}</td>
-                        <td class="rightalign">{{ k.prior }}</td>
-                        <td class="rightalign">
-                            {% if k.growthPct is null %}<span class="status on" title="New"></span> new
-                            {% else %}+{{ k.growthPct }}%{% endif %}
-                        </td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="4" class="centeralign light">Not enough data to spot trends.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-    {% elseif tab == 'history' %}
-        <table class="data fullwidth">
-            <tbody>
-                <tr>
-                    <th class="light">Searches</th><td>{{ stats.searches|number_format }}</td>
-                    <th class="light">Tokens</th><td>{{ stats.tokens|number_format }}</td>
-                    <th class="light">Total cost</th><td>${{ stats.cost|number_format(6) }}</td>
-                    <th class="light">Avg duration</th><td>{{ stats.avgDurationMs|number_format }} ms</td>
-                    <th class="light">Errors</th><td>{{ stats.errorCount|number_format }}</td>
-                </tr>
-            </tbody>
-        </table>
-
-        {% if currentUser.admin %}
-            <form method="post" class="insights-index__clear-form" data-craftsearch-confirm="Permanently delete all stored queries and result data? Token/cost statistics are preserved.">
-                {{ csrfInput() }}
-                {{ actionInput('ai-search/insights/clear') }}
-                <button type="submit" class="btn"{% if detailsCount == 0 %} disabled{% endif %}>Clear history ({{ detailsCount }})</button>
-            </form>
+        {% if page.items|length %}
+            <div class="tableview">
+                <table class="data fullwidth big">
+                    <thead>
+                        <tr>
+                            <th scope="col">Query</th>
+                            <th scope="col" class="rightalign">Recent</th>
+                            <th scope="col" class="rightalign">Prior</th>
+                            <th scope="col" class="rightalign">Δ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for k in page.items %}
+                            <tr>
+                                <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                                <td class="rightalign">{{ k.recent }}</td>
+                                <td class="rightalign">{{ k.prior }}</td>
+                                <td class="rightalign">
+                                    {% if k.growthPct is null %}<span class="status on" title="New"></span> new
+                                    {% else %}+{{ k.growthPct }}%{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="zilch small">Not enough data to spot trends.</div>
         {% endif %}
 
+        {% include 'ai-search/_components/pagination-cp' with {
+            currentPage: page.page,
+            totalPages: page.pages,
+            path: 'ai-search/insights',
+            baseParams: { tab: 'trending', days: days, siteId: siteId },
+        } only %}
+
+    {% elseif tab == 'history' %}
         {% include 'ai-search/_partials/search-history-table' with {
             items: page.items,
             urlPath: 'ai-search/insights',

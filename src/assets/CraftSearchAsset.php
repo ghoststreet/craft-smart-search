@@ -43,7 +43,6 @@ class CraftSearchAsset extends AssetBundle
             'css/components/mini-table.css',
             'css/components/onboarding-list.css',
             'css/components/pagination.css',
-            'css/components/pill-tabs.css',
             'css/components/recommendation-list.css',
             'css/components/search-toolbar.css',
             'css/components/sync-progress.css',

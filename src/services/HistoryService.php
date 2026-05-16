@@ -513,6 +513,78 @@ class HistoryService extends Component
     }
 
     /**
+     * Paginated variant of getTopKeywords / getZeroResultQueries.
+     * Returns { items, total, page, perPage, pages }.
+     */
+    public function paginateKeywords(?int $days, ?int $siteId, bool $zeroOnly, int $page = 1, int $perPage = 25): array
+    {
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $cutoff = ($days !== null && $days > 0)
+            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
+            : null;
+
+        $total = $this->groupedCountsTotal($cutoff, null, $siteId, $zeroOnly);
+        $items = $this->groupedCounts($cutoff, null, $siteId, $zeroOnly, false, $perPage, ($page - 1) * $perPage);
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'pages' => (int)ceil($total / $perPage),
+        ];
+    }
+
+    /**
+     * Paginated variant of getTrendingKeywords. Pagination is applied in PHP
+     * after building the full ranked list.
+     */
+    public function paginateTrending(?int $siteId, int $windowDays, int $page = 1, int $perPage = 25): array
+    {
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+
+        $all = $this->getTrendingKeywords($siteId, $windowDays, 1000);
+        $total = count($all);
+        $items = array_slice($all, ($page - 1) * $perPage, $perPage);
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'pages' => (int)ceil($total / $perPage),
+        ];
+    }
+
+    private function groupedCountsTotal(?string $cutoffFrom, ?string $cutoffTo, ?int $siteId, bool $zeroOnly): int
+    {
+        $sub = (new Query())
+            ->from(['d' => self::DETAILS_TABLE])
+            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
+            ->select(['k' => 'LOWER(TRIM([[d.query]]))'])
+            ->andWhere(['not', ['d.query' => null]])
+            ->andWhere(['<>', 'd.query', ''])
+            ->groupBy(['k']);
+
+        if ($cutoffFrom !== null) {
+            $sub->andWhere(['>=', 's.dateCreated', $cutoffFrom]);
+        }
+        if ($cutoffTo !== null) {
+            $sub->andWhere(['<', 's.dateCreated', $cutoffTo]);
+        }
+        if ($siteId !== null) {
+            $sub->andWhere(['s.siteId' => $siteId]);
+        }
+        if ($zeroOnly) {
+            $sub->andWhere(['s.resultsCount' => 0]);
+        }
+
+        return (int)(new Query())->from(['x' => $sub])->count('*');
+    }
+
+    /**
      * Shared GROUP BY helper. Returns rows: [k, query, hits, zeroHits, lastSeen].
      */
     private function groupedCounts(
@@ -521,7 +593,8 @@ class HistoryService extends Component
         ?int $siteId,
         bool $zeroOnly,
         bool $minimal = false,
-        ?int $limit = null
+        ?int $limit = null,
+        int $offset = 0
     ): array {
         $select = [
             'k' => 'LOWER(TRIM([[d.query]]))',
@@ -530,6 +603,9 @@ class HistoryService extends Component
         ];
         if (!$minimal) {
             $select['zeroHits'] = 'SUM(CASE WHEN [[s.resultsCount]] = 0 THEN 1 ELSE 0 END)';
+            $select['avgResults'] = 'AVG([[s.resultsCount]])';
+            $select['avgDurationMs'] = 'AVG([[s.durationMs]])';
+            $select['errors'] = 'SUM(CASE WHEN [[s.hasError]] = 1 THEN 1 ELSE 0 END)';
             $select['lastSeen'] = 'MAX([[s.dateCreated]])';
         }
 
@@ -556,6 +632,9 @@ class HistoryService extends Component
         }
         if ($limit !== null) {
             $q->limit($limit);
+        }
+        if ($offset > 0) {
+            $q->offset($offset);
         }
 
         return $q->all();

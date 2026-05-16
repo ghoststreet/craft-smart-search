@@ -38,41 +38,38 @@
     { label: L.notIndexed, value: 'not-indexed' },
 ] %}
 
-<form method="get" action=""{% if formClass is defined and formClass %} class="{{ formClass }}"{% endif %}>
-    {% for name, value in hiddenFields ?? {} %}
-        <input type="hidden" name="{{ name }}" value="{{ value }}">
-    {% endfor %}
-    <div id="toolbar" class="flex flex-nowrap">
-        {% if sites|length > 1 %}
+<div class="filter-bar">
+    <form method="get" action="" class="filter-bar__form{% if formClass is defined and formClass %} {{ formClass }}{% endif %}">
+        {% for name, value in hiddenFields ?? {} %}
+            <input type="hidden" name="{{ name }}" value="{{ value }}">
+        {% endfor %}
+        <div class="filter-bar__group">
+            {% if sites|length > 1 %}
+                {{ forms.selectField({
+                    label: L.site,
+                    name: 'siteId',
+                    value: filters.siteId,
+                    options: siteOptions,
+                }) }}
+            {% else %}
+                <input type="hidden" name="siteId" value="{{ filters.siteId }}">
+            {% endif %}
+
             {{ forms.selectField({
-                label: L.site,
-                name: 'siteId',
-                value: filters.siteId,
-                options: siteOptions,
+                label: L.section,
+                name: 'section',
+                value: filters.section,
+                options: sectionOptions,
             }) }}
-        {% else %}
-            <input type="hidden" name="siteId" value="{{ filters.siteId }}">
-        {% endif %}
 
-        {{ forms.selectField({
-            label: L.section,
-            name: 'section',
-            value: filters.section,
-            options: sectionOptions,
-        }) }}
+            {{ forms.selectField({
+                label: L.status,
+                name: 'status',
+                value: filters.status,
+                options: statusOptions,
+            }) }}
 
-        {{ forms.selectField({
-            label: L.status,
-            name: 'status',
-            value: filters.status,
-            options: statusOptions,
-        }) }}
-
-        <div class="field">
-            <div class="heading">&nbsp;</div>
-            <div class="input">
-                <button type="submit" class="btn submit">{{ L.filter }}</button>
-            </div>
+            <button type="submit" class="btn submit">{{ L.filter }}</button>
         </div>
-    </div>
-</form>
+    </form>
+</div>

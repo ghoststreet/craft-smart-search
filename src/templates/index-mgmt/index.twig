@@ -3,13 +3,14 @@
 {% set title = 'Index' %}
 {% set selectedSubnavItem = 'index' %}
 
-{% block content %}
-    <ul class="pill-tabs">
-        <li><a href="{{ cpUrl('ai-search/index', { tab: 'overview' }) }}"{% if tab == 'overview' %} class="sel"{% endif %}>Overview &amp; sync</a></li>
-        <li><a href="{{ cpUrl('ai-search/index', { tab: 'entries' }) }}"{% if tab == 'entries' %} class="sel"{% endif %}>Entries</a></li>
-        <li><a href="{{ cpUrl('ai-search/index', { tab: 'coverage' }) }}"{% if tab == 'coverage' %} class="sel"{% endif %}>Per-site coverage</a></li>
-    </ul>
+{% set tabs = {
+    overview: { label: 'Overview & sync',   url: cpUrl('ai-search/index', { tab: 'overview' }) },
+    entries:  { label: 'Entries',           url: cpUrl('ai-search/index', { tab: 'entries' }) },
+    coverage: { label: 'Per-site coverage', url: cpUrl('ai-search/index', { tab: 'coverage' }) },
+} %}
+{% set selectedTab = tab %}
 
+{% block content %}
     {% if tab == 'overview' %}
         {% if setup.ready %}
             <h2>Index statistics</h2>
@@ -103,24 +104,37 @@
 
     {% elseif tab == 'coverage' %}
         <p class="light">Index coverage per Craft site. Rebuild stale entries from the Overview &amp; sync tab.</p>
-        <table class="data fullwidth">
-            <thead><tr><th>Site</th><th class="rightalign">Indexed</th><th class="rightalign">Stale</th><th class="rightalign">Not indexed</th><th class="rightalign">Total</th><th class="rightalign">Coverage</th></tr></thead>
-            <tbody>
-                {% for c in coverage %}
-                    {% set pct = c.total > 0 ? (c.indexed / c.total * 100)|round : 0 %}
-                    <tr>
-                        <td>{{ c.site }}</td>
-                        <td class="rightalign">{{ c.indexed }}</td>
-                        <td class="rightalign">{% if c.stale > 0 %}<span class="status orange"></span> {{ c.stale }}{% else %}—{% endif %}</td>
-                        <td class="rightalign">{% if c.notIndexed > 0 %}<span class="status off"></span> {{ c.notIndexed }}{% else %}—{% endif %}</td>
-                        <td class="rightalign">{{ c.total }}</td>
-                        <td class="rightalign">{{ pct }}%</td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="6" class="centeralign light">No sites configured.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% if coverage|length %}
+            <div class="tableview">
+                <table class="data fullwidth big">
+                    <thead>
+                        <tr>
+                            <th scope="col">Site</th>
+                            <th scope="col" class="rightalign">Indexed</th>
+                            <th scope="col" class="rightalign">Stale</th>
+                            <th scope="col" class="rightalign">Not indexed</th>
+                            <th scope="col" class="rightalign">Total</th>
+                            <th scope="col" class="rightalign">Coverage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in coverage %}
+                            {% set pct = c.total > 0 ? (c.indexed / c.total * 100)|round : 0 %}
+                            <tr>
+                                <td>{{ c.site }}</td>
+                                <td class="rightalign">{{ c.indexed }}</td>
+                                <td class="rightalign">{% if c.stale > 0 %}<span class="status orange"></span> {{ c.stale }}{% else %}—{% endif %}</td>
+                                <td class="rightalign">{% if c.notIndexed > 0 %}<span class="status off"></span> {{ c.notIndexed }}{% else %}—{% endif %}</td>
+                                <td class="rightalign">{{ c.total }}</td>
+                                <td class="rightalign">{{ pct }}%</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="zilch small">No sites configured.</div>
+        {% endif %}
     {% endif %}
 {% endblock %}
 

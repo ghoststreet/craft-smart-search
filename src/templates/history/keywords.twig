@@ -8,10 +8,12 @@
 {% set siteFilter = filters.siteId %}
 
 {% block content %}
-    <form method="get" action="{{ cpUrl('ai-search/history/keywords') }}" class="filter-bar">
-        {{ f.daysSelect(daysFilter) }}
-        {{ f.sitesSelect(keywords.sites, siteFilter) }}
-        {{ f.submitButton() }}
+    <form method="get" action="{{ cpUrl('ai-search/history/keywords') }}">
+        <div class="filter-bar">
+            {{ f.daysSelect(daysFilter) }}
+            {{ f.sitesSelect(keywords.sites, siteFilter) }}
+            {{ f.submitButton() }}
+        </div>
     </form>
 
     <p class="light history-keywords__lede">

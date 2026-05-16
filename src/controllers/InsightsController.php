@@ -51,10 +51,10 @@ class InsightsController extends Controller
 
         switch ($tab) {
             case 'zero-results':
-                $data['rows'] = $history->getZeroResultQueries($days, $siteId, 50);
+                $data['page'] = $history->paginateKeywords($days, $siteId, true, $page, 25);
                 break;
             case 'trending':
-                $data['rows'] = $history->getTrendingKeywords($siteId, 7, 25);
+                $data['page'] = $history->paginateTrending($siteId, 7, $page, 25);
                 break;
             case 'history':
                 $data['page'] = $history->paginate($page, 25, [
@@ -66,7 +66,7 @@ class InsightsController extends Controller
                 break;
             case 'queries':
             default:
-                $data['rows'] = $history->getTopKeywords($days, $siteId, 50);
+                $data['page'] = $history->paginateKeywords($days, $siteId, false, $page, 25);
                 $data['tab'] = 'queries';
                 break;
         }

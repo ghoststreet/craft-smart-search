@@ -16,7 +16,8 @@
 }|merge(labels) %}
 
 {% if rows|length %}
-    <table class="data fullwidth">
+    <div class="tableview">
+    <table class="data fullwidth big">
         <thead>
             <tr>
                 <th scope="col">{{ L.title }}</th>
@@ -24,6 +25,7 @@
                 <th scope="col" class="thin">{{ L.status }}</th>
                 <th scope="col" class="thin">{{ L.chunks }}</th>
                 <th scope="col" class="thin">{{ L.lastIndexed }}</th>
+                <th scope="col" class="thin"><span class="visually-hidden">Actions</span></th>
             </tr>
         </thead>
         <tbody>
@@ -50,12 +52,23 @@
                             <span class="light">—</span>
                         {% endif %}
                     </td>
+                    <td class="thin centeralign">
+                        <form method="post" data-craftsearch-reindex="entry" data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}" style="display:inline">
+                            {{ csrfInput() }}
+                            {{ actionInput('ai-search/index/reindex-entry') }}
+                            {{ redirectInput(craft.app.request.url) }}
+                            <input type="hidden" name="elementId" value="{{ row.elementId }}">
+                            <input type="hidden" name="siteId" value="{{ row.siteId }}">
+                            <craft-tooltip placement="top" text="Re-index">
+                                <button type="submit" class="btn small" data-icon="refresh" aria-label="Re-index"></button>
+                            </craft-tooltip>
+                        </form>
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
-{% else %}
-    <div class="zilch">
-        <p>{{ L.emptyMessage }}</p>
     </div>
+{% else %}
+    <div class="zilch small">{{ L.emptyMessage }}</div>
 {% endif %}

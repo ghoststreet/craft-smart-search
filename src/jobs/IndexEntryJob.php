@@ -61,12 +61,9 @@ class IndexEntryJob extends BaseJob
             ->one();
 
         $title = $entry?->title ?: "#{$this->entryId}";
-        $site = Craft::$app->getSites()->getSiteById($this->siteId);
-        $siteName = $site?->name ?? "site #{$this->siteId}";
 
-        return Translation::prep('ai-search', 'AI search: indexing “{title}” ({site})', [
+        return Translation::prep('ai-search', 'AI search: indexing “{title}”', [
             'title' => $title,
-            'site' => $siteName,
         ]);
     }
 }

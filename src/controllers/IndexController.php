@@ -8,6 +8,7 @@ use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\exceptions\DatabaseException;
 use ghoststreet\craftaisearch\helpers\ErrorMapper;
 use ghoststreet\craftaisearch\helpers\Logger;
+use ghoststreet\craftaisearch\jobs\IndexEntryJob;
 use ghoststreet\craftaisearch\jobs\SyncSearchIndexJob;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -73,7 +74,7 @@ class IndexController extends BaseApiController
                 $result = $plugin->indexingDebugService->getEntryRows($filters);
                 $error = null;
             } catch (DatabaseException $e) {
-                $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 50, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
+                $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 25, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
                 $error = ErrorMapper::present($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
             }
 
@@ -233,5 +234,48 @@ class IndexController extends BaseApiController
     public function actionLegacyRedirect(): Response
     {
         return $this->redirect('ai-search/index');
+    }
+
+    public function actionReindexEntry(): Response
+    {
+        $this->requireAdmin();
+        $this->requirePostRequest();
+
+        $request = Craft::$app->getRequest();
+        $elementId = (int)$request->getRequiredBodyParam('elementId');
+        $siteId = (int)$request->getRequiredBodyParam('siteId');
+
+        $jobId = Craft::$app->getQueue()->push(new IndexEntryJob([
+            'entryId' => $elementId,
+            'siteId' => $siteId,
+        ]));
+
+        if ($request->getAcceptsJson()) {
+            return $this->asJson([
+                'success' => true,
+                'jobId' => (string)$jobId,
+            ]);
+        }
+
+        Craft::$app->getSession()->setNotice(Craft::t('ai-search', 'Re-index queued for entry #{id}.', ['id' => $elementId]));
+
+        return $this->redirectToPostedUrl();
+    }
+
+    public function actionJobStatus(): Response
+    {
+        $this->requireAdmin();
+        $this->requireAcceptsJson();
+
+        $jobId = (string)Craft::$app->getRequest()->getRequiredQueryParam('id');
+        $status = Craft::$app->getQueue()->status($jobId);
+        $done = $status === 3 || $status >= 4;
+
+        return $this->asJson([
+            'success' => true,
+            'jobId' => $jobId,
+            'status' => $status,
+            'done' => $done,
+        ]);
     }
 }

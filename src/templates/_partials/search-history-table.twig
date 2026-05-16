@@ -1,5 +1,5 @@
 {#
-    7-column search history table (Date · Type · Query · Results · Tokens · Cost · Duration).
+    7-column search history table (Query · Type · Results · Tokens · Cost · Duration · Date).
     Shared by history/index.twig and insights/index.twig (history tab).
 
     Params:
@@ -12,42 +12,46 @@
         } only %}
 #}
 {% set cachedTitle = cachedTitle ?? 'Embedding served from cache' %}
-<table class="data fullwidth">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Query</th>
-            <th class="rightalign">Results</th>
-            <th class="rightalign">Tokens</th>
-            <th class="rightalign">Cost</th>
-            <th class="rightalign">Duration</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in items %}
-            {% set href = cpUrl(urlPath ~ '/' ~ item.id) %}
-            <tr>
-                <td><a href="{{ href }}">{{ item.dateCreated|date('M j, Y g:i:s A') }}</a></td>
-                <td>
-                    <span class="status {% if item.type == 'rag' %}on{% else %}orange{% endif %}"></span>
-                    {{ item.type }}
-                    {% if item.hasError %}<span class="status off" title="Error"></span>{% endif %}
-                </td>
-                <td>
-                    {% if item.detailsId %}
-                        <a href="{{ href }}">{{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}</a>
-                    {% else %}
-                        <span class="light">— cleared</span>
-                    {% endif %}
-                </td>
-                <td class="rightalign">{{ item.resultsCount }}</td>
-                <td class="rightalign">{{ item.totalTokens|number_format }}{% if item.embeddingCached %} <span class="light" title="{{ cachedTitle }}">·c</span>{% endif %}</td>
-                <td class="rightalign">${{ item.cost|number_format(6) }}</td>
-                <td class="rightalign">{{ item.durationMs|number_format }} ms</td>
-            </tr>
-        {% else %}
-            <tr><td colspan="7" class="centeralign light">No searches recorded yet.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% if items|length %}
+    <div class="tableview">
+        <table class="data fullwidth big">
+            <thead>
+                <tr>
+                    <th scope="col">Query</th>
+                    <th scope="col">Type</th>
+                    <th scope="col" class="rightalign">Results</th>
+                    <th scope="col" class="rightalign">Tokens</th>
+                    <th scope="col" class="rightalign">Cost</th>
+                    <th scope="col" class="rightalign">Duration</th>
+                    <th scope="col">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    {% set href = cpUrl(urlPath ~ '/' ~ item.id) %}
+                    <tr>
+                        <td>
+                            {% if item.detailsId %}
+                                <a href="{{ href }}">{{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}</a>
+                            {% else %}
+                                <span class="light">— cleared</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status {% if item.type == 'rag' %}on{% else %}orange{% endif %}"></span>
+                            {{ item.type }}
+                            {% if item.hasError %}<span class="status red" title="Error"></span>{% endif %}
+                        </td>
+                        <td class="rightalign{% if item.resultsCount == 0 %} light{% endif %}">{{ item.resultsCount }}</td>
+                        <td class="rightalign">{{ item.totalTokens|number_format }}{% if item.embeddingCached %} <span class="light" title="{{ cachedTitle }}">·c</span>{% endif %}</td>
+                        <td class="rightalign">${{ item.cost|number_format(6) }}</td>
+                        <td class="rightalign light">{{ item.durationMs|number_format }} ms</td>
+                        <td><span class="light" title="{{ item.dateCreated|date('Y-m-d H:i:s') }}">{{ item.dateCreated|date('M j, Y') }}</span></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="zilch small">No searches recorded yet.</div>
+{% endif %}

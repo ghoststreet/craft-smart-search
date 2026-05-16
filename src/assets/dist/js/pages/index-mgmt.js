@@ -141,8 +141,85 @@
         });
     }
 
+    function pollReindexJob(jobId, button) {
+        function tick() {
+            Craft.sendActionRequest('GET', 'ai-search/index/job-status', { params: { id: jobId } })
+                .then(function (r) {
+                    var data = (r && r.data) || {};
+                    if (data.done) {
+                        enableReindexButton(button);
+                        if (Craft.cp && Craft.cp.displayNotice) {
+                            Craft.cp.displayNotice(Craft.t('ai-search', 'Re-index finished.'));
+                        }
+                        return;
+                    }
+                    if (Craft.cp && typeof Craft.cp.runQueue === 'function') {
+                        Craft.cp.runQueue();
+                    }
+                    setTimeout(tick, 2000);
+                })
+                .catch(function (err) {
+                    if (window.console) console.error('Re-index poll failed', err);
+                    enableReindexButton(button);
+                });
+        }
+        setTimeout(tick, 1500);
+    }
+
+    function disableReindexButton(button) {
+        button.classList.add('disabled');
+        button.setAttribute('aria-disabled', 'true');
+        button.disabled = true;
+    }
+
+    function enableReindexButton(button) {
+        button.classList.remove('disabled');
+        button.removeAttribute('aria-disabled');
+        button.disabled = false;
+    }
+
+    function bindReindexForms() {
+        var forms = document.querySelectorAll('form[data-craftsearch-reindex="entry"]');
+        Array.prototype.forEach.call(forms, function (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                var button = form.querySelector('button[type="submit"]');
+                if (!button || button.classList.contains('disabled')) return;
+
+                disableReindexButton(button);
+
+                var payload = {
+                    elementId: parseInt(form.getAttribute('data-element-id'), 10),
+                    siteId: parseInt(form.getAttribute('data-site-id'), 10),
+                };
+
+                Craft.sendActionRequest('POST', 'ai-search/index/reindex-entry', { data: payload })
+                    .then(function (r) {
+                        var data = (r && r.data) || {};
+                        if (!data.success || !data.jobId) {
+                            if (window.console) console.error('Re-index push returned unexpected payload', data);
+                            enableReindexButton(button);
+                            return;
+                        }
+                        if (Craft.cp && typeof Craft.cp.runQueue === 'function') {
+                            Craft.cp.runQueue();
+                        }
+                        pollReindexJob(data.jobId, button);
+                    })
+                    .catch(function (err) {
+                        if (window.console) console.error('Re-index request failed', err);
+                        enableReindexButton(button);
+                    });
+            });
+        });
+    }
+
     ns.pages.indexMgmt = {
         init: function () {
+            bindReindexForms();
+
             var pane = DOM.find('reindex-progress');
             if (!pane) return;
 

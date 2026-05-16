@@ -1,6 +1,7 @@
 {#
     Filter field macros — small reusable form atoms used by the various
-    search/keyword/insights filter toolbars across the plugin.
+    search/keyword/insights filter toolbars across the plugin. Delegates to
+    Craft's native _includes/forms macros so the controls match CP styling.
 
     Usage:
         {% import 'ai-search/_components/filter-fields' as filters %}
@@ -8,82 +9,66 @@
         {{ filters.sitesSelect(sites, siteFilter) }}
         {{ filters.typeSelect(typeFilter) }}
         {{ filters.errorsOnlyCheckbox(errorsOnly) }}
+        {{ filters.submitButton() }}
 #}
+{% import "_includes/forms.twig" as forms %}
 
 {% macro daysSelect(daysFilter, label) %}
-    {% set label = label ?? 'Time Range' %}
-    <div class="field">
-        <div class="heading"><label>{{ label }}</label></div>
-        <div class="input">
-            <div class="select">
-                <select name="days">
-                    <option value="">All time</option>
-                    <option value="1"{% if daysFilter == 1 %} selected{% endif %}>Last 24 hours</option>
-                    <option value="7"{% if daysFilter == 7 %} selected{% endif %}>Last 7 days</option>
-                    <option value="30"{% if daysFilter == 30 %} selected{% endif %}>Last 30 days</option>
-                    <option value="90"{% if daysFilter == 90 %} selected{% endif %}>Last 90 days</option>
-                </select>
-            </div>
-        </div>
-    </div>
+    {% import "_includes/forms.twig" as forms %}
+    {{ forms.selectField({
+        label: label ?? 'Time range',
+        name: 'days',
+        value: daysFilter,
+        options: [
+            { label: 'All time', value: '' },
+            { label: 'Last 24 hours', value: 1 },
+            { label: 'Last 7 days', value: 7 },
+            { label: 'Last 30 days', value: 30 },
+            { label: 'Last 90 days', value: 90 },
+        ],
+    }) }}
 {% endmacro %}
 
 {% macro sitesSelect(sites, siteFilter) %}
+    {% import "_includes/forms.twig" as forms %}
     {% if sites is not empty %}
-        <div class="field">
-            <div class="heading"><label>Site</label></div>
-            <div class="input">
-                <div class="select">
-                    <select name="siteId">
-                        <option value="">All sites</option>
-                        {% for s in sites %}
-                            <option value="{{ s.id }}"{% if siteFilter == s.id %} selected{% endif %}>{{ s.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-        </div>
+        {% set options = [{ label: 'All sites', value: '' }] %}
+        {% for s in sites %}
+            {% set options = options|merge([{ label: s.name, value: s.id }]) %}
+        {% endfor %}
+        {{ forms.selectField({
+            label: 'Site',
+            name: 'siteId',
+            value: siteFilter,
+            options: options,
+        }) }}
     {% endif %}
 {% endmacro %}
 
 {% macro typeSelect(typeFilter) %}
-    <div class="field">
-        <div class="heading"><label>Type</label></div>
-        <div class="input">
-            <div class="select">
-                <select name="type">
-                    <option value="">All</option>
-                    <option value="semantic"{% if typeFilter == 'semantic' %} selected{% endif %}>Semantic</option>
-                    <option value="rag"{% if typeFilter == 'rag' %} selected{% endif %}>RAG</option>
-                </select>
-            </div>
-        </div>
-    </div>
+    {% import "_includes/forms.twig" as forms %}
+    {{ forms.selectField({
+        label: 'Type',
+        name: 'type',
+        value: typeFilter,
+        options: [
+            { label: 'All', value: '' },
+            { label: 'Semantic', value: 'semantic' },
+            { label: 'RAG', value: 'rag' },
+        ],
+    }) }}
 {% endmacro %}
 
 {% macro errorsOnlyCheckbox(errorsOnly, inline) %}
-    {% if inline ?? false %}
-        <div class="field">
-            <div class="heading"><label>&nbsp;</label></div>
-            <div class="input">
-                <label><input type="checkbox" name="errorsOnly" value="1"{% if errorsOnly %} checked{% endif %}> Errors only</label>
-            </div>
-        </div>
-    {% else %}
-        <div class="field">
-            <div class="heading"><label>&nbsp;</label></div>
-            <div class="input">
-                <label>
-                    <input type="checkbox" name="errorsOnly" value="1"{% if errorsOnly %} checked{% endif %}>
-                    Errors only
-                </label>
-            </div>
-        </div>
-    {% endif %}
+    {% import "_includes/forms.twig" as forms %}
+    {{ forms.checkboxField({
+        label: 'Errors only',
+        name: 'errorsOnly',
+        value: 1,
+        checked: errorsOnly,
+    }) }}
 {% endmacro %}
 
 {% macro submitButton(label) %}
-    <div class="field">
-        <button type="submit" class="btn">{{ label ?? 'Filter' }}</button>
-    </div>
+    <button type="submit" class="btn submit">{{ label ?? 'Filter' }}</button>
 {% endmacro %}

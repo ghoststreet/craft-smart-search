@@ -23,7 +23,7 @@ class IndexingDebugService extends Component
     public const STATUS_STALE = 'stale';
     public const STATUS_NOT_INDEXED = 'not-indexed';
 
-    public const PAGE_SIZE = 50;
+    public const PAGE_SIZE = 25;
 
     /**
      * List entries in the configured indexable sections with their indexing status.
