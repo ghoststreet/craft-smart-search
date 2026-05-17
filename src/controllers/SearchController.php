@@ -78,6 +78,10 @@ class SearchController extends BaseApiController
             return false;
         }
 
+        register_shutdown_function(function (): void {
+            $this->releaseRateLimit();
+        });
+
         return true;
     }
 
@@ -292,7 +296,7 @@ class SearchController extends BaseApiController
             return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
         }
 
-        if (AiSearch::getInstance()->rateLimitService->isGlobalBudgetExhausted()) {
+        if (RateLimitService::isFallbackToken($this->rateLimitToken)) {
             return $this->ragFallbackToHybrid($params);
         }
 
@@ -371,7 +375,7 @@ class SearchController extends BaseApiController
             return $response;
         }
 
-        if (AiSearch::getInstance()->rateLimitService->isGlobalBudgetExhausted()) {
+        if (RateLimitService::isFallbackToken($this->rateLimitToken)) {
             $this->ragStreamFallbackToHybrid($params);
             $this->releaseRateLimit();
             Craft::$app->end();

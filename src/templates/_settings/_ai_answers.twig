@@ -43,14 +43,16 @@
 
     {{ forms.textField({
         label: 'AI answers per minute (per IP)',
+        instructions: '0 disables this window.',
         id: 'rateLimitRagPerMinute', name: 'rateLimitRagPerMinute',
-        value: settings.rateLimitRagPerMinute, type: 'number', min: '1', max: '100000',
+        value: settings.rateLimitRagPerMinute, type: 'number', min: '0', max: '100000',
         required: true, errors: settings.getErrors('rateLimitRagPerMinute'),
     }) }}
     {{ forms.textField({
         label: 'AI answers per hour (per IP)',
+        instructions: '0 disables this window.',
         id: 'rateLimitRagPerHour', name: 'rateLimitRagPerHour',
-        value: settings.rateLimitRagPerHour, type: 'number', min: '1', max: '100000',
+        value: settings.rateLimitRagPerHour, type: 'number', min: '0', max: '100000',
         required: true, errors: settings.getErrors('rateLimitRagPerHour'),
     }) }}
     {{ forms.textField({

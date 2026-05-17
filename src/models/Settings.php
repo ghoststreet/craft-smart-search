@@ -223,8 +223,8 @@ class Settings extends Model
             [['excerptLength'], 'integer', 'min' => 50, 'max' => 500, 'on' => $hybridSearch],
             [['excerptLength'], 'default', 'value' => 200],
 
-            // Hybrid Search — rate limits
-            [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $hybridSearch],
+            // Hybrid Search — rate limits (0 disables the window)
+            [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $hybridSearch],
 
             // AI Answers — models and prompt
             [['ragModel'], 'required', 'on' => $aiAnswers],
@@ -236,8 +236,8 @@ class Settings extends Model
 
             // AI Answers — budget + limits
             [['costBudgetDailyGlobal'], 'number', 'min' => 0, 'on' => $aiAnswers],
-            [['rateLimitRagPerMinute', 'rateLimitRagPerHour',
-              'ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $aiAnswers],
+            [['rateLimitRagPerMinute', 'rateLimitRagPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $aiAnswers],
+            [['ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $aiAnswers],
 
             // Operations — API access
             [['apiToken'], 'string', 'on' => $operations],

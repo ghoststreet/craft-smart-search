@@ -8,8 +8,10 @@ use ghoststreet\craftaisearch\exceptions\RateLimitException;
 use yii\base\Component;
 
 /**
- * Counter atomicity is best-effort under the default file/db cache; deploy
- * with Redis/Memcached for stricter guarantees under high concurrency.
+ * Per-IP request limits, RAG concurrency caps, and the daily cost budget.
+ *
+ * Counter mutations are serialized with Craft's Mutex component so cache reads
+ * and writes are atomic regardless of the configured cache backend.
  */
 class RateLimitService extends Component
 {
@@ -18,9 +20,12 @@ class RateLimitService extends Component
 
     private const WINDOW_MINUTE = 60;
     private const WINDOW_HOUR = 3600;
-    private const WINDOW_DAY = 86400;
 
     private const CONCURRENCY_TTL = 120;
+
+    private const MUTEX_WAIT_SECONDS = 2;
+
+    private const RAG_ADMIT_MUTEX = 'mtx:rl:rag:admit';
 
     /** @throws RateLimitException */
     public function acquire(string $kind, string $ip): string
@@ -35,30 +40,50 @@ class RateLimitService extends Component
         $this->enforceWindow("rate:{$kind}:m:{$ip}", $perMin, self::WINDOW_MINUTE);
         $this->enforceWindow("rate:{$kind}:h:{$ip}", $perHour, self::WINDOW_HOUR);
 
-        if ($kind === self::KIND_RAG) {
-            $this->incrementConcurrency("conc:rag:ip:{$ip}", $settings->ragConcurrencyPerIp, 'per-IP');
-            try {
-                $this->incrementConcurrency('conc:rag:global', $settings->ragConcurrencyGlobal, 'global');
-            } catch (RateLimitException $e) {
-                $this->decrementConcurrency("conc:rag:ip:{$ip}");
-                throw $e;
-            }
-
-            return 'rag:' . $ip;
+        if ($kind !== self::KIND_RAG) {
+            return '';
         }
 
-        return '';
+        $this->lock(self::RAG_ADMIT_MUTEX);
+        try {
+            if ($this->isGlobalBudgetExhausted()) {
+                return 'rag:fallback:' . $ip;
+            }
+
+            $this->incrementGaugeLocked("conc:rag:ip:{$ip}", $settings->ragConcurrencyPerIp, 'per-IP');
+            try {
+                $this->incrementGaugeLocked('conc:rag:global', $settings->ragConcurrencyGlobal, 'global');
+            } catch (RateLimitException $e) {
+                $this->decrementGaugeLocked("conc:rag:ip:{$ip}");
+                throw $e;
+            }
+        } finally {
+            $this->unlock(self::RAG_ADMIT_MUTEX);
+        }
+
+        return 'rag:ok:' . $ip;
     }
 
     public function release(string $token): void
     {
-        if ($token === '' || !str_starts_with($token, 'rag:')) {
+        if ($token === '' || !str_starts_with($token, 'rag:ok:')) {
             return;
         }
 
-        $ip = substr($token, 4);
-        $this->decrementConcurrency("conc:rag:ip:{$ip}");
-        $this->decrementConcurrency('conc:rag:global');
+        $ip = substr($token, 7);
+
+        $this->lock(self::RAG_ADMIT_MUTEX);
+        try {
+            $this->decrementGaugeLocked("conc:rag:ip:{$ip}");
+            $this->decrementGaugeLocked('conc:rag:global');
+        } finally {
+            $this->unlock(self::RAG_ADMIT_MUTEX);
+        }
+    }
+
+    public static function isFallbackToken(string $token): bool
+    {
+        return str_starts_with($token, 'rag:fallback:');
     }
 
     /**
@@ -70,7 +95,7 @@ class RateLimitService extends Component
     {
         $settings = AiSearch::getInstance()->getSettings();
         $cap = (float)$settings->costBudgetDailyGlobal;
-        $spent = (float)Craft::$app->getCache()->get('cost:daily:global');
+        $spent = (float)Craft::$app->getCache()->get($this->todayBudgetKey());
         if ($spent < 0) {
             $spent = 0.0;
         }
@@ -98,7 +123,17 @@ class RateLimitService extends Component
             return;
         }
 
-        $this->addToBudget('cost:daily:global', $costUsd);
+        $key = $this->todayBudgetKey();
+        $mutexKey = "mtx:rl:budget";
+
+        $this->lock($mutexKey);
+        try {
+            $cache = Craft::$app->getCache();
+            $current = (float)$cache->get($key);
+            $cache->set($key, $current + $costUsd, $this->secondsUntilUtcMidnight() + 3600);
+        } finally {
+            $this->unlock($mutexKey);
+        }
     }
 
     /**
@@ -112,27 +147,73 @@ class RateLimitService extends Component
             return false;
         }
 
-        $spent = (float)Craft::$app->getCache()->get('cost:daily:global');
+        $spent = (float)Craft::$app->getCache()->get($this->todayBudgetKey());
         return $spent >= $cap;
     }
 
-    private function enforceWindow(string $key, int $max, int $ttl): void
+    /**
+     * Sliding-window counter: blend the previous full window's count (weighted
+     * by how far we are into the current window) with the running count of the
+     * current window. Eliminates the 2× burst that fixed windows allow at the
+     * boundary, and yields an honest Retry-After.
+     */
+    private function enforceWindow(string $keyBase, int $max, int $window): void
     {
-        $cache = Craft::$app->getCache();
-        $cache->add($key, 0, $ttl);
-        $current = (int)$cache->get($key);
-
-        if ($current >= $max) {
-            throw RateLimitException::tooManyRequests($ttl);
+        if ($max <= 0) {
+            return;
         }
 
-        $cache->set($key, $current + 1, $ttl);
+        $cache = Craft::$app->getCache();
+        $now = time();
+        $slot = intdiv($now, $window);
+        $elapsed = $now - ($slot * $window);
+        $weight = ($window - $elapsed) / $window;
+
+        $currKey = "{$keyBase}:{$slot}";
+        $prevKey = "{$keyBase}:" . ($slot - 1);
+        $mutexKey = "mtx:rl:{$keyBase}";
+
+        $this->lock($mutexKey);
+        try {
+            $curr = (int)$cache->get($currKey);
+            $prev = (int)$cache->get($prevKey);
+            $estimated = ($prev * $weight) + $curr;
+
+            if ($estimated >= $max) {
+                throw RateLimitException::tooManyRequests($this->retryAfterFor($prev, $curr, $max, $window, $elapsed));
+            }
+
+            $cache->set($currKey, $curr + 1, $window * 2);
+        } finally {
+            $this->unlock($mutexKey);
+        }
     }
 
-    private function incrementConcurrency(string $key, int $max, string $scope): void
+    /**
+     * Seconds until the sliding estimate drops below the cap, assuming no new
+     * traffic. Bounded by the remaining current window — once we cross it the
+     * previous bucket disappears entirely.
+     */
+    private function retryAfterFor(int $prev, int $curr, int $max, int $window, int $elapsed): int
+    {
+        $windowRemaining = max(1, $window - $elapsed);
+
+        if ($prev <= 0) {
+            return $windowRemaining;
+        }
+
+        $slack = $max - $curr - 1;
+        if ($slack < 0) {
+            return $windowRemaining;
+        }
+
+        $delta = (int)ceil($window - $elapsed - ($slack * $window / $prev));
+        return max(1, min($windowRemaining, $delta));
+    }
+
+    private function incrementGaugeLocked(string $key, int $max, string $scope): void
     {
         $cache = Craft::$app->getCache();
-        $cache->add($key, 0, self::CONCURRENCY_TTL);
         $current = (int)$cache->get($key);
 
         if ($current >= $max) {
@@ -142,7 +223,7 @@ class RateLimitService extends Component
         $cache->set($key, $current + 1, self::CONCURRENCY_TTL);
     }
 
-    private function decrementConcurrency(string $key): void
+    private function decrementGaugeLocked(string $key): void
     {
         $cache = Craft::$app->getCache();
         $current = (int)$cache->get($key);
@@ -154,11 +235,25 @@ class RateLimitService extends Component
         $cache->set($key, $current - 1, self::CONCURRENCY_TTL);
     }
 
-    private function addToBudget(string $key, float $costUsd): void
+    private function lock(string $key): void
     {
-        $cache = Craft::$app->getCache();
-        $cache->add($key, 0.0, self::WINDOW_DAY);
-        $current = (float)$cache->get($key);
-        $cache->set($key, $current + $costUsd, self::WINDOW_DAY);
+        if (!Craft::$app->getMutex()->acquire($key, self::MUTEX_WAIT_SECONDS)) {
+            throw RateLimitException::tooManyRequests(1);
+        }
+    }
+
+    private function unlock(string $key): void
+    {
+        Craft::$app->getMutex()->release($key);
+    }
+
+    private function todayBudgetKey(): string
+    {
+        return 'cost:daily:global:' . gmdate('Y-m-d');
+    }
+
+    private function secondsUntilUtcMidnight(): int
+    {
+        return 86400 - (time() % 86400);
     }
 }

@@ -99,18 +99,21 @@
 <hr>
 
 <h2>Rate limits</h2>
+<p class="light">Set to <code>0</code> to disable a window. Per-IP buckets rely on the real client IP, so make sure Craft's <code>request.trustedHosts</code> / <code>ipHeaders</code> are configured if you run behind a reverse proxy or CDN — otherwise every request will appear to come from the proxy.</p>
 
 {% namespace 'settings' %}
     {{ forms.textField({
         label: 'Search per minute (per IP)',
+        instructions: '0 disables this window.',
         id: 'rateLimitSearchPerMinute', name: 'rateLimitSearchPerMinute',
-        value: settings.rateLimitSearchPerMinute, type: 'number', min: '1', max: '100000',
+        value: settings.rateLimitSearchPerMinute, type: 'number', min: '0', max: '100000',
         required: true, errors: settings.getErrors('rateLimitSearchPerMinute'),
     }) }}
     {{ forms.textField({
         label: 'Search per hour (per IP)',
+        instructions: '0 disables this window.',
         id: 'rateLimitSearchPerHour', name: 'rateLimitSearchPerHour',
-        value: settings.rateLimitSearchPerHour, type: 'number', min: '1', max: '100000',
+        value: settings.rateLimitSearchPerHour, type: 'number', min: '0', max: '100000',
         required: true, errors: settings.getErrors('rateLimitSearchPerHour'),
     }) }}
 {% endnamespace %}
