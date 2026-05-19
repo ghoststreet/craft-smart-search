@@ -6,7 +6,6 @@ use craft\elements\Entry;
 use ghoststreet\craftaisearch\AiSearch;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TimingProfiler;
-use ghoststreet\craftaisearch\models\Settings;
 use yii\base\Component;
 
 /**
@@ -60,7 +59,25 @@ class HybridSearchService extends Component
             'totalUniqueCandidates' => count($allIds),
         ]);
 
-        $scoredResults = $this->calculateRRFScores($allIds, $semanticLookup, $bm25Lookup, $settings);
+        $scoredResults = (new RrfFuser())->fuse(
+            $semanticLookup,
+            $bm25Lookup,
+            $settings->rrfK,
+            $settings->rrfSemanticWeight,
+            $settings->rrfBm25Weight,
+            $settings->singleSignalPenalty,
+            $settings->minSemanticThreshold,
+        );
+
+        Logger::debug('RRF signal breakdown', [
+            'totalCandidates' => count($allIds),
+            'survived' => count($scoredResults),
+            'dropped' => count($allIds) - count($scoredResults),
+            'minSemanticThreshold' => $settings->minSemanticThreshold,
+            'singleSignalPenalty' => $settings->singleSignalPenalty,
+            'rrfSemanticWeight' => $settings->rrfSemanticWeight,
+            'rrfBm25Weight' => $settings->rrfBm25Weight,
+        ]);
 
         Logger::debug('RRF scoring complete', [
             'survivedRRF' => count($scoredResults),
@@ -175,80 +192,4 @@ class HybridSearchService extends Component
         return $results;
     }
 
-    /**
-     * Compute Reciprocal Rank Fusion scores for all candidate elements.
-     *
-     * RRF formula per signal: weight / (k + rank). The k constant (default 60)
-     * dampens the influence of rank position — higher k produces more uniform
-     * scores across ranks. Results appearing in only one signal (semantic OR
-     * keyword, but not both) are multiplied by singleSignalPenalty to reduce
-     * noise from single-source matches. Elements that appear only in semantic
-     * results must also exceed minSemanticThreshold to be included.
-     */
-    private function calculateRRFScores(array $allIds, array $semanticLookup, array $bm25Lookup, Settings $settings): array
-    {
-        $k = $settings->rrfK;
-        $semanticWeight = $settings->rrfSemanticWeight;
-        $bm25Weight = $settings->rrfBm25Weight;
-
-        $scoredResults = [];
-        $droppedByMinSemanticThreshold = 0;
-        $singleSignalPenalized = 0;
-        $bothSignals = 0;
-        foreach ($allIds as $id) {
-            $hasSemantic = isset($semanticLookup[$id]);
-            $hasBm25 = isset($bm25Lookup[$id]);
-            $semanticScore = $hasSemantic ? $semanticLookup[$id]['score'] : 0;
-
-            if ($hasSemantic && !$hasBm25 && $semanticScore < $settings->minSemanticThreshold) {
-                $droppedByMinSemanticThreshold++;
-                continue;
-            }
-
-            if (!$hasSemantic && !$hasBm25) {
-                continue;
-            }
-
-            $rrfScore = 0;
-            $isSingleSignal = !($hasSemantic && $hasBm25);
-            if ($isSingleSignal) {
-                $singleSignalPenalized++;
-            } else {
-                $bothSignals++;
-            }
-
-            if ($hasSemantic) {
-                $rrfScore += $semanticWeight / ($k + $semanticLookup[$id]['rank']);
-            }
-            if ($hasBm25) {
-                $rrfScore += $bm25Weight / ($k + $bm25Lookup[$id]['rank']);
-            }
-
-            $rrfScore *= $isSingleSignal ? $settings->singleSignalPenalty : 1.0;
-
-            $scoredResults[$id] = [
-                'rrfScore' => $rrfScore,
-                'semanticScore' => $semanticScore,
-                'semanticRank' => $hasSemantic ? $semanticLookup[$id]['rank'] : null,
-                'bm25Score' => $hasBm25 ? $bm25Lookup[$id]['score'] : 0.0,
-                'bm25Rank' => $hasBm25 ? $bm25Lookup[$id]['rank'] : null,
-                'content' => $hasSemantic
-                    ? $semanticLookup[$id]['content']
-                    : ($hasBm25 ? ($bm25Lookup[$id]['content'] ?? '') : ''),
-            ];
-        }
-
-        Logger::debug('RRF signal breakdown', [
-            'totalCandidates' => count($allIds),
-            'droppedByMinSemanticThreshold' => $droppedByMinSemanticThreshold,
-            'singleSignalPenalized' => $singleSignalPenalized,
-            'bothSignals' => $bothSignals,
-            'minSemanticThreshold' => $settings->minSemanticThreshold,
-            'singleSignalPenalty' => $settings->singleSignalPenalty,
-            'rrfSemanticWeight' => $settings->rrfSemanticWeight,
-            'rrfBm25Weight' => $settings->rrfBm25Weight,
-        ]);
-
-        return $scoredResults;
-    }
 }

@@ -31,7 +31,7 @@ final class RequestParameterExtractor
 
         $rawQuery = (string)$request->getParam('q', '');
         $query = TextValidator::sanitizeQuery($rawQuery);
-        $limit = ApiResponseHelper::validateLimit(
+        $limit = ApiResponseHelper::clampLimit(
             (int)$request->getParam('limit', $defaultLimit)
         );
 

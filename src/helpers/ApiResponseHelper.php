@@ -20,7 +20,7 @@ use yii\web\Response;
  */
 final class ApiResponseHelper
 {
-    public const MAX_LIMIT = 100;
+    public const MAX_QUERY_LIMIT = 100;
     public const MAX_QUERY_LENGTH = 150;
 
     /**
@@ -91,12 +91,16 @@ final class ApiResponseHelper
         return null;
     }
 
-    public static function validateLimit(int $limit, int $default = 10): int
+    /**
+     * Clamp a caller-supplied result limit into the safe range [1, MAX_QUERY_LIMIT].
+     *
+     * Out-of-range or non-positive values fall back to $default; $default is
+     * itself clamped, so internal callers don't need to pre-sanitize. Never
+     * throws — this is silent normalization, not validation.
+     */
+    public static function clampLimit(int $limit, int $default = 10): int
     {
-        if ($limit < 1) {
-            return $default;
-        }
-
-        return min($limit, self::MAX_LIMIT);
+        $effective = $limit < 1 ? $default : $limit;
+        return min(max(1, $effective), self::MAX_QUERY_LIMIT);
     }
 }

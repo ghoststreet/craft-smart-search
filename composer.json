@@ -10,6 +10,7 @@
     "php": ">=8.2",
     "craftcms/cms": "^5.0",
     "openai-php/client": "^0.18",
+    "pgvector/pgvector": "^0.2",
     "ext-pdo": "*",
     "ext-pdo_pgsql": "*"
   },
@@ -41,7 +42,8 @@
     },
     "allow-plugins": {
       "yiisoft/yii2-composer": true,
-      "craftcms/plugin-installer": true
+      "craftcms/plugin-installer": true,
+      "php-http/discovery": true
     }
   }
 }

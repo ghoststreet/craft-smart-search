@@ -41,7 +41,7 @@ class Settings extends Model
     public string $ragModel = 'gpt-5.4-nano';
     public ?string $ragCustomPrompt = null;
 
-    public int $maxPromptTokens = 6000;
+    public int $maxPromptTokens = 12000;
 
     public int $minChunkTokens = 100;
     public int $targetChunkTokens = 400;
@@ -299,11 +299,28 @@ class Settings extends Model
             if ($entry === '') {
                 continue;
             }
-            if (!preg_match('#^https?://[^/\s:]+(:\d+)?$#', $entry)) {
-                $this->addError($attribute, 'Each origin must be like https://app.example.com (scheme, host, optional port; no path).');
+            if (!self::isValidOrigin($entry)) {
+                $this->addError($attribute, 'Each origin must be like https://app.example.com (scheme, host, optional port; no path, query, fragment, or wildcard).');
                 return;
             }
         }
+    }
+
+    /**
+     * True when $origin is a scheme://host[:port] string safe to use in a
+     * CORS-style allowlist: http(s) scheme, DNS-safe host (letters, digits,
+     * dot, hyphen with no leading/trailing hyphen per label), optional port.
+     *
+     * Wildcards, query strings, fragments, paths, and userinfo are rejected
+     * — loose matching here is a cross-origin abuse vector once the value
+     * flows into SearchController::enforceOriginAllowlist().
+     */
+    private static function isValidOrigin(string $origin): bool
+    {
+        return (bool)preg_match(
+            '#^https?://[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)*(:\d+)?$#i',
+            $origin,
+        );
     }
 
     /**
@@ -379,7 +396,12 @@ class Settings extends Model
      */
     public function getApiToken(): ?string
     {
-        return $this->parseEnvOrNull($this->apiToken);
+        $token = $this->parseEnvOrNull($this->apiToken);
+        if ($token === null) {
+            return null;
+        }
+        $trimmed = trim($token);
+        return $trimmed === '' ? null : $trimmed;
     }
 
     public function getQualifiedVectorsTable(): string

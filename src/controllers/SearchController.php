@@ -47,6 +47,10 @@ class SearchController extends BaseApiController
     /**
      * Gate every request through CSRF, origin allowlist, optional bearer token,
      * and the per-action rate limiter. Stamps the request with a correlation id.
+     *
+     * Check order matters: bearer auth runs before the origin allowlist because
+     * the allowlist's S2S bypass trusts apiToken-authenticated callers — that
+     * trust is only sound if the token was already validated.
      */
     public function beforeAction($action): bool
     {
@@ -59,16 +63,16 @@ class SearchController extends BaseApiController
 
         $request = Craft::$app->getRequest();
 
-        // Yii's enableCsrfValidation only fires on unsafe methods; re-validate so GET is gated too.
         $this->requireCsrfToken($request);
 
-        $this->enforceOriginAllowlist($request);
         $this->enforceBearerTokenIfConfigured($request);
+        $this->enforceOriginAllowlist($request);
 
         $kind = match ($action->id) {
             'rag-search', 'rag-stream' => RateLimitService::KIND_RAG,
             default => RateLimitService::KIND_SEARCH,
         };
+
         $ip = (string)($request->getUserIP() ?? '0.0.0.0');
 
         try {
@@ -113,6 +117,10 @@ class SearchController extends BaseApiController
 
     private function requireCsrfToken($request): void
     {
+        if (!Craft::$app->getConfig()->getGeneral()->enableCsrfProtection) {
+            return;
+        }
+
         $tokenName = Craft::$app->getConfig()->getGeneral()->csrfTokenName;
         $presented = (string)(
             $request->getHeaders()->get('X-CSRF-Token')
@@ -130,28 +138,55 @@ class SearchController extends BaseApiController
         }
     }
 
+    /**
+     * Reject cross-origin requests that aren't on the configured allowlist.
+     *
+     * Header-less requests (no Origin and no Referer — local dev, same-server
+     * curl, CI) pass only when no allowlist is set, or when apiToken auth
+     * (validated upstream in beforeAction) proves an S2S caller. Once an
+     * allowlist is configured without apiToken, header-less requests are
+     * rejected because they cannot be matched.
+     */
     private function enforceOriginAllowlist($request): void
     {
         $origin = (string)$request->getHeaders()->get('Origin');
         $referer = (string)$request->getHeaders()->get('Referer');
 
         if ($origin === '' && $referer === '') {
-            return;
+            $settings = AiSearch::getInstance()->getSettings();
+
+            if (empty($settings->getAllowedOriginsList())) {
+                return;
+            }
+
+            if (!empty($settings->getApiToken())) {
+                return;
+            }
+
+            Logger::warning('origin rejected — no Origin/Referer header against configured allowlist', [
+                'requestId' => $this->requestId,
+                'ip' => $request->getUserIP(),
+            ]);
+
+            throw new ForbiddenHttpException('Origin or Referer header required.');
         }
 
         $candidate = $origin !== '' ? $origin : $referer;
         $candidateHost = parse_url($candidate, PHP_URL_SCHEME) . '://' . parse_url($candidate, PHP_URL_HOST);
         $port = parse_url($candidate, PHP_URL_PORT);
+
         if ($port) {
             $candidateHost .= ":{$port}";
         }
 
         $siteHost = $request->getHostInfo();
+
         if ($candidateHost === $siteHost) {
             return;
         }
 
         $allowed = AiSearch::getInstance()->getSettings()->getAllowedOriginsList();
+
         if (in_array($candidateHost, $allowed, true)) {
             return;
         }
@@ -345,6 +380,10 @@ class SearchController extends BaseApiController
      *   event: token    data: {t: "..."}
      *   event: done     data: {}
      *   event: error    data: {message: "..."}
+     *
+     * Accepts GET because EventSource cannot POST. CSRF is still enforced via
+     * requireCsrfToken() in beforeAction — the widget passes the token in the
+     * query string, which an <img src> or cross-origin attacker cannot forge.
      */
     public function actionRagStream(): Response
     {

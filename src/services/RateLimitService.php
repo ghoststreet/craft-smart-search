@@ -21,33 +21,64 @@ class RateLimitService extends Component
     private const WINDOW_MINUTE = 60;
     private const WINDOW_HOUR = 3600;
 
-    private const CONCURRENCY_TTL = 120;
+    /**
+     * How long a RAG concurrency slot can be held before the gauge entry
+     * expires on its own. Sized to cover the longest realistic streaming
+     * response (typical generation + safety margin); if a request runs past
+     * this, both the nonce and the gauge slot expire together, so the slot
+     * is reclaimed cleanly without over-admission.
+     */
+    private const CONCURRENCY_TTL = 900;
 
     private const MUTEX_WAIT_SECONDS = 2;
 
     private const RAG_ADMIT_MUTEX = 'mtx:rl:rag:admit';
 
-    /** @throws RateLimitException */
+    private const TOKEN_OK_PREFIX = 'rag:ok:';
+    private const TOKEN_FALLBACK_PREFIX = 'rag:fallback:';
+    private const NONCE_KEY_PREFIX = 'conc:rag:nonce:';
+
+    /**
+     * Admit a request and return an opaque token. Caller MUST pass the token
+     * back to release() exactly once when the request completes.
+     *
+     * RAG ordering is deliberate:
+     *   1. Budget kill-switch (no rate-limit window consumed on the fallback path
+     *      — a budget-exhausted request must not also count against the IP's
+     *      regular RAG quota).
+     *   2. Per-IP sliding-window rate limits.
+     *   3. Concurrency gauges + single-use nonce.
+     *
+     * @throws RateLimitException when a window cap or concurrency gauge is exceeded.
+     */
     public function acquire(string $kind, string $ip): string
     {
         $settings = AiSearch::getInstance()->getSettings();
 
-        [$perMin, $perHour] = match ($kind) {
-            self::KIND_RAG => [$settings->rateLimitRagPerMinute, $settings->rateLimitRagPerHour],
-            default => [$settings->rateLimitSearchPerMinute, $settings->rateLimitSearchPerHour],
-        };
-
-        $this->enforceWindow("rate:{$kind}:m:{$ip}", $perMin, self::WINDOW_MINUTE);
-        $this->enforceWindow("rate:{$kind}:h:{$ip}", $perHour, self::WINDOW_HOUR);
-
         if ($kind !== self::KIND_RAG) {
+            $this->enforceWindow("rate:{$kind}:m:{$ip}", $settings->rateLimitSearchPerMinute, self::WINDOW_MINUTE);
+            $this->enforceWindow("rate:{$kind}:h:{$ip}", $settings->rateLimitSearchPerHour, self::WINDOW_HOUR);
             return '';
         }
 
         $this->lock(self::RAG_ADMIT_MUTEX);
         try {
             if ($this->isGlobalBudgetExhausted()) {
-                return 'rag:fallback:' . $ip;
+                return self::TOKEN_FALLBACK_PREFIX . $ip;
+            }
+        } finally {
+            $this->unlock(self::RAG_ADMIT_MUTEX);
+        }
+
+        $this->enforceWindow("rate:rag:m:{$ip}", $settings->rateLimitRagPerMinute, self::WINDOW_MINUTE);
+        $this->enforceWindow("rate:rag:h:{$ip}", $settings->rateLimitRagPerHour, self::WINDOW_HOUR);
+
+        $nonce = bin2hex(random_bytes(8));
+
+        $this->lock(self::RAG_ADMIT_MUTEX);
+        try {
+            if ($this->isGlobalBudgetExhausted()) {
+                return self::TOKEN_FALLBACK_PREFIX . $ip;
             }
 
             $this->incrementGaugeLocked("conc:rag:ip:{$ip}", $settings->ragConcurrencyPerIp, 'per-IP');
@@ -57,23 +88,45 @@ class RateLimitService extends Component
                 $this->decrementGaugeLocked("conc:rag:ip:{$ip}");
                 throw $e;
             }
+
+            Craft::$app->getCache()->set(self::NONCE_KEY_PREFIX . $nonce, $ip, self::CONCURRENCY_TTL);
         } finally {
             $this->unlock(self::RAG_ADMIT_MUTEX);
         }
 
-        return 'rag:ok:' . $ip;
+        return self::TOKEN_OK_PREFIX . $nonce . ':' . $ip;
     }
 
+    /**
+     * Release a RAG slot. Idempotent: the per-token nonce is consumed atomically
+     * under the admit mutex, so a second release() for the same token is a no-op
+     * — concurrency gauges are decremented exactly once per acquire.
+     *
+     * Tokens from non-RAG acquires (empty string) and fallback tokens are ignored.
+     */
     public function release(string $token): void
     {
-        if ($token === '' || !str_starts_with($token, 'rag:ok:')) {
+        if ($token === '' || !str_starts_with($token, self::TOKEN_OK_PREFIX)) {
             return;
         }
 
-        $ip = substr($token, 7);
+        $rest = substr($token, strlen(self::TOKEN_OK_PREFIX));
+        $colon = strpos($rest, ':');
+        if ($colon === false) {
+            return;
+        }
+        $nonce = substr($rest, 0, $colon);
+        $ip = substr($rest, $colon + 1);
+
+        $nonceKey = self::NONCE_KEY_PREFIX . $nonce;
 
         $this->lock(self::RAG_ADMIT_MUTEX);
         try {
+            $cache = Craft::$app->getCache();
+            if ($cache->get($nonceKey) === false) {
+                return;
+            }
+            $cache->delete($nonceKey);
             $this->decrementGaugeLocked("conc:rag:ip:{$ip}");
             $this->decrementGaugeLocked('conc:rag:global');
         } finally {
@@ -83,7 +136,7 @@ class RateLimitService extends Component
 
     public static function isFallbackToken(string $token): bool
     {
-        return str_starts_with($token, 'rag:fallback:');
+        return str_starts_with($token, self::TOKEN_FALLBACK_PREFIX);
     }
 
     /**

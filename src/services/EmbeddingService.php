@@ -24,10 +24,10 @@ use ghoststreet\craftaisearch\helpers\TextValidator;
 use ghoststreet\craftaisearch\helpers\TokenEstimator;
 use ghoststreet\craftaisearch\models\Settings;
 use ghoststreet\craftaisearch\helpers\UsageTracker;
-use ghoststreet\craftaisearch\helpers\VectorFormatter;
 use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
 use PDOException;
+use Pgvector\Vector;
 use yii\base\Component;
 
 /**
@@ -714,7 +714,7 @@ class EmbeddingService extends Component
         $db = $databaseService->getConnection();
         $table = $databaseService->getQualifiedTable();
 
-        $vectorString = VectorFormatter::toPgVector($vector);
+        $vectorString = (string) new Vector($vector);
 
         try {
             $stmt = $db->prepare("

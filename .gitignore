@@ -1,6 +1,11 @@
 # COMPOSER
 /vendor
 
+# TESTS
+/tests/_output
+/tests/.env
+/tests/_craft/storage
+
 # MISC FILES
 .cache
 .DS_Store

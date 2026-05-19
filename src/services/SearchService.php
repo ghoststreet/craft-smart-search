@@ -8,8 +8,8 @@ use ghoststreet\craftaisearch\exceptions\SearchException;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\SearchResultDeduplicator;
 use ghoststreet\craftaisearch\helpers\TimingProfiler;
-use ghoststreet\craftaisearch\helpers\VectorFormatter;
 use PDO;
+use Pgvector\Vector;
 use PDOException;
 use yii\base\Component;
 
@@ -73,7 +73,7 @@ class SearchService extends Component
             );
         }
 
-        $queryVectorString = VectorFormatter::toPgVector($queryVector);
+        $queryVectorString = (string) new Vector($queryVector);
 
         $settings = AiSearch::getInstance()->getSettings();
         $similarityThreshold = $applyThreshold ? max(0.0, min(1.0, (float)$settings->minimumSimilarityThreshold)) : 0.0;

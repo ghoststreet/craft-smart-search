@@ -9,7 +9,6 @@ use ghoststreet\craftaisearch\exceptions\SearchException;
 use ghoststreet\craftaisearch\helpers\Logger;
 use ghoststreet\craftaisearch\helpers\TextValidator;
 use ghoststreet\craftaisearch\helpers\TimingProfiler;
-use ghoststreet\craftaisearch\helpers\TokenEstimator;
 use ghoststreet\craftaisearch\helpers\UsageTracker;
 use ghoststreet\craftaisearch\models\Settings;
 use RuntimeException;
@@ -101,53 +100,34 @@ class RagSearchService extends Component
 
     /**
      * Build a structured context string from search results for LLM consumption.
-     *
-     * Each source is formatted as a labelled block with ID, title, URL, and content
-     * so the LLM can reference specific sources in its response.
+     * Delegates the packing math to RagPromptBuilder so the same logic is unit-
+     * testable in isolation.
      */
     private function buildContext(array $searchResults, int $tokenBudget = PHP_INT_MAX): string
     {
-        $contextBlocks = [];
-        $perSource = [];
-        $usedTokens = 0;
-        $droppedAtIndex = null;
-
-        foreach ($searchResults as $i => $result) {
+        $sources = [];
+        foreach ($searchResults as $result) {
             $element = $result['element'];
-            $rawContent = (string)($result['content'] ?? '');
-
-            $content = TextValidator::sanitizeQuery($rawContent);
-
-            $block = "---\nOUR PAGE {$element->id}\nTitle: {$element->title}\nURL: {$element->getUrl()}\nContent:\n{$content}\n---";
-            $blockTokens = TokenEstimator::estimateTokens($block);
-
-            if ($usedTokens + $blockTokens > $tokenBudget && !empty($contextBlocks)) {
-                $droppedAtIndex = $i;
-                break;
-            }
-
-            $contextBlocks[] = $block;
-            $usedTokens += $blockTokens;
-
-            $perSource[] = [
+            $sources[] = [
                 'id' => $element->id,
-                'chars' => strlen($content),
-                'tokens' => TokenEstimator::estimateTokens($content),
+                'title' => (string)$element->title,
+                'url' => (string)$element->getUrl(),
+                'content' => (string)($result['content'] ?? ''),
             ];
         }
 
-        $context = implode("\n\n", $contextBlocks);
+        $packed = (new RagPromptBuilder())->buildContext($sources, $tokenBudget);
 
         Logger::debug('RAG context breakdown', [
-            'sourceCount' => count($contextBlocks),
-            'totalChars' => strlen($context),
-            'estimatedTotalTokens' => $usedTokens,
+            'sourceCount' => $packed['includedCount'],
+            'totalChars' => strlen($packed['context']),
+            'estimatedTotalTokens' => $packed['usedTokens'],
             'tokenBudget' => $tokenBudget,
-            'droppedAtIndex' => $droppedAtIndex,
-            'perSource' => $perSource,
+            'droppedAtIndex' => $packed['droppedAtIndex'],
+            'totalCandidates' => count($searchResults),
         ]);
 
-        return $context;
+        return $packed['context'];
     }
 
     /**
@@ -405,13 +385,7 @@ PROMPT;
      */
     private function contextTokenBudget(Settings $settings, string $query): int
     {
-        $systemReserve = 1200;
-        $queryReserve = TokenEstimator::estimateTokens($query) + 64;
-        $outputReserve = 800;
-
-        $budget = $settings->maxPromptTokens - $systemReserve - $queryReserve - $outputReserve;
-
-        return max(500, $budget);
+        return (new RagPromptBuilder())->computeContextBudget($settings->maxPromptTokens, $query);
     }
 
     private function buildSourceList(array $results, int $limit): array
