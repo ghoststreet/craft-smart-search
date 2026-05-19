@@ -13,16 +13,6 @@
 
 <hr>
 
-<h2>Storage</h2>
-<p class="light">Where vectors are written in PostgreSQL.</p>
-
-{% namespace 'settings' %}
-    {{ forms.textField({ label: 'Vectors schema name', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, required: true, errors: settings.getErrors('vectorsSchemaName') }) }}
-    {{ forms.textField({ label: 'Vectors table name', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, errors: settings.getErrors('vectorsTableName') }) }}
-{% endnamespace %}
-
-<hr>
-
 <h2>Cache</h2>
 
 {% namespace 'settings' %}

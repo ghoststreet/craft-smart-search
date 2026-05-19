@@ -178,7 +178,8 @@ class Settings extends Model
             [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $connections],
 
             // Vector storage identifiers — Indexing
-            [['vectorsTableName', 'vectorsSchemaName'], 'required', 'on' => $indexing],
+            [['vectorsSchemaName'], 'default', 'value' => 'public'],
+            [['vectorsTableName'], 'required', 'on' => $indexing],
             [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
                 'on' => $indexing],

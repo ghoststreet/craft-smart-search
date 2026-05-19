@@ -30,6 +30,8 @@
     {{ forms.autosuggestField({ label: 'Database', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase'), inputAttributes: { 'data-craftsearch-target': 'db-database' } }) }}
     {{ forms.autosuggestField({ label: 'User', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser'), inputAttributes: { 'data-craftsearch-target': 'db-user' } }) }}
     {{ forms.autosuggestField({ label: 'Password', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, required: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword'), inputAttributes: { 'data-craftsearch-target': 'db-password' } }) }}
+    {{ forms.textField({ label: 'Schema', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, placeholder: 'public', errors: settings.getErrors('vectorsSchemaName') }) }}
+    {{ forms.textField({ label: 'Vectors table', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, errors: settings.getErrors('vectorsTableName') }) }}
     {{ forms.selectField({
         label: 'SSL mode', id: 'postgresqlSslMode', name: 'postgresqlSslMode', value: settings.postgresqlSslMode,
         options: [
