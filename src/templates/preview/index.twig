@@ -28,11 +28,50 @@
         </div>
     {% endif %}
 
+    <div class="preview-info pane">
+        <div class="preview-info__content">
+            <h2>Test your search setup</h2>
+            <p>Use this page to run live queries against all three search modes side-by-side. <br> Each mode maps to a different API endpoint you can call from your front end.</p>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>/api/hybrid-search</code></td>
+                    <td>POST</td>
+                    <td>Semantic vector + BM25 keyword</td>
+                </tr>
+                <tr>
+                    <td><code>/api/rag-search</code></td>
+                    <td>POST</td>
+                    <td>AI-generated summary with citations</td>
+                </tr>
+                <tr>
+                    <td><code>/api/rag-search/stream</code></td>
+                    <td>GET (SSE)</td>
+                    <td>Streaming version of RAG</td>
+                </tr>
+                <tr>
+                    <td><code>/api/craft-search</code></td>
+                    <td>POST</td>
+                    <td>Craft native full-text search</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
     <div class="preview-grid">
 
         <div class="preview-col">
             <div class="pane preview-col__pane">
                 <h2 class="preview-col__heading">Hybrid Search <span class="preview-badge preview-badge--hybrid">Semantic + BM25</span></h2>
+                <p class="preview-col__desc">Combines semantic (vector) similarity with BM25 keyword scoring for the most relevant results.</p>
                 <div class="preview-col__form">
                     <input type="search" class="text" placeholder="Search…" autocomplete="off"
                            data-craftsearch-control="hybrid-input">
@@ -48,6 +87,7 @@
         <div class="preview-col">
             <div class="pane preview-col__pane">
                 <h2 class="preview-col__heading">RAG Search <span class="preview-badge preview-badge--rag">AI Summary</span></h2>
+                <p class="preview-col__desc">Retrieves matching entries then generates a streaming AI summary with inline citations.</p>
                 <div class="preview-col__form">
                     <input type="search" class="text" placeholder="Search…" autocomplete="off"
                            data-craftsearch-control="rag-input">
@@ -64,6 +104,7 @@
         <div class="preview-col">
             <div class="pane preview-col__pane">
                 <h2 class="preview-col__heading">Craft Search <span class="preview-badge preview-badge--craft">Native</span></h2>
+                <p class="preview-col__desc">Runs Craft's built-in full-text search — useful as a baseline comparison.</p>
                 <div class="preview-col__form">
                     <input type="search" class="text" placeholder="Search…" autocomplete="off"
                            data-craftsearch-control="craft-input">
