@@ -12,7 +12,7 @@
         } only %}
 #}
 {% import 'smart-search/_components/badge' as b %}
-{% set cachedTitle = cachedTitle ?? 'Embedding served from cache' %}
+{% set cachedTitle = cachedTitle ?? 'Embedding served from cache — 0 embedding tokens billed' %}
 {% if items|length %}
     <div class="tableview data-table data-table--auto">
         <table class="data fullwidth big">
@@ -50,13 +50,22 @@
                         </td>
                         <td class="rightalign{% if item.resultsCount == 0 %} light{% endif %}">{{ item.resultsCount }}</td>
                         <td class="rightalign">
-                            {%- if item.totalTokens > 0 -%}
-                                {{ item.totalTokens|number_format }}{% if item.embeddingCached %} <span class="light" title="{{ cachedTitle }}">· cached</span>{% endif %}
-                            {%- elseif item.embeddingCached -%}
-                                <span class="light" title="{{ cachedTitle }}">cached</span>
-                            {%- else -%}
-                                <span class="light">—</span>
-                            {%- endif -%}
+                            {%- set ragTokens = item.ragInputTokens + item.ragOutputTokens -%}
+                            {%- set hasEmbedding = item.embeddingCached or item.embeddingTokens > 0 -%}
+                            <span class="ss-tokens">
+                                {%- if ragTokens > 0 -%}
+                                    <span class="ss-token-val" title="RAG tokens (LLM {{ item.ragInputTokens|number_format }} in / {{ item.ragOutputTokens|number_format }} out)">{{ ragTokens|number_format }}<span class="ss-token-dot ss-token-dot--rag"></span></span>
+                                {%- endif -%}
+                                {%- if ragTokens > 0 and hasEmbedding %} <span class="ss-tokens__sep">/</span> {% endif -%}
+                                {%- if item.embeddingCached -%}
+                                    <span title="{{ cachedTitle }}">{{ b.badge('Cached', 'cached') }}</span>
+                                {%- elseif item.embeddingTokens > 0 -%}
+                                    <span class="ss-token-val" title="Embedding tokens">{{ item.embeddingTokens|number_format }}<span class="ss-token-dot ss-token-dot--embedding"></span></span>
+                                {%- endif -%}
+                                {%- if ragTokens == 0 and not hasEmbedding -%}
+                                    <span class="light">—</span>
+                                {%- endif -%}
+                            </span>
                         </td>
                         <td class="rightalign">{% if item.cost > 0 %}${{ item.cost|number_format(6) }}{% else %}<span class="light">—</span>{% endif %}</td>
                         <td class="rightalign light">{{ item.durationMs|number_format }} ms</td>

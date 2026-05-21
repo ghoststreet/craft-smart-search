@@ -41,3 +41,28 @@
 .data-table table.data tbody tr + tr th {
     border-block-start: 1px solid var(--border-hairline);
 }
+
+/* Tokens column: "RAG / embedding" values, each a number + type-coloured dot */
+.ss-tokens {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: flex-end;
+}
+.ss-token-val {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.ss-tokens__sep {
+    color: var(--medium-text-color);
+}
+.ss-token-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--medium-text-color);
+    flex-shrink: 0;
+}
+.ss-token-dot--rag { background: var(--smart-search-success); }
+.ss-token-dot--embedding { background: var(--smart-search-warning); }

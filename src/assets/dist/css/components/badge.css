@@ -7,6 +7,7 @@
       badge--semantic   orange dot  (semantic searches)
       badge--success    green pill  (successful rows)
       badge--error      red pill    (errored rows)
+      badge--cached     gray pill, no dot  (cached embedding)
 */
 .badge {
     display: inline-flex;
@@ -46,3 +47,15 @@
     color: var(--smart-search-danger-fg);
 }
 .badge--error .badge__dot { background: var(--smart-search-danger); }
+
+.badge--cached {
+    background: var(--gray-100, rgba(0, 0, 0, .05));
+    color: var(--medium-text-color);
+}
+.badge--cached .badge__dot { display: none; }
+
+.badge--cached {
+    background: var(--gray-100, rgba(0, 0, 0, .05));
+    color: var(--medium-text-color);
+}
+.badge--cached .badge__dot { background: var(--medium-text-color); }
