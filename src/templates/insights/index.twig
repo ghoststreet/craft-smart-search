@@ -7,6 +7,7 @@
 {% set days = filters.days %}
 {% set siteId = filters.siteId %}
 {% set tabParams = { days: days, siteId: siteId } %}
+{% set hasResults = (tab == 'queries' ? topQueries|default([])|length : page.items|default([])|length) > 0 %}
 
 {% set tabs = {
     queries:        { label: 'Top Queries',  url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'queries' })) },
@@ -67,25 +68,27 @@
         </div>
     {% endif %}
 
-    <div class="filter-bar">
-        <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form">
-            <input type="hidden" name="tab" value="{{ tab }}">
-            <div class="filter-bar__group">
-                {{ f.sitesSelect(sites, siteId) }}
-                {% if tab != 'trending' %}
-                    {{ f.daysSelect(days, 'Time range') }}
-                {% endif %}
-                {% if tab == 'history' %}
-                    {{ f.typeSelect(filters.type) }}
-                    {% if stats.errorCount > 0 %}
-                        {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+    {% if hasResults %}
+        <div class="filter-bar">
+            <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form">
+                <input type="hidden" name="tab" value="{{ tab }}">
+                <div class="filter-bar__group">
+                    {{ f.sitesSelect(sites, siteId) }}
+                    {% if tab != 'trending' %}
+                        {{ f.daysSelect(days, 'Time range') }}
                     {% endif %}
-                {% endif %}
-                {{ f.submitButton() }}
-                {{ f.resetButton(cpUrl('smart-search/insights', { tab: tab }), days or siteId or filters.type or filters.errorsOnly) }}
-            </div>
-        </form>
-    </div>
+                    {% if tab == 'history' %}
+                        {{ f.typeSelect(filters.type) }}
+                        {% if stats.errorCount > 0 %}
+                            {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+                        {% endif %}
+                    {% endif %}
+                    {{ f.submitButton() }}
+                    {{ f.resetButton(cpUrl('smart-search/insights', { tab: tab }), days or siteId or filters.type or filters.errorsOnly) }}
+                </div>
+            </form>
+        </div>
+    {% endif %}
 
     {% if tab == 'queries' %}
         <p class="light">Your 30 most-searched queries for the selected period. Use it to see what your audience wants and to spot popular searches returning few or no results.</p>
