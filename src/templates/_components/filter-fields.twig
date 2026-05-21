@@ -74,3 +74,12 @@
 {% macro submitButton(label) %}
     <button type="submit" class="btn submit">{{ label ?? 'Filter' }}</button>
 {% endmacro %}
+
+{#
+    Reset link — clears every filter by navigating to the unfiltered URL.
+    Starts hidden unless a filter is already applied; the filter-bar JS
+    component shows/hides it live as controls change.
+#}
+{% macro resetButton(url, active) %}
+    <a href="{{ url }}" class="btn filter-bar__reset"{% if not active %} hidden{% endif %}>Reset</a>
+{% endmacro %}

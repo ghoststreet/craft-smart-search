@@ -1,1 +1,6 @@
 {% extends 'smart-search/debug/entry' %}
+
+{% set crumbs = [
+    { label: 'Smart Search', url: cpUrl('smart-search') },
+    { label: 'Index'|t('smart-search'), url: cpUrl('smart-search/index', { tab: 'entries' }) },
+] %}

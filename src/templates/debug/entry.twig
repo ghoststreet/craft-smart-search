@@ -22,10 +22,15 @@
 
 {% set title = 'Debug: ' ~ (entry.title ?: '(untitled)') %}
 
-{% set crumbs = [
+{% set crumbs = crumbs ?? [
     { label: 'Smart Search', url: cpUrl('smart-search') },
     { label: 'Debug'|t('smart-search'), url: cpUrl('smart-search/debug') },
 ] %}
+
+{% set backCrumb = crumbs|last %}
+{% set additionalButtons %}
+    <a href="{{ backCrumb.url }}" class="btn" data-icon="arrow-left">{{ 'Back to {label}'|t('smart-search', { label: backCrumb.label }) }}</a>
+{% endset %}
 
 {% block actionButton %}
     {% if entry.cpEditUrl %}

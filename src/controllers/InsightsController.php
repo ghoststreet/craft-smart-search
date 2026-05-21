@@ -104,17 +104,6 @@ class InsightsController extends Controller
         return $this->redirectToPostedUrl();
     }
 
-    public function actionClear(): Response
-    {
-        $this->requirePostRequest();
-        $this->requireAdmin();
-
-        $deleted = SmartSearch::getInstance()->historyService->clearAllDetails();
-        Craft::$app->getSession()->setNotice("Cleared {$deleted} history rows. Token and cost stats are preserved.");
-
-        return $this->redirectToPostedUrl();
-    }
-
     public function actionLegacyRedirect(): Response
     {
         return $this->redirect('smart-search/insights');

@@ -23,6 +23,7 @@ class SmartSearchAsset extends AssetBundle
             'js/core/errors.js',
             'js/core/api.js',
             'js/core/utils.js',
+            'js/components/filter-bar.js',
         ];
         $this->css = [
             // Base (must load first)
@@ -30,6 +31,7 @@ class SmartSearchAsset extends AssetBundle
 
             // Components (alphabetical)
             'css/components/alert.css',
+            'css/components/badge.css',
             'css/components/budget-bar.css',
             'css/components/chunk-row.css',
             'css/components/data-table.css',

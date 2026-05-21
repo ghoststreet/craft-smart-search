@@ -33,3 +33,6 @@
 .filter-bar__inline-form {
     display: inline;
 }
+.filter-bar__reset[hidden] {
+    display: none;
+}

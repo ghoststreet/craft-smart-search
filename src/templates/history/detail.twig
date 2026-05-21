@@ -12,10 +12,18 @@
 {% set typeStatus = row.type == 'rag' ? 'live' : 'pending' %}
 {% set confidenceColor = {high: 'green', medium: 'orange', low: 'red'}[row.confidence|default('medium')] %}
 
+{% set fromInsights = selectedSubnavItem == 'insights' %}
+{% set backUrl = fromInsights ? cpUrl('smart-search/insights', { tab: 'history' }) : cpUrl('smart-search/history') %}
+{% set backLabel = fromInsights ? 'Back to History Log' : 'Back to Search History' %}
+
 {% set crumbs = [
     { label: 'Smart Search', url: cpUrl('smart-search') },
-    { label: 'History', url: cpUrl('smart-search/history') },
+    { label: fromInsights ? 'History Log' : 'Search History', url: backUrl },
 ] %}
+
+{% set additionalButtons %}
+    <a href="{{ backUrl }}" class="btn" data-icon="arrow-left">{{ backLabel }}</a>
+{% endset %}
 
 {% block content %}
 <div class="history-detail">
@@ -100,7 +108,7 @@
             {% if isCleared %}
                 <div class="pane">
                     <blockquote class="note">
-                        <p>Result content for this search was cleared by retention or manual purge.<br>
+                        <p>Result content for this search was removed by the retention policy.<br>
                         Token and cost statistics in the cards above are preserved.</p>
                     </blockquote>
                 </div>
@@ -158,16 +166,18 @@
                     {% endif %}
                 </div>
 
-                <div class="pane">
-                    <details>
-                        <summary><strong>Raw JSON</strong></summary>
-                        <pre class="history-detail__pre history-detail__pre--json">{{ row.results|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) }}</pre>
-                    </details>
-                    <p class="light history-detail__trace">
-                        Trace this request in the log:<br>
-                        <code>tail -f storage/logs/smart-search.log | grep {{ row.requestId }}</code>
-                    </p>
-                </div>
+                {% if row.results %}
+                    <div class="pane">
+                        <details>
+                            <summary><strong>Raw JSON</strong></summary>
+                            <pre class="history-detail__pre history-detail__pre--json">{{ row.results|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) }}</pre>
+                        </details>
+                        <p class="light history-detail__trace">
+                            Trace this request in the log:<br>
+                            <code>tail -f storage/logs/smart-search.log | grep {{ row.requestId }}</code>
+                        </p>
+                    </div>
+                {% endif %}
             {% endif %}
         </div>
 

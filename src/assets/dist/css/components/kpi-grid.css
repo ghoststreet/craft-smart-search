@@ -1,3 +1,20 @@
+/* ==========================================================================
+   kpi-grid — KPI stat cards laid out in a responsive grid.
+
+   Structure:
+     .kpi-grid            grid container        (modifiers: --3, --compact)
+     .kpi-card            a single stat card    (modifiers: --compact, --donut,
+                                                  --error, --link)
+       .kpi-card__icon    leading icon          (compact cards)
+       .kpi-card__body    label + value wrapper (compact cards)
+       .kpi-card__label   stat name
+       .kpi-card__value   stat number           (.kpi-card__value-unit inside)
+       .kpi-card__meta / __sub / __eta   secondary lines
+       .kpi-card__error   danger-coloured value
+       .kpi-card__chart   embedded chart slot
+   ========================================================================== */
+
+/* ── Grid ───────────────────────────────────────────────────────────────── */
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6,25 +23,43 @@
 .kpi-grid--3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-@media (max-width: 1100px) {
+.kpi-grid--compact {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+@media (max-width: 1500px) {
     .kpi-grid,
-    .kpi-grid--3 { grid-template-columns: repeat(2, 1fr); }
+    .kpi-grid--3 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .kpi-grid--compact {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 @media (max-width: 600px) {
     .kpi-grid,
-    .kpi-grid--3 { grid-template-columns: 1fr; }
+    .kpi-grid--3 {
+        grid-template-columns: 1fr;
+    }
+    .kpi-grid--compact {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
+/* ── Card ───────────────────────────────────────────────────────────────── */
 .kpi-card {
-    background: var(--gray-050, #f3f7fc);
-    border: 1px solid var(--hairline-color, rgba(31, 41, 51, .1));
+    background: var(--gray-050);
+    border: 1px solid var(--hairline-color);
     border-radius: 6px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    min-height: 130px;
+    gap: 12px;
 }
+
+/* ── Card elements ──────────────────────────────────────────────────────── */
 .kpi-card__label {
     font-size: 11px;
     text-transform: uppercase;
@@ -33,7 +68,7 @@
     font-weight: 600;
 }
 .kpi-card__value {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 600;
     line-height: 1.1;
     color: var(--text-color);
@@ -47,15 +82,28 @@
     color: var(--medium-text-color);
 }
 .kpi-card__sub {
-    color: var(--medium-text-color);
     font-size: 11px;
-}
-.kpi-card__error {
-    color: var(--smart-search-danger);
+    color: var(--medium-text-color);
 }
 .kpi-card__eta {
     font-size: 11px;
     color: var(--medium-text-color);
+}
+.kpi-card__error {
+    color: var(--smart-search-danger);
+}
+.kpi-card__icon {
+    --icon-size: 26px;
+    --icon-color: var(--gray-400);
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.kpi-card__body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 .kpi-card__chart {
     flex: 1;
@@ -67,47 +115,30 @@
     height: 100% !important;
     max-height: 70px;
 }
-.kpi-card--donut .kpi-card__chart canvas { max-height: 90px; }
 
-.kpi-grid--compact {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 24px;
-}
-@media (max-width: 1100px) {
-    .kpi-grid--compact { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 600px) {
-    .kpi-grid--compact { grid-template-columns: repeat(2, 1fr); }
-}
+/* ── Compact card variant ───────────────────────────────────────────────── */
 .kpi-card--compact {
     min-height: 0;
-    padding: 12px 16px;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
 }
-.kpi-card--compact .kpi-card__value {
-    font-size: 22px;
-}
-.kpi-card--compact .kpi-card__label {
-    font-size: 12px;
-}
-.kpi-card__icon {
-    --icon-size: 34px;
-    color: var(--light-text-color);
-    opacity: 0.6;
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.kpi-card__body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
+.kpi-card--compact .kpi-card__label { font-size: 12px; }
+.kpi-card--compact .kpi-card__value { font-size: 22px; }
+
+/* ── Donut variant ──────────────────────────────────────────────────────── */
+.kpi-card--donut .kpi-card__chart canvas { max-height: 90px; }
+
+/* ── Error state ────────────────────────────────────────────────────────── */
 .kpi-card--compact.kpi-card--error .kpi-card__icon {
-    color: var(--smart-search-danger, var(--error-color, #cf1124));
+    color: var(--smart-search-danger);
+    --icon-color: var(--smart-search-danger);
+}
+
+/* ── Link variant (clickable card) ──────────────────────────────────────── */
+a.kpi-card--link {
+    text-decoration: none;
+    transition: background-color 120ms ease;
+}
+a.kpi-card--link:hover {
+    background: var(--gray-100);
 }

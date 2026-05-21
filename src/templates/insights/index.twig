@@ -29,8 +29,15 @@
             <div class="kpi-card kpi-card--compact">
                 <span class="cp-icon kpi-card__icon">{{ iconSvg('hashtag') }}</span>
                 <div class="kpi-card__body">
-                    <div class="kpi-card__label">Tokens</div>
-                    <div class="kpi-card__value">{{ stats.tokens|number_format }}</div>
+                    <div class="kpi-card__label">Embedding tokens</div>
+                    <div class="kpi-card__value">{{ stats.embeddingTokens|number_format }}</div>
+                </div>
+            </div>
+            <div class="kpi-card kpi-card--compact">
+                <span class="cp-icon kpi-card__icon">{{ iconSvg('robot') }}</span>
+                <div class="kpi-card__body">
+                    <div class="kpi-card__label">LLM tokens</div>
+                    <div class="kpi-card__value">{{ stats.llmTokens|number_format }}</div>
                 </div>
             </div>
             <div class="kpi-card kpi-card--compact">
@@ -47,13 +54,16 @@
                     <div class="kpi-card__value">{{ stats.avgDurationMs|number_format }}<span class="kpi-card__value-unit"> ms</span></div>
                 </div>
             </div>
-            <div class="kpi-card kpi-card--compact{% if stats.errorCount > 0 %} kpi-card--error{% endif %}">
-                <span class="cp-icon kpi-card__icon">{{ iconSvg('triangle-exclamation') }}</span>
-                <div class="kpi-card__body">
-                    <div class="kpi-card__label">Errors</div>
-                    <div class="kpi-card__value{% if stats.errorCount > 0 %} kpi-card__error{% endif %}">{{ stats.errorCount|number_format }}</div>
-                </div>
-            </div>
+            {% if stats.errorCount > 0 %}
+                <a href="{{ cpUrl('smart-search/insights', { tab: 'history', errorsOnly: 1, days: days, siteId: siteId }) }}"
+                   class="kpi-card kpi-card--compact kpi-card--error kpi-card--link" title="View errored searches">
+                    <span class="cp-icon kpi-card__icon">{{ iconSvg('triangle-exclamation') }}</span>
+                    <div class="kpi-card__body">
+                        <div class="kpi-card__label">Errors</div>
+                        <div class="kpi-card__value kpi-card__error">{{ stats.errorCount|number_format }}</div>
+                    </div>
+                </a>
+            {% endif %}
         </div>
     {% endif %}
 
@@ -67,18 +77,14 @@
                 {% endif %}
                 {% if tab == 'history' %}
                     {{ f.typeSelect(filters.type) }}
-                    {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+                    {% if stats.errorCount > 0 %}
+                        {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+                    {% endif %}
                 {% endif %}
                 {{ f.submitButton() }}
+                {{ f.resetButton(cpUrl('smart-search/insights', { tab: tab }), days or siteId or filters.type or filters.errorsOnly) }}
             </div>
         </form>
-        {% if tab == 'history' and currentUser.admin %}
-            <form method="post" class="filter-bar__spacer" data-craftsearch-confirm="Permanently delete all stored queries and result data? Token/cost statistics are preserved.">
-                {{ csrfInput() }}
-                {{ actionInput('smart-search/insights/clear') }}
-                <button type="submit" class="btn" data-icon="trash"{% if detailsCount == 0 %} disabled{% endif %}>Clear history ({{ detailsCount }})</button>
-            </form>
-        {% endif %}
     </div>
 
     {% if tab == 'queries' %}

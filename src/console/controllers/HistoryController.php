@@ -11,7 +11,6 @@ use yii\console\ExitCode;
  *
  * Usage:
  *   php craft smart-search/history/prune
- *   php craft smart-search/history/clear
  */
 class HistoryController extends Controller
 {
@@ -20,13 +19,6 @@ class HistoryController extends Controller
         $days = $days ?? SmartSearch::getInstance()->getSettings()->historyRetentionDays;
         $deleted = SmartSearch::getInstance()->historyService->pruneOlderThan($days);
         $this->stdout("Pruned {$deleted} history detail rows older than {$days} days.\n");
-        return ExitCode::OK;
-    }
-
-    public function actionClear(): int
-    {
-        $deleted = SmartSearch::getInstance()->historyService->clearAllDetails();
-        $this->stdout("Cleared {$deleted} history detail rows. Stats preserved.\n");
         return ExitCode::OK;
     }
 }

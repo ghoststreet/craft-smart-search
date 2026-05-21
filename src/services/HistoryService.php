@@ -106,6 +106,8 @@ class HistoryService extends Component
             ->select([
                 'searches' => 'COUNT(*)',
                 'tokens' => 'COALESCE(SUM(totalTokens), 0)',
+                'embeddingTokens' => 'COALESCE(SUM(embeddingTokens), 0)',
+                'llmTokens' => 'COALESCE(SUM(ragInputTokens + ragOutputTokens), 0)',
                 'cost' => 'COALESCE(SUM(cost), 0)',
                 'avgDuration' => 'COALESCE(AVG(durationMs), 0)',
                 'errorCount' => 'SUM(CASE WHEN hasError = 1 OR hasError = TRUE THEN 1 ELSE 0 END)',
@@ -137,6 +139,8 @@ class HistoryService extends Component
         return [
             'searches' => $searches,
             'tokens' => (int)($row['tokens'] ?? 0),
+            'embeddingTokens' => (int)($row['embeddingTokens'] ?? 0),
+            'llmTokens' => (int)($row['llmTokens'] ?? 0),
             'cost' => round($cost, 6),
             'avgDurationMs' => (int)round((float)($row['avgDuration'] ?? 0)),
             'avgCostPerSearch' => $searches > 0 ? round($cost / $searches, 6) : 0.0,
@@ -236,21 +240,6 @@ class HistoryService extends Component
         Craft::$app->getCache()->set(self::PRUNE_GUARD_KEY, time(), 86400);
 
         return $deleted;
-    }
-
-    /**
-     * Truncate the details table (stats are preserved).
-     */
-    public function clearAllDetails(): int
-    {
-        $count = (int)(new Query())->from(self::DETAILS_TABLE)->count('*');
-        Craft::$app->getDb()->createCommand()
-            ->delete(self::DETAILS_TABLE)
-            ->execute();
-
-        Logger::info("HistoryService: cleared {$count} details rows (manual)");
-
-        return $count;
     }
 
     public function detailsCount(): int

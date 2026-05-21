@@ -1,5 +1,5 @@
 {#
-    7-column search history table (Query · Type · Results · Tokens · Cost · Duration · Date).
+    Search history table (Query · Type · Status · Results · Tokens · Cost · Duration · Date).
     Shared by history/index.twig and insights/index.twig (history tab).
 
     Params:
@@ -11,6 +11,7 @@
             items: page.items, urlPath: 'smart-search/history'
         } only %}
 #}
+{% import 'smart-search/_components/badge' as b %}
 {% set cachedTitle = cachedTitle ?? 'Embedding served from cache' %}
 {% if items|length %}
     <div class="tableview data-table data-table--auto">
@@ -19,6 +20,7 @@
                 <tr>
                     <th scope="col">Query</th>
                     <th scope="col">Type</th>
+                    <th scope="col">Status</th>
                     <th scope="col" class="rightalign">Results</th>
                     <th scope="col" class="rightalign">Tokens</th>
                     <th scope="col" class="rightalign">Cost</th>
@@ -37,14 +39,19 @@
                                 <span class="light">— cleared</span>
                             {% endif %}
                         </td>
-                        <td>
-                            <span class="status {% if item.type == 'rag' %}on{% else %}orange{% endif %}"></span>
-                            {{ item.type }}
-                            {% if item.hasError %}<span class="status red" title="Error"></span>{% endif %}
-                        </td>
+                        <td>{{ b.badge(item.type, item.type) }}</td>
+                        <td>{{ item.hasError ? b.badge('Error', 'error') : b.badge('Success', 'success') }}</td>
                         <td class="rightalign{% if item.resultsCount == 0 %} light{% endif %}">{{ item.resultsCount }}</td>
-                        <td class="rightalign">{{ item.totalTokens|number_format }}{% if item.embeddingCached %} <span class="light" title="{{ cachedTitle }}">·c</span>{% endif %}</td>
-                        <td class="rightalign">${{ item.cost|number_format(6) }}</td>
+                        <td class="rightalign">
+                            {%- if item.totalTokens > 0 -%}
+                                {{ item.totalTokens|number_format }}{% if item.embeddingCached %} <span class="light" title="{{ cachedTitle }}">· cached</span>{% endif %}
+                            {%- elseif item.embeddingCached -%}
+                                <span class="light" title="{{ cachedTitle }}">cached</span>
+                            {%- else -%}
+                                <span class="light">—</span>
+                            {%- endif -%}
+                        </td>
+                        <td class="rightalign">{% if item.cost > 0 %}${{ item.cost|number_format(6) }}{% else %}<span class="light">—</span>{% endif %}</td>
                         <td class="rightalign light">{{ item.durationMs|number_format }} ms</td>
                         <td><span class="light" title="{{ item.dateCreated|date('Y-m-d H:i:s') }}">{{ item.dateCreated|date('M j, Y') }}</span></td>
                     </tr>

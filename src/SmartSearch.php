@@ -267,7 +267,6 @@ class SmartSearch extends Plugin
                 $event->rules['smart-search/insights'] = 'smart-search/insights/index';
                 $event->rules['smart-search/insights/<id:\\d+>'] = 'smart-search/insights/detail';
                 $event->rules['POST smart-search/insights/prune'] = 'smart-search/insights/prune';
-                $event->rules['POST smart-search/insights/clear'] = 'smart-search/insights/clear';
 
                 // Preview
                 $event->rules['smart-search/preview'] = 'smart-search/preview/index';
