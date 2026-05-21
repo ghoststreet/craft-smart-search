@@ -29,6 +29,7 @@ use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\services\BM25Service;
 use ghoststreet\craftsmartsearch\services\DatabaseService;
 use ghoststreet\craftsmartsearch\services\EmbeddingService;
+use ghoststreet\craftsmartsearch\services\ExclusionService;
 use ghoststreet\craftsmartsearch\services\HistoryService;
 use ghoststreet\craftsmartsearch\services\HybridSearchService;
 use ghoststreet\craftsmartsearch\services\IndexingDebugService;
@@ -59,6 +60,7 @@ use yii\web\Response;
  * @property-read RagSearchService $ragSearchService
  * @property-read RateLimitService $rateLimitService
  * @property-read IndexingDebugService $indexingDebugService
+ * @property-read ExclusionService $exclusionService
  * @property-read OpenAIClientFactory $openAIClientFactory
  * @property-read HistoryService $historyService
  * @property-read RecommendationsService $recommendationsService
@@ -120,6 +122,7 @@ class SmartSearch extends Plugin
                 'ragSearchService' => RagSearchService::class,
                 'rateLimitService' => RateLimitService::class,
                 'indexingDebugService' => IndexingDebugService::class,
+                'exclusionService' => ExclusionService::class,
                 'historyService' => HistoryService::class,
                 'recommendationsService' => RecommendationsService::class,
             ],
@@ -257,6 +260,8 @@ class SmartSearch extends Plugin
                 $event->rules['POST smart-search/index/sync'] = 'smart-search/index/sync';
                 $event->rules['POST smart-search/index/cancel-sync'] = 'smart-search/index/cancel-sync';
                 $event->rules['POST smart-search/index/get-stats'] = 'smart-search/index/get-stats';
+                $event->rules['POST smart-search/index/exclude-entry'] = 'smart-search/index/exclude-entry';
+                $event->rules['POST smart-search/index/include-entry'] = 'smart-search/index/include-entry';
 
                 // Insights (consolidated from history + keywords)
                 $event->rules['smart-search/insights'] = 'smart-search/insights/index';

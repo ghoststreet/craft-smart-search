@@ -22,6 +22,7 @@ class IndexingDebugService extends Component
     public const STATUS_INDEXED = 'indexed';
     public const STATUS_STALE = 'stale';
     public const STATUS_NOT_INDEXED = 'not-indexed';
+    public const STATUS_EXCLUDED = 'excluded';
 
     public const PAGE_SIZE = 25;
 
@@ -52,12 +53,14 @@ class IndexingDebugService extends Component
         $entries = $query->limit(null)->all();
 
         $summary = SmartSearch::getInstance()->databaseService->getIndexedSummary($siteId);
+        $excludedKeys = SmartSearch::getInstance()->exclusionService->getExcludedKeys($siteId);
 
         $rows = [];
         $counts = [
             self::STATUS_INDEXED => 0,
             self::STATUS_STALE => 0,
             self::STATUS_NOT_INDEXED => 0,
+            self::STATUS_EXCLUDED => 0,
             'total' => 0,
         ];
         foreach ($entries as $entry) {
@@ -66,9 +69,12 @@ class IndexingDebugService extends Component
             }
             $key = $entry->id . '-' . $entry->siteId;
             $indexed = $summary[$key] ?? null;
+            $isExcluded = isset($excludedKeys[$key]);
 
             $status = self::STATUS_NOT_INDEXED;
-            if ($indexed !== null) {
+            if ($isExcluded) {
+                $status = self::STATUS_EXCLUDED;
+            } elseif ($indexed !== null) {
                 $vectorUpdated = strtotime($indexed['lastIndexed']);
                 $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
                 $status = $entryUpdated > $vectorUpdated ? self::STATUS_STALE : self::STATUS_INDEXED;
@@ -89,6 +95,7 @@ class IndexingDebugService extends Component
                 'section' => $section?->name ?? '—',
                 'sectionHandle' => $section?->handle,
                 'status' => $status,
+                'excluded' => $isExcluded,
                 'chunkCount' => $indexed['chunkCount'] ?? 0,
                 'lastIndexed' => $indexed['lastIndexed'] ?? null,
                 'editUrl' => $entry->getCpEditUrl(),
@@ -136,12 +143,17 @@ class IndexingDebugService extends Component
                 $summary = [];
             }
 
+            $excludedKeys = SmartSearch::getInstance()->exclusionService->getExcludedKeys($site->id);
+
             $indexed = $stale = $notIndexed = 0;
             foreach ($entries as $entry) {
                 if ($entry->getUrl() === null) {
                     continue;
                 }
                 $key = $entry->id . '-' . $entry->siteId;
+                if (isset($excludedKeys[$key])) {
+                    continue;
+                }
                 $row = $summary[$key] ?? null;
                 if ($row === null) {
                     $notIndexed++;

@@ -646,6 +646,11 @@ class EmbeddingService extends Component
             return;
         }
 
+        if (SmartSearch::getInstance()->exclusionService->isExcluded($element->id, $element->siteId)) {
+            $this->deleteVector($element->id, $element->siteId);
+            return;
+        }
+
         if ($element->getUrl() === null) {
             throw SearchException::indexEntryMissingUrl($element->id, $element->siteId);
         }

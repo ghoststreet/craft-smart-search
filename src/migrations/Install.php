@@ -7,14 +7,16 @@ use craft\db\Migration;
 /**
  * Install migration for Smart Search plugin.
  *
- * Creates two history tables:
+ * Creates three tables:
  *   - aisearch_history_stats:    permanent, never deleted by plugin (token/cost aggregates)
  *   - aisearch_history_details:  deletable on retention prune or manual clear
+ *   - aisearch_excluded_entries: entries manually excluded from the search index
  */
 class Install extends Migration
 {
     public const STATS_TABLE = '{{%aisearch_history_stats}}';
     public const DETAILS_TABLE = '{{%aisearch_history_details}}';
+    public const EXCLUDED_TABLE = '{{%aisearch_excluded_entries}}';
 
     public function safeUp(): bool
     {
@@ -76,11 +78,26 @@ class Install extends Migration
             );
         }
 
+        if (!$this->db->tableExists(self::EXCLUDED_TABLE)) {
+            $this->createTable(self::EXCLUDED_TABLE, [
+                'id' => $this->primaryKey(),
+                'elementId' => $this->integer()->notNull(),
+                'siteId' => $this->integer()->notNull(),
+                'userId' => $this->integer()->null(),
+                'dateCreated' => $this->dateTime()->notNull(),
+                'dateUpdated' => $this->dateTime()->notNull(),
+                'uid' => $this->uid(),
+            ]);
+
+            $this->createIndex(null, self::EXCLUDED_TABLE, ['elementId', 'siteId'], true);
+        }
+
         return true;
     }
 
     public function safeDown(): bool
     {
+        $this->dropTableIfExists(self::EXCLUDED_TABLE);
         $this->dropTableIfExists(self::DETAILS_TABLE);
         $this->dropTableIfExists(self::STATS_TABLE);
         return true;

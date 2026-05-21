@@ -364,6 +364,80 @@ class IndexController extends BaseApiController
         return $this->redirectToPostedUrl();
     }
 
+    public function actionExcludeEntry(): Response
+    {
+        $this->requireAdmin();
+        $this->requirePostRequest();
+
+        $request = Craft::$app->getRequest();
+        $elementId = (int)$request->getRequiredBodyParam('elementId');
+        $siteId = (int)$request->getRequiredBodyParam('siteId');
+
+        SmartSearch::getInstance()->exclusionService->exclude($elementId, $siteId);
+
+        if ($request->getAcceptsJson()) {
+            return $this->asJson(['success' => true]);
+        }
+
+        Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Entry #{id} excluded from index.', ['id' => $elementId]));
+
+        return $this->redirectToPostedUrl();
+    }
+
+    public function actionIncludeEntry(): Response
+    {
+        $this->requireAdmin();
+        $this->requirePostRequest();
+
+        $request = Craft::$app->getRequest();
+        $elementId = (int)$request->getRequiredBodyParam('elementId');
+        $siteId = (int)$request->getRequiredBodyParam('siteId');
+
+        SmartSearch::getInstance()->exclusionService->include($elementId, $siteId);
+
+        $jobId = Craft::$app->getQueue()->push(new IndexEntryJob([
+            'entryId' => $elementId,
+            'siteId' => $siteId,
+        ]));
+
+        if ($request->getAcceptsJson()) {
+            return $this->asJson([
+                'success' => true,
+                'jobId' => (string)$jobId,
+            ]);
+        }
+
+        Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Entry #{id} re-included in index.', ['id' => $elementId]));
+
+        return $this->redirectToPostedUrl();
+    }
+
+    public function actionEntryState(): Response
+    {
+        $this->requireAdmin();
+        $this->requireAcceptsJson();
+
+        $request = Craft::$app->getRequest();
+        $elementId = (int)$request->getRequiredQueryParam('elementId');
+        $siteId = (int)$request->getRequiredQueryParam('siteId');
+
+        try {
+            $summary = SmartSearch::getInstance()->databaseService->getIndexedSummary($siteId);
+        } catch (DatabaseException $e) {
+            return $this->jsonError($e, 'entryState');
+        }
+
+        $row = $summary[$elementId . '-' . $siteId] ?? null;
+
+        return $this->asJson([
+            'success' => true,
+            'chunkCount' => $row['chunkCount'] ?? 0,
+            'lastIndexed' => ($row !== null && !empty($row['lastIndexed']))
+                ? date('M j, Y g:i A', strtotime($row['lastIndexed']))
+                : null,
+        ]);
+    }
+
     public function actionJobStatus(): Response
     {
         $this->requireAdmin();

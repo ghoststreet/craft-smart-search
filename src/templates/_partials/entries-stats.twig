@@ -6,7 +6,7 @@
         counts  object  { total, indexed, stale, 'not-indexed' }
         labels  object  { total, indexed, stale, notIndexed }
 #}
-{% set labels = labels ?? { total: 'Total', indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed' } %}
+{% set labels = labels ?? { total: 'Total', indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed', excluded: 'Excluded' } %}
 <div class="index-stats">
     <div class="index-stats__item">
         <span class="index-stats__count">{{ counts.total }}</span>
@@ -26,5 +26,10 @@
         <span class="status off"></span>
         <span class="index-stats__count">{{ counts['not-indexed'] }}</span>
         <span class="index-stats__label">{{ labels.notIndexed }}</span>
+    </div>
+    <div class="index-stats__item">
+        <span class="status grey"></span>
+        <span class="index-stats__count">{{ counts.excluded ?? 0 }}</span>
+        <span class="index-stats__label">{{ labels.excluded }}</span>
     </div>
 </div>
