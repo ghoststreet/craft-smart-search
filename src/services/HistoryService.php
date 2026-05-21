@@ -196,36 +196,6 @@ class HistoryService extends Component
         ];
     }
 
-    public function findOne(int $id): ?array
-    {
-        $row = (new Query())
-            ->from(['s' => self::STATS_TABLE])
-            ->leftJoin(['d' => self::DETAILS_TABLE], '[[d.statsId]] = [[s.id]]')
-            ->select([
-                's.*',
-                'detailsId' => 'd.id',
-                'query' => 'd.query',
-                'results' => 'd.results',
-                'summary' => 'd.summary',
-                'confidence' => 'd.confidence',
-                'errorMessage' => 'd.errorMessage',
-                'detailsDateCreated' => 'd.dateCreated',
-            ])
-            ->where(['s.id' => $id])
-            ->one();
-
-        if (!$row) {
-            return null;
-        }
-
-        if (!empty($row['results']) && is_string($row['results'])) {
-            $decoded = json_decode($row['results'], true);
-            $row['results'] = is_array($decoded) ? $decoded : null;
-        }
-
-        return $row;
-    }
-
     /**
      * Delete details rows older than $days. Stats untouched.
      */

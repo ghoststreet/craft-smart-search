@@ -30,17 +30,24 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                    {% set href = cpUrl(urlPath ~ '/' ~ item.id) %}
                     <tr>
                         <td>
                             {% if item.detailsId %}
-                                <a href="{{ href }}">{{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}</a>
+                                {{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}
                             {% else %}
                                 <span class="light">— cleared</span>
                             {% endif %}
                         </td>
                         <td>{{ b.badge(item.type, item.type) }}</td>
-                        <td>{{ item.hasError ? b.badge('Error', 'error') : b.badge('Success', 'success') }}</td>
+                        <td>
+                            {% if item.hasError %}
+                                <button type="button" class="badge badge--error ss-error-badge"
+                                        data-error-modal data-error-message="{{ item.errorMessage }}"
+                                        title="{{ item.errorMessage }}"><span class="badge__dot"></span>Error</button>
+                            {% else %}
+                                {{ b.badge('Success', 'success') }}
+                            {% endif %}
+                        </td>
                         <td class="rightalign{% if item.resultsCount == 0 %} light{% endif %}">{{ item.resultsCount }}</td>
                         <td class="rightalign">
                             {%- if item.totalTokens > 0 -%}

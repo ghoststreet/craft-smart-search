@@ -265,7 +265,6 @@ class SmartSearch extends Plugin
 
                 // Insights (consolidated from history + keywords)
                 $event->rules['smart-search/insights'] = 'smart-search/insights/index';
-                $event->rules['smart-search/insights/<id:\\d+>'] = 'smart-search/insights/detail';
                 $event->rules['POST smart-search/insights/prune'] = 'smart-search/insights/prune';
 
                 // Preview
@@ -276,7 +275,6 @@ class SmartSearch extends Plugin
                 $event->rules['smart-search/debug'] = 'smart-search/index/legacy-redirect';
                 $event->rules['smart-search/history'] = 'smart-search/insights/legacy-redirect';
                 $event->rules['smart-search/history/keywords'] = 'smart-search/insights/legacy-redirect';
-                $event->rules['smart-search/history/<id:\\d+>'] = 'smart-search/insights/detail';
             }
         );
 

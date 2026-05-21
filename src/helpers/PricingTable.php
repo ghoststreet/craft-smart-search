@@ -36,17 +36,4 @@ final class PricingTable
 
         return round($cost, 6);
     }
-
-    /**
-     * Get per-1M rates for a model, or null if unknown. Used by detail view.
-     * @return array{input: float, output: float}|null
-     */
-    public static function getRates(?string $model): ?array
-    {
-        if ($model === null || !isset(self::PRICES[$model])) {
-            return null;
-        }
-
-        return self::PRICES[$model];
-    }
 }

@@ -39,8 +39,14 @@
             </thead>
             <tbody>
                 {% for e in recentErrors %}
+                    {% set label = e.query ?: e.errorMessage ?: 'error' %}
                     <tr>
-                        <td><a href="{{ cpUrl('smart-search/insights/' ~ e.id) }}">{{ (e.query ?: e.errorMessage ?: 'error')|slice(0, 60) }}{% if (e.query ?: e.errorMessage ?: '')|length > 60 %}…{% endif %}</a></td>
+                        <td>
+                            {{ label|slice(0, 60) }}{% if label|length > 60 %}…{% endif %}
+                            <button type="button" class="badge badge--error ss-error-badge"
+                                    data-error-modal data-error-message="{{ e.errorMessage }}"
+                                    title="{{ e.errorMessage }}"><span class="badge__dot"></span>Error</button>
+                        </td>
                         <td class="rightalign"><span class="light">{{ e.dateCreated|date('M j, g:ia') }}</span></td>
                     </tr>
                 {% else %}

@@ -1,0 +1,44 @@
+/*
+   error-modal — clickable Error badge + the modal showing the full message.
+*/
+
+/* A <button> carrying the .badge classes — strip only the native button
+   chrome so the .badge / .badge--error styles render unchanged. */
+button.ss-error-badge {
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    line-height: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: filter .12s ease, box-shadow .12s ease;
+}
+
+button.ss-error-badge:hover {
+    filter: brightness(0.94);
+    box-shadow: 0 0 0 1px var(--smart-search-danger, rgba(0, 0, 0, .25));
+}
+
+button.ss-error-badge:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--smart-search-danger, rgba(0, 0, 0, .4));
+}
+
+.ss-error-modal {
+    width: 480px;
+    max-width: 90vw;
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+.ss-error-modal__message {
+    margin: 12px 0 0;
+    padding: 12px;
+    max-height: 320px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--gray-050, #f3f3f3);
+    border-radius: 4px;
+    font-size: 13px;
+}

@@ -24,6 +24,7 @@ class SmartSearchAsset extends AssetBundle
             'js/core/api.js',
             'js/core/utils.js',
             'js/components/filter-bar.js',
+            'js/components/error-modal.js',
         ];
         $this->css = [
             // Base (must load first)
@@ -39,6 +40,7 @@ class SmartSearchAsset extends AssetBundle
             'css/components/delta-tag.css',
             'css/components/empty-state.css',
             'css/components/entry-status-pill.css',
+            'css/components/error-modal.css',
             'css/components/filter-bar.css',
             'css/components/health-row.css',
             'css/components/index-stats.css',
@@ -53,7 +55,6 @@ class SmartSearchAsset extends AssetBundle
             // Pages (alphabetical)
             'css/pages/dashboard.css',
             'css/pages/debug-entry.css',
-            'css/pages/history-detail.css',
             'css/pages/history-index.css',
             'css/pages/history-keywords.css',
             'css/pages/insights-index.css',

@@ -5,8 +5,6 @@ namespace ghoststreet\craftsmartsearch\controllers;
 use Craft;
 use craft\web\Controller;
 use ghoststreet\craftsmartsearch\SmartSearch;
-use ghoststreet\craftsmartsearch\helpers\PricingTable;
-use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 /**
@@ -73,23 +71,6 @@ class InsightsController extends Controller
         }
 
         return $this->renderTemplate('smart-search/insights/index', $data);
-    }
-
-    public function actionDetail(int $id): Response
-    {
-        $this->requireAdmin();
-
-        $row = SmartSearch::getInstance()->historyService->findOne($id);
-        if ($row === null) {
-            throw new NotFoundHttpException('Search history entry not found.');
-        }
-
-        return $this->renderTemplate('smart-search/insights/detail', [
-            'selectedSubnavItem' => 'insights',
-            'row' => $row,
-            'embeddingRates' => PricingTable::getRates($row['embeddingModel'] ?? null),
-            'ragRates' => PricingTable::getRates($row['ragModel'] ?? null),
-        ]);
     }
 
     public function actionPrune(): Response
