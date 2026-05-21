@@ -24,7 +24,7 @@
 
 {% set crumbs = crumbs ?? [
     { label: 'Smart Search', url: cpUrl('smart-search') },
-    { label: 'Debug'|t('smart-search'), url: cpUrl('smart-search/debug') },
+    { label: 'Index'|t('smart-search'), url: cpUrl('smart-search/index', { tab: 'entries' }) },
 ] %}
 
 {% set backCrumb = crumbs|last %}

@@ -18,7 +18,7 @@
 
 {% set crumbs = [
     { label: 'Smart Search', url: cpUrl('smart-search') },
-    { label: fromInsights ? 'History Log' : 'Search History', url: backUrl },
+    { label: 'Insights', url: cpUrl('smart-search/insights', { tab: 'history' }) },
 ] %}
 
 {% set additionalButtons %}
