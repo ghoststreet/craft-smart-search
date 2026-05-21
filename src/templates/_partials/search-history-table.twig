@@ -13,7 +13,7 @@
 #}
 {% set cachedTitle = cachedTitle ?? 'Embedding served from cache' %}
 {% if items|length %}
-    <div class="tableview">
+    <div class="tableview data-table data-table--auto">
         <table class="data fullwidth big">
             <thead>
                 <tr>
@@ -53,5 +53,9 @@
         </table>
     </div>
 {% else %}
-    <div class="zilch small">No searches recorded yet.</div>
+    {% include 'smart-search/_components/empty-state' with {
+        variant: 'neutral',
+        title: 'No searches recorded yet',
+        text: 'Searches will appear here as visitors use search.',
+    } only %}
 {% endif %}

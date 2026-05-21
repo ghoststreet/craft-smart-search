@@ -36,3 +36,8 @@
     white-space: normal;
     word-break: break-word;
 }
+
+.data-table table.data tbody tr + tr td,
+.data-table table.data tbody tr + tr th {
+    border-block-start: 1px solid var(--border-hairline);
+}

@@ -1,0 +1,46 @@
+/*
+    empty-state — designed placeholder for tables / panels with no data.
+    Pair with the _components/empty-state.twig partial.
+
+    Modifier:
+      empty-state--positive   success framing (e.g. "no errors to fix").
+*/
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 20px 24px;
+    border: 1px solid var(--hairline-color, rgba(31, 41, 51, .1));
+    border-radius: 8px;
+    background: var(--gray-050, #f3f7fc);
+}
+
+.empty-state__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--gray-100, #e3e5e8);
+    color: var(--medium-text-color);
+}
+
+.empty-state__title {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.empty-state__text {
+    font-size: 13px;
+    color: var(--medium-text-color);
+    max-width: 44ch;
+    margin: 0;
+}
+
+.empty-state--positive .empty-state__icon {
+    background: var(--smart-search-chip-success-bg);
+    color: var(--smart-search-chip-success-fg);
+}

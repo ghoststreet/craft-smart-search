@@ -1,0 +1,18 @@
+{#
+    Empty-state placeholder for tables / panels with no data.
+
+    Params:
+        title    string  headline (required)
+        text     string  optional supporting line
+        icon     string  optional Craft icon name (defaults by variant)
+        variant  string  'neutral' (default) | 'positive'
+#}
+{% set variant = variant ?? 'neutral' %}
+{% set icon = icon ?? (variant == 'positive' ? 'circle-check' : 'magnifying-glass') %}
+<div class="empty-state empty-state--{{ variant }}">
+    <span class="empty-state__icon">{{ iconSvg(icon) }}</span>
+    <div class="empty-state__title">{{ title }}</div>
+    {% if text is defined and text %}
+        <p class="empty-state__text">{{ text }}</p>
+    {% endif %}
+</div>
