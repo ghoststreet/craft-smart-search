@@ -34,7 +34,7 @@
     {% if sites|length > 1 %}
         {% set options = (includeAll ?? true) ? [{ label: 'All sites', value: '' }] : [] %}
         {% for s in sites %}
-            {% set options = options|merge([{ label: s.name, value: s.id }]) %}
+            {% set options = options|merge([{ label: s.name ?: s.handle, value: s.id }]) %}
         {% endfor %}
         {{ forms.selectField({
             label: 'Site',

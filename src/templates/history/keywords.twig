@@ -10,8 +10,8 @@
 {% block content %}
     <form method="get" action="{{ cpUrl('smart-search/history/keywords') }}">
         <div class="filter-bar">
-            {{ f.daysSelect(daysFilter) }}
             {{ f.sitesSelect(keywords.sites, siteFilter) }}
+            {{ f.daysSelect(daysFilter) }}
             {{ f.submitButton() }}
         </div>
     </form>

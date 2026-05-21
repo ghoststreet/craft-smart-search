@@ -49,9 +49,9 @@
 
     <form method="get" action="{{ cpUrl('smart-search/history') }}">
         <div class="filter-bar">
+            {{ f.sitesSelect(sites, siteFilter) }}
             {{ f.typeSelect(typeFilter) }}
             {{ f.daysSelect(daysFilter) }}
-            {{ f.sitesSelect(sites, siteFilter) }}
             {{ f.errorsOnlyCheckbox(errorsOnly) }}
             {{ f.submitButton() }}
             <div class="filter-bar__spacer">

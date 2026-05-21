@@ -61,8 +61,10 @@
         <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form">
             <input type="hidden" name="tab" value="{{ tab }}">
             <div class="filter-bar__group">
-                {{ f.daysSelect(days, 'Time range') }}
                 {{ f.sitesSelect(sites, siteId) }}
+                {% if tab != 'trending' %}
+                    {{ f.daysSelect(days, 'Time range') }}
+                {% endif %}
                 {% if tab == 'history' %}
                     {{ f.typeSelect(filters.type) }}
                     {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
@@ -155,27 +157,30 @@
         } only %}
 
     {% elseif tab == 'trending' %}
-        <p class="light">Queries whose frequency rose in the last 7 days vs the prior 7-day window.</p>
+        <p class="light">Queries gaining momentum: searched more in the last 7 days than in the 7 days before. Use it to spot rising interest early.</p>
         {% if page.items|length %}
             <div class="tableview data-table data-table--auto">
                 <table class="data fullwidth big">
                     <thead>
                         <tr>
                             <th scope="col">Query</th>
-                            <th scope="col" class="rightalign">Recent</th>
-                            <th scope="col" class="rightalign">Prior</th>
-                            <th scope="col" class="rightalign">Δ</th>
+                            <th scope="col" class="rightalign" title="Searches in the last 7 days">Recent</th>
+                            <th scope="col" class="rightalign" title="Searches in the prior 7 days">Prior</th>
+                            <th scope="col" class="rightalign">Growth</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for k in page.items %}
                             <tr>
                                 <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
-                                <td class="rightalign">{{ k.recent }}</td>
-                                <td class="rightalign">{{ k.prior }}</td>
+                                <td class="rightalign">{{ k.recent|number_format }}</td>
+                                <td class="rightalign light">{{ k.prior|number_format }}</td>
                                 <td class="rightalign">
-                                    {% if k.growthPct is null %}<span class="status on" title="New"></span> new
-                                    {% else %}+{{ k.growthPct }}%{% endif %}
+                                    {% if k.growthPct is null %}
+                                        <span class="delta-tag delta-tag--up">new</span>
+                                    {% else %}
+                                        <span class="delta-tag delta-tag--up">▲ {{ k.growthPct }}%</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}

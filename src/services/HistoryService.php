@@ -279,7 +279,7 @@ class HistoryService extends Component
      */
     public function getTrendingKeywords(?int $siteId = null, int $windowDays = 7, int $limit = 10): array
     {
-        $limit = max(1, min(50, $limit));
+        $limit = max(1, min(200, $limit));
         $windowDays = max(1, $windowDays);
         $now = new \DateTime();
         $recentCutoff = Db::prepareDateForDb((clone $now)->modify("-{$windowDays} days"));
@@ -567,7 +567,8 @@ class HistoryService extends Component
             $site = $sitesService->getSiteById($id);
             $sites[] = [
                 'id' => $id,
-                'name' => $site?->name ?? "Site #{$id}",
+                'name' => $site?->name ?: $site?->handle,
+                'handle' => $site?->handle,
             ];
         }
         usort($sites, static fn($a, $b) => strcasecmp($a['name'], $b['name']));
@@ -637,15 +638,16 @@ class HistoryService extends Component
     }
 
     /**
-     * Paginated variant of getTrendingKeywords. Pagination is applied in PHP
-     * after building the full ranked list.
+     * Paginated variant of getTrendingKeywords. The ranked list is limited to
+     * the top $cap movers, then paginated in PHP.
+     * Returns { items, total, page, perPage, pages }.
      */
-    public function paginateTrending(?int $siteId, int $windowDays, int $page = 1, int $perPage = 25): array
+    public function paginateTrending(?int $siteId, int $windowDays, int $page = 1, int $perPage = 25, int $cap = 100): array
     {
         $page = max(1, $page);
         $perPage = max(1, min(100, $perPage));
 
-        $all = $this->getTrendingKeywords($siteId, $windowDays, 1000);
+        $all = $this->getTrendingKeywords($siteId, $windowDays, $cap);
         $total = count($all);
         $items = array_slice($all, ($page - 1) * $perPage, $perPage);
 
