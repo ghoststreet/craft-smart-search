@@ -29,10 +29,10 @@
     }) }}
 {% endmacro %}
 
-{% macro sitesSelect(sites, siteFilter) %}
+{% macro sitesSelect(sites, siteFilter, includeAll) %}
     {% import "_includes/forms.twig" as forms %}
-    {% if sites is not empty %}
-        {% set options = [{ label: 'All sites', value: '' }] %}
+    {% if sites|length > 1 %}
+        {% set options = (includeAll ?? true) ? [{ label: 'All sites', value: '' }] : [] %}
         {% for s in sites %}
             {% set options = options|merge([{ label: s.name, value: s.id }]) %}
         {% endfor %}
@@ -42,6 +42,8 @@
             value: siteFilter,
             options: options,
         }) }}
+    {% else %}
+        <input type="hidden" name="siteId" value="{{ siteFilter }}">
     {% endif %}
 {% endmacro %}
 

@@ -12,6 +12,7 @@
                                   stale, notIndexed, filter }
 #}
 {% import "_includes/forms.twig" as forms %}
+{% import 'smart-search/_components/filter-fields' as f %}
 
 {% set labels = labels ?? {} %}
 {% set L = {
@@ -20,11 +21,6 @@
     indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed',
     filter: 'Filter',
 }|merge(labels) %}
-
-{% set siteOptions = [] %}
-{% for site in sites %}
-    {% set siteOptions = siteOptions|merge([{ label: site.name, value: site.id }]) %}
-{% endfor %}
 
 {% set sectionOptions = [{ label: L.allSections, value: '' }] %}
 {% for section in sections %}
@@ -44,16 +40,7 @@
             <input type="hidden" name="{{ name }}" value="{{ value }}">
         {% endfor %}
         <div class="filter-bar__group">
-            {% if sites|length > 1 %}
-                {{ forms.selectField({
-                    label: L.site,
-                    name: 'siteId',
-                    value: filters.siteId,
-                    options: siteOptions,
-                }) }}
-            {% else %}
-                <input type="hidden" name="siteId" value="{{ filters.siteId }}">
-            {% endif %}
+            {{ f.sitesSelect(sites, filters.siteId, false) }}
 
             {{ forms.selectField({
                 label: L.section,

@@ -1,7 +1,7 @@
 {% import '_includes/forms.twig' as forms %}
 
 <h2>OpenAI</h2>
-<p class="light">Required to generate embeddings and run AI answers. <a href="https://github.com/ghost-street/craft-smart-search#setup" target="_blank">Setup docs →</a></p>
+<p class="light">Required to generate embeddings and run AI answers. <a href="https://github.com/ghoststreet/craft-smart-search#setup" target="_blank">Setup docs →</a></p>
 
 {% namespace 'settings' %}
     {{ forms.autosuggestField({
@@ -22,7 +22,7 @@
 <hr>
 
 <h2>PostgreSQL</h2>
-<p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghost-street/craft-smart-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
+<p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghoststreet/craft-smart-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
 
 {% namespace 'settings' %}
     {{ forms.autosuggestField({ label: 'Host', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost'), inputAttributes: { 'data-craftsearch-target': 'db-host' } }) }}

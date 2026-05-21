@@ -66,7 +66,8 @@ class InsightsController extends Controller
                 break;
             case 'queries':
             default:
-                $data['page'] = $history->paginateKeywords($days, $siteId, false, $page, 25);
+                $data['topQueries'] = $history->getTopKeywords($days, $siteId, 30);
+                $data['totalSearches'] = $history->countSearches($days, $siteId);
                 $data['tab'] = 'queries';
                 break;
         }

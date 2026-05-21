@@ -519,6 +519,7 @@ class HistoryService extends Component
         if ($cutoff !== null) {
             $q->andWhere(['>=', 's.dateCreated', $cutoff]);
         }
+
         if ($siteId !== null) {
             $q->andWhere(['s.siteId' => $siteId]);
         }
@@ -572,6 +573,33 @@ class HistoryService extends Component
         usort($sites, static fn($a, $b) => strcasecmp($a['name'], $b['name']));
 
         return $sites;
+    }
+
+    /**
+     * Total searches over the given days+site filter, counted on the same
+     * DETAILS⨝STATS non-empty-query universe that getTopKeywords hits are
+     * drawn from — so per-query share percentages sum to ~100%.
+     */
+    public function countSearches(?int $days, ?int $siteId): int
+    {
+        $cutoff = ($days !== null && $days > 0)
+            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
+            : null;
+
+        $q = (new Query())
+            ->from(['d' => self::DETAILS_TABLE])
+            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
+            ->andWhere(['not', ['d.query' => null]])
+            ->andWhere(['<>', 'd.query', '']);
+
+        if ($cutoff !== null) {
+            $q->andWhere(['>=', 's.dateCreated', $cutoff]);
+        }
+        if ($siteId !== null) {
+            $q->andWhere(['s.siteId' => $siteId]);
+        }
+
+        return (int)$q->count('*');
     }
 
     private function aggregateKeywords(?int $days, ?int $siteId, int $limit, bool $zeroOnly): array

@@ -32,6 +32,7 @@ class SmartSearchAsset extends AssetBundle
             'css/components/alert.css',
             'css/components/budget-bar.css',
             'css/components/chunk-row.css',
+            'css/components/data-table.css',
             'css/components/debug-extracted.css',
             'css/components/delta-tag.css',
             'css/components/entry-status-pill.css',

@@ -1,0 +1,38 @@
+/*
+    data-table — responsive wrapper for Craft CP `.data` tables.
+
+    Wrap the table in the block element:
+
+        <div class="data-table data-table--auto">
+            <table class="data fullwidth">…</table>
+        </div>
+
+    The wrapper scrolls horizontally when the table is wider than the
+    viewport, so tables stay usable on small screens instead of breaking
+    the page layout.
+
+    Modifiers (on the wrapper):
+      data-table--fit    Every column shrinks to fit its own content.
+      data-table--auto   Same, but the first column flexes to absorb the
+                         remaining width — the common "label column first,
+                         metrics after" table. No per-cell classes needed.
+*/
+.data-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.data-table--fit table th,
+.data-table--fit table td,
+.data-table--auto table th,
+.data-table--auto table td {
+    white-space: nowrap;
+}
+
+.data-table--auto table th:first-child,
+.data-table--auto table td:first-child {
+    width: 100%;
+    min-width: 14ch;
+    white-space: normal;
+    word-break: break-word;
+}

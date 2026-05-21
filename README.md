@@ -164,7 +164,7 @@ DROP ROLE  IF EXISTS craft_aisearch;
 cd /path/to/my-project
 
 # Install the plugin
-composer require ghost-street/craft-smart-search
+composer require ghoststreet/craft-smart-search
 
 # Install in Craft
 ./craft plugin/install smart-search
