@@ -233,7 +233,6 @@ class Settings extends Model
             [['ragModel'], 'in', 'range' => ['gpt-5.4-nano'], 'on' => $aiAnswers],
             [['ragCustomPrompt'], 'string', 'on' => $aiAnswers],
             [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000, 'on' => $aiAnswers],
-            [['maxPromptTokens'], 'default', 'value' => 6000],
 
             // AI Answers — budget + limits
             [['costBudgetDailyGlobal'], 'number', 'min' => 0, 'on' => $aiAnswers],

@@ -13,7 +13,9 @@
     }) }}
 
     {{ forms.textField({
-        label: 'Max prompt tokens',
+        label: 'AI answer context size',
+        instructions: 'How much of your matched search content the AI can read when writing an answer, measured in tokens (~4 characters each).',
+        tip: 'Higher values let the AI consider more sources for richer answers, but each request costs more and takes longer. Lower values are cheaper and faster but give the AI less to work with. Range: 500–100,000.',
         id: 'maxPromptTokens', name: 'maxPromptTokens',
         value: settings.maxPromptTokens, type: 'number', min: '500', max: '100000',
         required: true, errors: settings.getErrors('maxPromptTokens'),
