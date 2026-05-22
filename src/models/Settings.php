@@ -80,10 +80,10 @@ class Settings extends Model
             'openaiApiKey',
             'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
             'postgresqlPassword', 'postgresqlSslMode',
+            'vectorsSchemaName', 'vectorsTableName',
         ],
         self::SCENARIO_INDEXING      => [
             'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
-            'vectorsSchemaName', 'vectorsTableName',
             'embeddingCacheTtl',
         ],
         self::SCENARIO_HYBRID_SEARCH => [
@@ -174,12 +174,12 @@ class Settings extends Model
             [['postgresqlPort'], 'default', 'value' => 5432],
             [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $connections],
 
-            // Vector storage identifiers — Indexing
+            // Vector storage identifiers — Connections
             [['vectorsSchemaName'], 'default', 'value' => 'public'],
-            [['vectorsTableName'], 'required', 'on' => $indexing],
+            [['vectorsTableName'], 'required', 'on' => $connections],
             [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
-                'on' => $indexing],
+                'on' => $connections],
 
             // Content chunking — Indexing
             [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500, 'on' => $indexing],
