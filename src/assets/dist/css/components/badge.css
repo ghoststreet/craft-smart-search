@@ -3,11 +3,11 @@
     Pair with the _components/badge.twig macro.
 
     Modifiers:
-      badge--rag        green dot   (RAG searches)
-      badge--semantic   orange dot  (semantic searches)
+      badge--rag        purple dot  (RAG searches)
+      badge--semantic   blue dot    (semantic searches)
       badge--success    green pill  (successful rows)
       badge--error      red pill    (errored rows)
-      badge--cached     gray pill, no dot  (cached embedding)
+      badge--cached     gray pill, blue dot  (cached embedding)
 */
 .badge {
     display: inline-flex;
@@ -33,8 +33,8 @@
     flex-shrink: 0;
 }
 
-.badge--rag .badge__dot { background: var(--smart-search-success); }
-.badge--semantic .badge__dot { background: var(--smart-search-warning); }
+.badge--rag .badge__dot { background: var(--smart-search-rag); }
+.badge--semantic .badge__dot { background: var(--smart-search-semantic); }
 
 .badge--success {
     background: var(--smart-search-chip-success-bg);
@@ -52,10 +52,4 @@
     background: var(--gray-100, rgba(0, 0, 0, .05));
     color: var(--medium-text-color);
 }
-.badge--cached .badge__dot { display: none; }
-
-.badge--cached {
-    background: var(--gray-100, rgba(0, 0, 0, .05));
-    color: var(--medium-text-color);
-}
-.badge--cached .badge__dot { background: var(--medium-text-color); }
+.badge--cached .badge__dot { background: var(--smart-search-semantic); }

@@ -64,5 +64,5 @@
     background: var(--medium-text-color);
     flex-shrink: 0;
 }
-.ss-token-dot--rag { background: var(--smart-search-success); }
-.ss-token-dot--embedding { background: var(--smart-search-warning); }
+.ss-token-dot--rag { background: var(--smart-search-rag); }
+.ss-token-dot--embedding { background: var(--smart-search-semantic); }
