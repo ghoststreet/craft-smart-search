@@ -8,6 +8,7 @@ use craft\db\ActiveRecord;
  * @property int $id
  * @property string $requestId
  * @property string $type
+ * @property string $query
  * @property int|null $userId
  * @property int|null $siteId
  * @property int $resultsCount
@@ -21,14 +22,15 @@ use craft\db\ActiveRecord;
  * @property int $durationMs
  * @property bool $embeddingCached
  * @property bool $hasError
+ * @property string|null $errorMessage
  * @property string $dateCreated
  * @property string $dateUpdated
  * @property string $uid
  */
-class SearchHistoryStatsRecord extends ActiveRecord
+class SearchHistoryRecord extends ActiveRecord
 {
     public static function tableName(): string
     {
-        return '{{%aisearch_history_stats}}';
+        return '{{%smart_search_history}}';
     }
 }

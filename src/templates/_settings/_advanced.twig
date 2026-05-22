@@ -29,19 +29,3 @@
         errors: settings.getErrors('allowedOrigins'),
     }) }}
 {% endnamespace %}
-
-<hr>
-
-<h2>Diagnostics</h2>
-<p class="light">Control how long detailed search history is kept for debugging and analytics.</p>
-
-{% namespace 'settings' %}
-    {{ forms.textField({
-        label: 'History retention (days)',
-        instructions: 'Number of days to keep query text and result payloads. Token usage and cost are kept permanently so long-term stats stay accurate.',
-        id: 'historyRetentionDays', name: 'historyRetentionDays',
-        value: settings.historyRetentionDays, type: 'number', min: '1', max: '365',
-        required: true, errors: settings.getErrors('historyRetentionDays'),
-    }) }}
-
-{% endnamespace %}

@@ -5,101 +5,61 @@ namespace ghoststreet\craftsmartsearch\services;
 use Craft;
 use craft\db\Query;
 use craft\helpers\Db;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\PricingTable;
-use ghoststreet\craftsmartsearch\jobs\PruneHistoryJob;
-use ghoststreet\craftsmartsearch\records\SearchHistoryDetailsRecord;
-use ghoststreet\craftsmartsearch\records\SearchHistoryStatsRecord;
+use ghoststreet\craftsmartsearch\models\SearchHistoryEntry;
+use ghoststreet\craftsmartsearch\records\SearchHistoryRecord;
 use Throwable;
 use yii\base\Component;
 
 class HistoryService extends Component
 {
-    public const STATS_TABLE = '{{%aisearch_history_stats}}';
-    public const DETAILS_TABLE = '{{%aisearch_history_details}}';
-
-    private const PRUNE_GUARD_KEY = 'aisearch.history.lastPrune';
-
     /**
-     * Insert a search history row (stats + details). Never throws — failures are logged
+     * Insert a search history row. Never throws — failures are logged
      * but never break the search response.
-     *
-     * Expected keys in $data:
-     *   requestId, type ('semantic'|'rag'), query, userId, siteId,
-     *   resultsCount, results (array), summary (?string), confidence (?string),
-     *   embeddingModel, ragModel, embeddingTokens, ragInputTokens, ragOutputTokens,
-     *   durationMs, embeddingCached (bool), errorMessage (?string)
      */
-    public function record(array $data): void
+    public function record(SearchHistoryEntry $entry): void
     {
-        $embeddingTokens = (int)($data['embeddingTokens'] ?? 0);
-        $ragIn = (int)($data['ragInputTokens'] ?? 0);
-        $ragOut = (int)($data['ragOutputTokens'] ?? 0);
-        $total = $embeddingTokens + $ragIn + $ragOut;
-
-        $embedCost = PricingTable::calculateCost($data['embeddingModel'] ?? null, $embeddingTokens, 0);
-        $ragCost = PricingTable::calculateCost($data['ragModel'] ?? null, $ragIn, $ragOut);
-        $totalCost = round($embedCost + $ragCost, 6);
-
-        $errorMessage = $data['errorMessage'] ?? null;
-
         try {
-            $db = Craft::$app->getDb();
-            $transaction = $db->beginTransaction();
-
-            try {
-                $stats = new SearchHistoryStatsRecord();
-                $stats->requestId = (string)($data['requestId'] ?? '');
-                $stats->type = (string)($data['type'] ?? 'semantic');
-                $stats->userId = $data['userId'] ?? null;
-                $stats->siteId = $data['siteId'] ?? null;
-                $stats->resultsCount = (int)($data['resultsCount'] ?? 0);
-                $stats->embeddingModel = $data['embeddingModel'] ?? null;
-                $stats->ragModel = $data['ragModel'] ?? null;
-                $stats->embeddingTokens = $embeddingTokens;
-                $stats->ragInputTokens = $ragIn;
-                $stats->ragOutputTokens = $ragOut;
-                $stats->totalTokens = $total;
-                $stats->cost = (string)$totalCost;
-                $stats->durationMs = (int)($data['durationMs'] ?? 0);
-                $stats->embeddingCached = (bool)($data['embeddingCached'] ?? false);
-                $stats->hasError = $errorMessage !== null;
-                $stats->save(false);
-
-                $details = new SearchHistoryDetailsRecord();
-                $details->statsId = $stats->id;
-                $details->requestId = $stats->requestId;
-                $details->query = (string)($data['query'] ?? '');
-                $details->results = $data['results'] ?? null;
-                $details->summary = $data['summary'] ?? null;
-                $details->confidence = $data['confidence'] ?? null;
-                $details->errorMessage = $errorMessage;
-                $details->save(false);
-
-                $transaction->commit();
-            } catch (Throwable $e) {
-                $transaction->rollBack();
-                throw $e;
-            }
+            $row = new SearchHistoryRecord();
+            $row->requestId = $entry->requestId;
+            $row->type = $entry->type;
+            $row->query = $entry->query;
+            $row->userId = $entry->userId;
+            $row->siteId = $entry->siteId;
+            $row->resultsCount = $entry->resultsCount;
+            $row->embeddingModel = $entry->embeddingModel;
+            $row->ragModel = $entry->ragModel;
+            $row->embeddingTokens = $entry->embeddingTokens;
+            $row->ragInputTokens = $entry->ragInputTokens;
+            $row->ragOutputTokens = $entry->ragOutputTokens;
+            $row->totalTokens = $entry->embeddingTokens + $entry->ragInputTokens + $entry->ragOutputTokens;
+            $row->cost = (string)PricingTable::costForUsage(
+                $entry->embeddingModel,
+                $entry->embeddingTokens,
+                $entry->ragModel,
+                $entry->ragInputTokens,
+                $entry->ragOutputTokens,
+            );
+            $row->durationMs = $entry->durationMs;
+            $row->embeddingCached = $entry->embeddingCached;
+            $row->hasError = $entry->errorMessage !== null;
+            $row->errorMessage = $entry->errorMessage;
+            $row->save(false);
         } catch (Throwable $e) {
             Logger::exception($e, 'history.record');
-            return;
         }
-
-        $settings = SmartSearch::getInstance()->getSettings();
-        $this->maybeQueuePrune((int)$settings->historyRetentionDays);
     }
 
     /**
-     * Aggregate stats for the header. Always sourced from the (permanent) stats table.
+     * Aggregate stats for the header.
      */
     public function getStats(?int $days = null): array
     {
-        $query = (new Query())->from(self::STATS_TABLE);
+        $query = (new Query())->from(SearchHistoryRecord::tableName());
 
-        if ($days !== null && $days > 0) {
-            $query->andWhere(['>=', 'dateCreated', Db::prepareDateForDb(new \DateTime("-{$days} days"))]);
+        if ($cutoff = $this->cutoff($days)) {
+            $query->andWhere(['>=', 'dateCreated', $cutoff]);
         }
 
         $row = (clone $query)
@@ -154,67 +114,40 @@ class HistoryService extends Component
         $page = max(1, $page);
         $perPage = max(1, min(100, $perPage));
 
-        $base = (new Query())
-            ->from(['s' => self::STATS_TABLE])
-            ->leftJoin(['d' => self::DETAILS_TABLE], '[[d.statsId]] = [[s.id]]');
+        $base = (new Query())->from(SearchHistoryRecord::tableName());
 
         if (!empty($filters['type'])) {
-            $base->andWhere(['s.type' => $filters['type']]);
+            $base->andWhere(['type' => $filters['type']]);
         }
         if (!empty($filters['days']) && (int)$filters['days'] > 0) {
-            $days = (int)$filters['days'];
-            $base->andWhere(['>=', 's.dateCreated', Db::prepareDateForDb(new \DateTime("-{$days} days"))]);
+            $base->andWhere(['>=', 'dateCreated', $this->cutoff((int)$filters['days'])]);
         }
         if (!empty($filters['errorsOnly'])) {
-            $base->andWhere(['s.hasError' => true]);
+            $base->andWhere(['hasError' => true]);
         }
         if (!empty($filters['siteId'])) {
-            $base->andWhere(['s.siteId' => (int)$filters['siteId']]);
+            $base->andWhere(['siteId' => (int)$filters['siteId']]);
         }
 
-        $total = (clone $base)->count('*');
+        $total = (int)(clone $base)->count('*');
 
         $items = (clone $base)
             ->select([
-                's.id', 's.requestId', 's.type', 's.resultsCount', 's.embeddingModel', 's.ragModel',
-                's.embeddingTokens', 's.ragInputTokens', 's.ragOutputTokens', 's.totalTokens',
-                's.cost', 's.durationMs', 's.embeddingCached', 's.hasError', 's.dateCreated',
-                'd.query', 'd.summary', 'd.confidence', 'd.errorMessage',
-                'detailsId' => 'd.id',
+                'id', 'requestId', 'type', 'query', 'resultsCount', 'embeddingModel', 'ragModel',
+                'embeddingTokens', 'ragInputTokens', 'ragOutputTokens', 'totalTokens',
+                'cost', 'durationMs', 'embeddingCached', 'hasError', 'errorMessage', 'dateCreated',
             ])
-            ->orderBy(['s.dateCreated' => SORT_DESC])
+            ->orderBy(['dateCreated' => SORT_DESC])
             ->offset(($page - 1) * $perPage)
             ->limit($perPage)
             ->all();
 
-        return [
-            'items' => $items,
-            'total' => (int)$total,
-            'page' => $page,
-            'perPage' => $perPage,
-            'pages' => (int)ceil($total / $perPage),
-        ];
+        return $this->paginated($items, $total, $page, $perPage);
     }
 
-    /**
-     * Delete details rows older than $days. Stats untouched.
-     */
-    public function pruneOlderThan(int $days): int
+    public function count(): int
     {
-        $cutoff = Db::prepareDateForDb(new \DateTime("-{$days} days"));
-        $deleted = Craft::$app->getDb()->createCommand()
-            ->delete(self::DETAILS_TABLE, ['<', 'dateCreated', $cutoff])
-            ->execute();
-
-        Logger::info("HistoryService: pruned {$deleted} details rows older than {$days} days");
-        Craft::$app->getCache()->set(self::PRUNE_GUARD_KEY, time(), 86400);
-
-        return $deleted;
-    }
-
-    public function detailsCount(): int
-    {
-        return (int)(new Query())->from(self::DETAILS_TABLE)->count('*');
+        return (int)(new Query())->from(SearchHistoryRecord::tableName())->count('*');
     }
 
     /**
@@ -240,9 +173,8 @@ class HistoryService extends Component
     {
         $limit = max(1, min(200, $limit));
         $windowDays = max(1, $windowDays);
-        $now = new \DateTime();
-        $recentCutoff = Db::prepareDateForDb((clone $now)->modify("-{$windowDays} days"));
-        $priorCutoff = Db::prepareDateForDb((clone $now)->modify('-' . ($windowDays * 2) . ' days'));
+        $recentCutoff = $this->cutoff($windowDays);
+        $priorCutoff = $this->cutoff($windowDays * 2);
 
         $recent = $this->groupedCounts($recentCutoff, null, $siteId, false, true);
         $prior = $this->groupedCounts($priorCutoff, $recentCutoff, $siteId, false, true);
@@ -293,12 +225,11 @@ class HistoryService extends Component
     public function getDailySeries(int $days = 30, ?string $type = null, ?int $siteId = null): array
     {
         $days = max(1, min(365, $days));
-        $cutoff = Db::prepareDateForDb(new \DateTime("-{$days} days"));
 
         $q = (new Query())
-            ->from(self::STATS_TABLE)
+            ->from(SearchHistoryRecord::tableName())
             ->select(['dateCreated', 'type', 'siteId', 'totalTokens', 'cost', 'durationMs', 'hasError', 'embeddingCached', 'resultsCount'])
-            ->andWhere(['>=', 'dateCreated', $cutoff]);
+            ->andWhere(['>=', 'dateCreated', $this->cutoff($days)]);
 
         if ($type !== null) {
             $q->andWhere(['type' => $type]);
@@ -379,11 +310,10 @@ class HistoryService extends Component
     public function getOverallPercentile(int $days, float $percentile = 0.95, ?int $siteId = null): ?int
     {
         $percentile = max(0.0, min(1.0, $percentile));
-        $cutoff = Db::prepareDateForDb(new \DateTime("-{$days} days"));
 
         $base = (new Query())
-            ->from(self::STATS_TABLE)
-            ->andWhere(['>=', 'dateCreated', $cutoff])
+            ->from(SearchHistoryRecord::tableName())
+            ->andWhere(['>=', 'dateCreated', $this->cutoff($days)])
             ->andWhere(['>', 'durationMs', 0]);
         if ($siteId !== null) {
             $base->andWhere(['siteId' => $siteId]);
@@ -410,20 +340,7 @@ class HistoryService extends Component
      */
     public function getCacheHitRate(int $days = 30): ?float
     {
-        $row = (new Query())
-            ->from(self::STATS_TABLE)
-            ->andWhere(['>=', 'dateCreated', Db::prepareDateForDb(new \DateTime("-{$days} days"))])
-            ->select([
-                'total' => 'COUNT(*)',
-                'hits' => 'SUM(CASE WHEN embeddingCached = 1 OR embeddingCached = TRUE THEN 1 ELSE 0 END)',
-            ])
-            ->one();
-
-        $total = (int)($row['total'] ?? 0);
-        if ($total === 0) {
-            return null;
-        }
-        return round((int)$row['hits'] / $total, 4);
+        return $this->rateOverWindow($days, 'SUM(CASE WHEN embeddingCached = 1 OR embeddingCached = TRUE THEN 1 ELSE 0 END)');
     }
 
     /**
@@ -431,20 +348,7 @@ class HistoryService extends Component
      */
     public function getZeroResultRate(int $days = 30): ?float
     {
-        $row = (new Query())
-            ->from(self::STATS_TABLE)
-            ->andWhere(['>=', 'dateCreated', Db::prepareDateForDb(new \DateTime("-{$days} days"))])
-            ->select([
-                'total' => 'COUNT(*)',
-                'zeros' => 'SUM(CASE WHEN resultsCount = 0 THEN 1 ELSE 0 END)',
-            ])
-            ->one();
-
-        $total = (int)($row['total'] ?? 0);
-        if ($total === 0) {
-            return null;
-        }
-        return round((int)$row['zeros'] / $total, 4);
+        return $this->rateOverWindow($days, 'SUM(CASE WHEN resultsCount = 0 THEN 1 ELSE 0 END)');
     }
 
     /**
@@ -454,34 +358,18 @@ class HistoryService extends Component
     public function getSlowQueries(?int $days = 30, ?int $siteId = null, int $limit = 10, int $thresholdMs = 1500): array
     {
         $limit = max(1, min(50, $limit));
-        $cutoff = ($days !== null && $days > 0)
-            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
-            : null;
 
-        $q = (new Query())
-            ->from(['d' => self::DETAILS_TABLE])
-            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
+        $q = $this->groupedQuery($this->cutoff($days), null, $siteId, false)
             ->select([
-                'k' => 'LOWER(TRIM([[d.query]]))',
-                'query' => 'MIN([[d.query]])',
+                'k' => 'LOWER(TRIM([[query]]))',
+                'query' => 'MIN([[query]])',
                 'hits' => 'COUNT(*)',
-                'avgDurationMs' => 'AVG([[s.durationMs]])',
-                'lastSeen' => 'MAX([[s.dateCreated]])',
+                'avgDurationMs' => 'AVG([[durationMs]])',
+                'lastSeen' => 'MAX([[dateCreated]])',
             ])
-            ->andWhere(['not', ['d.query' => null]])
-            ->andWhere(['<>', 'd.query', ''])
-            ->groupBy(['k'])
-            ->having(['>=', 'AVG([[s.durationMs]])', $thresholdMs])
+            ->having(['>=', 'AVG([[durationMs]])', $thresholdMs])
             ->orderBy(['avgDurationMs' => SORT_DESC])
             ->limit($limit);
-
-        if ($cutoff !== null) {
-            $q->andWhere(['>=', 's.dateCreated', $cutoff]);
-        }
-
-        if ($siteId !== null) {
-            $q->andWhere(['s.siteId' => $siteId]);
-        }
 
         return $q->all();
     }
@@ -494,15 +382,10 @@ class HistoryService extends Component
     {
         $limit = max(1, min(50, $limit));
         return (new Query())
-            ->from(['s' => self::STATS_TABLE])
-            ->leftJoin(['d' => self::DETAILS_TABLE], '[[d.statsId]] = [[s.id]]')
-            ->select([
-                's.id', 's.type', 's.dateCreated',
-                'query' => 'd.query',
-                'errorMessage' => 'd.errorMessage',
-            ])
-            ->andWhere(['s.hasError' => true])
-            ->orderBy(['s.dateCreated' => SORT_DESC])
+            ->from(SearchHistoryRecord::tableName())
+            ->select(['id', 'type', 'dateCreated', 'query', 'errorMessage'])
+            ->andWhere(['hasError' => true])
+            ->orderBy(['dateCreated' => SORT_DESC])
             ->limit($limit)
             ->all();
     }
@@ -513,7 +396,7 @@ class HistoryService extends Component
     public function getAvailableSites(): array
     {
         $rows = (new Query())
-            ->from(self::STATS_TABLE)
+            ->from(SearchHistoryRecord::tableName())
             ->select(['siteId'])
             ->where(['not', ['siteId' => null]])
             ->distinct()
@@ -537,39 +420,23 @@ class HistoryService extends Component
 
     /**
      * Total searches over the given days+site filter, counted on the same
-     * DETAILS⨝STATS non-empty-query universe that getTopKeywords hits are
-     * drawn from — so per-query share percentages sum to ~100%.
+     * non-empty-query universe that getTopKeywords hits are drawn from — so
+     * per-query share percentages sum to ~100%.
      */
     public function countSearches(?int $days, ?int $siteId): int
     {
-        $cutoff = ($days !== null && $days > 0)
-            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
-            : null;
-
         $q = (new Query())
-            ->from(['d' => self::DETAILS_TABLE])
-            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
-            ->andWhere(['not', ['d.query' => null]])
-            ->andWhere(['<>', 'd.query', '']);
+            ->from(SearchHistoryRecord::tableName())
+            ->andWhere(['<>', 'query', '']);
 
-        if ($cutoff !== null) {
-            $q->andWhere(['>=', 's.dateCreated', $cutoff]);
+        if ($cutoff = $this->cutoff($days)) {
+            $q->andWhere(['>=', 'dateCreated', $cutoff]);
         }
         if ($siteId !== null) {
-            $q->andWhere(['s.siteId' => $siteId]);
+            $q->andWhere(['siteId' => $siteId]);
         }
 
         return (int)$q->count('*');
-    }
-
-    private function aggregateKeywords(?int $days, ?int $siteId, int $limit, bool $zeroOnly): array
-    {
-        $limit = max(1, min(50, $limit));
-        $cutoff = ($days !== null && $days > 0)
-            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
-            : null;
-
-        return $this->groupedCounts($cutoff, null, $siteId, $zeroOnly, false, $limit);
     }
 
     /**
@@ -580,20 +447,12 @@ class HistoryService extends Component
     {
         $page = max(1, $page);
         $perPage = max(1, min(100, $perPage));
-        $cutoff = ($days !== null && $days > 0)
-            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
-            : null;
+        $cutoff = $this->cutoff($days);
 
         $total = $this->groupedCountsTotal($cutoff, null, $siteId, $zeroOnly);
         $items = $this->groupedCounts($cutoff, null, $siteId, $zeroOnly, false, $perPage, ($page - 1) * $perPage);
 
-        return [
-            'items' => $items,
-            'total' => $total,
-            'page' => $page,
-            'perPage' => $perPage,
-            'pages' => (int)ceil($total / $perPage),
-        ];
+        return $this->paginated($items, $total, $page, $perPage);
     }
 
     /**
@@ -607,40 +466,22 @@ class HistoryService extends Component
         $perPage = max(1, min(100, $perPage));
 
         $all = $this->getTrendingKeywords($siteId, $windowDays, $cap);
-        $total = count($all);
         $items = array_slice($all, ($page - 1) * $perPage, $perPage);
 
-        return [
-            'items' => $items,
-            'total' => $total,
-            'page' => $page,
-            'perPage' => $perPage,
-            'pages' => (int)ceil($total / $perPage),
-        ];
+        return $this->paginated($items, count($all), $page, $perPage);
+    }
+
+    private function aggregateKeywords(?int $days, ?int $siteId, int $limit, bool $zeroOnly): array
+    {
+        $limit = max(1, min(50, $limit));
+
+        return $this->groupedCounts($this->cutoff($days), null, $siteId, $zeroOnly, false, $limit);
     }
 
     private function groupedCountsTotal(?string $cutoffFrom, ?string $cutoffTo, ?int $siteId, bool $zeroOnly): int
     {
-        $sub = (new Query())
-            ->from(['d' => self::DETAILS_TABLE])
-            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
-            ->select(['k' => 'LOWER(TRIM([[d.query]]))'])
-            ->andWhere(['not', ['d.query' => null]])
-            ->andWhere(['<>', 'd.query', ''])
-            ->groupBy(['k']);
-
-        if ($cutoffFrom !== null) {
-            $sub->andWhere(['>=', 's.dateCreated', $cutoffFrom]);
-        }
-        if ($cutoffTo !== null) {
-            $sub->andWhere(['<', 's.dateCreated', $cutoffTo]);
-        }
-        if ($siteId !== null) {
-            $sub->andWhere(['s.siteId' => $siteId]);
-        }
-        if ($zeroOnly) {
-            $sub->andWhere(['s.resultsCount' => 0]);
-        }
+        $sub = $this->groupedQuery($cutoffFrom, $cutoffTo, $siteId, $zeroOnly)
+            ->select(['k' => 'LOWER(TRIM([[query]]))']);
 
         return (int)(new Query())->from(['x' => $sub])->count('*');
     }
@@ -658,39 +499,22 @@ class HistoryService extends Component
         int $offset = 0
     ): array {
         $select = [
-            'k' => 'LOWER(TRIM([[d.query]]))',
-            'query' => 'MIN([[d.query]])',
+            'k' => 'LOWER(TRIM([[query]]))',
+            'query' => 'MIN([[query]])',
             'hits' => 'COUNT(*)',
         ];
         if (!$minimal) {
-            $select['zeroHits'] = 'SUM(CASE WHEN [[s.resultsCount]] = 0 THEN 1 ELSE 0 END)';
-            $select['avgResults'] = 'AVG([[s.resultsCount]])';
-            $select['avgDurationMs'] = 'AVG([[s.durationMs]])';
-            $select['errors'] = 'SUM(CASE WHEN [[s.hasError]] = 1 THEN 1 ELSE 0 END)';
-            $select['lastSeen'] = 'MAX([[s.dateCreated]])';
+            $select['zeroHits'] = 'SUM(CASE WHEN [[resultsCount]] = 0 THEN 1 ELSE 0 END)';
+            $select['avgResults'] = 'AVG([[resultsCount]])';
+            $select['avgDurationMs'] = 'AVG([[durationMs]])';
+            $select['errors'] = 'SUM(CASE WHEN [[hasError]] = 1 THEN 1 ELSE 0 END)';
+            $select['lastSeen'] = 'MAX([[dateCreated]])';
         }
 
-        $q = (new Query())
-            ->from(['d' => self::DETAILS_TABLE])
-            ->innerJoin(['s' => self::STATS_TABLE], '[[s.id]] = [[d.statsId]]')
+        $q = $this->groupedQuery($cutoffFrom, $cutoffTo, $siteId, $zeroOnly)
             ->select($select)
-            ->andWhere(['not', ['d.query' => null]])
-            ->andWhere(['<>', 'd.query', ''])
-            ->groupBy(['k'])
             ->orderBy(['hits' => SORT_DESC]);
 
-        if ($cutoffFrom !== null) {
-            $q->andWhere(['>=', 's.dateCreated', $cutoffFrom]);
-        }
-        if ($cutoffTo !== null) {
-            $q->andWhere(['<', 's.dateCreated', $cutoffTo]);
-        }
-        if ($siteId !== null) {
-            $q->andWhere(['s.siteId' => $siteId]);
-        }
-        if ($zeroOnly) {
-            $q->andWhere(['s.resultsCount' => 0]);
-        }
         if ($limit !== null) {
             $q->limit($limit);
         }
@@ -701,22 +525,73 @@ class HistoryService extends Component
         return $q->all();
     }
 
-    private function maybeQueuePrune(int $retentionDays): void
+    /**
+     * Shared base for the keyword GROUP BY queries: the non-empty-query universe,
+     * grouped case-insensitively on the trimmed query, with the standard filters.
+     */
+    private function groupedQuery(?string $cutoffFrom, ?string $cutoffTo, ?int $siteId, bool $zeroOnly): Query
     {
-        $last = Craft::$app->getCache()->get(self::PRUNE_GUARD_KEY);
-        if ($last !== false) {
-            return;
+        $q = (new Query())
+            ->from(SearchHistoryRecord::tableName())
+            ->andWhere(['<>', 'query', ''])
+            ->groupBy(['k']);
+
+        if ($cutoffFrom !== null) {
+            $q->andWhere(['>=', 'dateCreated', $cutoffFrom]);
+        }
+        if ($cutoffTo !== null) {
+            $q->andWhere(['<', 'dateCreated', $cutoffTo]);
+        }
+        if ($siteId !== null) {
+            $q->andWhere(['siteId' => $siteId]);
+        }
+        if ($zeroOnly) {
+            $q->andWhere(['resultsCount' => 0]);
         }
 
-        // set guard immediately so we don't enqueue twice
-        Craft::$app->getCache()->set(self::PRUNE_GUARD_KEY, time(), 86400);
+        return $q;
+    }
 
-        try {
-            Craft::$app->getQueue()->push(new PruneHistoryJob([
-                'retentionDays' => $retentionDays,
-            ]));
-        } catch (Throwable $e) {
-            Logger::exception($e, 'history.queuePrune');
+    /**
+     * A windowed COUNT(*) + conditional SUM ratio, 0..1. Returns null when the window is empty.
+     */
+    private function rateOverWindow(int $days, string $sumExpr): ?float
+    {
+        $row = (new Query())
+            ->from(SearchHistoryRecord::tableName())
+            ->andWhere(['>=', 'dateCreated', $this->cutoff($days)])
+            ->select(['total' => 'COUNT(*)', 'n' => $sumExpr])
+            ->one();
+
+        $total = (int)($row['total'] ?? 0);
+        if ($total === 0) {
+            return null;
         }
+
+        return round((int)$row['n'] / $total, 4);
+    }
+
+    /**
+     * Build a DB-ready cutoff timestamp $days in the past, or null when $days is null/≤0.
+     */
+    private function cutoff(?int $days): ?string
+    {
+        return ($days !== null && $days > 0)
+            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
+            : null;
+    }
+
+    /**
+     * Standard paginated-result envelope shared by the paginate* methods.
+     */
+    private function paginated(array $items, int $total, int $page, int $perPage): array
+    {
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'pages' => (int)ceil($total / $perPage),
+        ];
     }
 }

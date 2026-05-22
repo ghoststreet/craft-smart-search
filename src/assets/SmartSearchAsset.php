@@ -36,7 +36,6 @@ class SmartSearchAsset extends AssetBundle
             'css/components/budget-bar.css',
             'css/components/chunk-row.css',
             'css/components/data-table.css',
-            'css/components/debug-extracted.css',
             'css/components/delta-tag.css',
             'css/components/empty-state.css',
             'css/components/entry-status-pill.css',
@@ -54,9 +53,7 @@ class SmartSearchAsset extends AssetBundle
 
             // Pages (alphabetical)
             'css/pages/dashboard.css',
-            'css/pages/debug-entry.css',
-            'css/pages/history-index.css',
-            'css/pages/history-keywords.css',
+            'css/pages/index-entry.css',
             'css/pages/insights-index.css',
             'css/pages/settings.css',
         ];

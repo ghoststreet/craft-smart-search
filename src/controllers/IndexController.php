@@ -14,8 +14,7 @@ use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 /**
- * Index management page: tabs for overview/sync, entries (debug), and coverage.
- * Replaces the previous Data Sync + Debug pages.
+ * Index management page: tabs for overview/sync, entries, and coverage.
  */
 class IndexController extends BaseApiController
 {
@@ -75,7 +74,7 @@ class IndexController extends BaseApiController
             ];
 
             try {
-                $result = $plugin->indexingDebugService->getEntryRows($filters);
+                $result = $plugin->indexInspectionService->getEntryRows($filters);
                 $error = null;
             } catch (DatabaseException $e) {
                 $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 25, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
@@ -88,7 +87,7 @@ class IndexController extends BaseApiController
             $data['sites'] = Craft::$app->getSites()->getAllSites();
             $data['error'] = $error;
         } elseif ($tab === 'coverage') {
-            $data['coverage'] = $plugin->indexingDebugService->getCoverageBySite();
+            $data['coverage'] = $plugin->indexInspectionService->getCoverageBySite();
         }
 
         return $this->renderTemplate('smart-search/index-mgmt/index', $data);
@@ -105,7 +104,7 @@ class IndexController extends BaseApiController
         $plugin = SmartSearch::getInstance();
 
         try {
-            $inspection = $plugin->indexingDebugService->inspectElement($elementId, $siteId);
+            $inspection = $plugin->indexInspectionService->inspectElement($elementId, $siteId);
             $error = null;
         } catch (DatabaseException $e) {
             $inspection = null;
@@ -199,7 +198,7 @@ class IndexController extends BaseApiController
             $globalSync = null;
             foreach ($queue->getJobInfo(100) as $info) {
                 $description = (string)$info['description'];
-                if (!str_contains($description, 'Syncing AI search index')) {
+                if (!str_contains($description, 'Syncing Smart Search index')) {
                     continue;
                 }
                 $siteId = null;
@@ -275,7 +274,7 @@ class IndexController extends BaseApiController
             $statsBySiteId[$row['siteId']] = $row;
         }
 
-        $coverage = $plugin->indexingDebugService->getCoverageBySite();
+        $coverage = $plugin->indexInspectionService->getCoverageBySite();
         $coverageBySiteId = [];
         foreach ($coverage as $row) {
             $coverageBySiteId[$row['siteId']] = $row;
@@ -317,7 +316,7 @@ class IndexController extends BaseApiController
         $released = 0;
 
         foreach ($queue->getJobInfo(100) as $info) {
-            if (!str_contains((string)$info['description'], 'Syncing AI search index')) {
+            if (!str_contains((string)$info['description'], 'Syncing Smart Search index')) {
                 continue;
             }
             try {

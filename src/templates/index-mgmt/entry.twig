@@ -1,6 +1,215 @@
-{% extends 'smart-search/debug/entry' %}
+{% extends "_layouts/cp" %}
+
+{% set entry = inspection.entry %}
+{% set chunkCount = inspection.chunks|length %}
+{% set status = chunkCount > 0 ? 'indexed' : 'not-indexed' %}
+
+{% set fieldsIndexed = 0 %}
+{% for field in inspection.fields %}{% if field.indexed %}{% set fieldsIndexed = fieldsIndexed + 1 %}{% endif %}{% endfor %}
+
+{% set totalTokens = 0 %}
+{% set maxChunkTokens = 0 %}
+{% set lastIndexed = null %}
+{% for chunk in inspection.chunks %}
+    {% set totalTokens = totalTokens + (chunk.estimatedTokens ?? 0) %}
+    {% if (chunk.estimatedTokens ?? 0) > maxChunkTokens %}{% set maxChunkTokens = chunk.estimatedTokens %}{% endif %}
+    {% if lastIndexed is null or chunk.dateUpdated > lastIndexed %}{% set lastIndexed = chunk.dateUpdated %}{% endif %}
+{% endfor %}
+
+{% set fieldsSorted = inspection.fields|sort((a, b) => (b.indexed ? 1 : 0) <=> (a.indexed ? 1 : 0)) %}
+
+{% set title = 'Inspect: ' ~ (entry.title ?: '(untitled)') %}
 
 {% set crumbs = [
     { label: 'Smart Search', url: cpUrl('smart-search') },
     { label: 'Index'|t('smart-search'), url: cpUrl('smart-search/index', { tab: 'entries' }) },
 ] %}
+
+{% set backCrumb = crumbs|last %}
+{% set additionalButtons %}
+    <a href="{{ backCrumb.url }}" class="btn" data-icon="arrow-left">{{ 'Back to {label}'|t('smart-search', { label: backCrumb.label }) }}</a>
+{% endset %}
+
+{% block actionButton %}
+    {% if entry.cpEditUrl %}
+        <a class="btn" href="{{ entry.cpEditUrl }}">{{ 'Go to Entry'|t('smart-search') }}</a>
+    {% endif %}
+{% endblock %}
+
+{% set isStale = lastIndexed is not null and entry.dateUpdated > lastIndexed %}
+
+{% set details %}
+    <div class="meta read-only">
+        <div class="data">
+            <h5 class="heading">{{ 'ID'|t('smart-search') }}</h5>
+            <div class="value">{{ entry.id }}</div>
+        </div>
+        <div class="data">
+            <h5 class="heading">{{ 'Section'|t('smart-search') }}</h5>
+            <div class="value">{{ entry.section.name ?? '—' }}</div>
+        </div>
+        {% if craft.app.getIsMultiSite() %}
+            <div class="data">
+                <h5 class="heading">{{ 'Site'|t('smart-search') }}</h5>
+                <div class="value">{{ entry.site.name }}</div>
+            </div>
+        {% endif %}
+        <div class="data">
+            <h5 class="heading">{{ 'Content updated'|t('smart-search') }}</h5>
+            <div class="value">
+                {{ entry.dateUpdated|date('M j, Y g:i A') }}
+                {% if isStale %}
+                    <span class="field-card__tag field-card__tag--muted" title="{{ 'Edited after the last index run'|t('smart-search') }}">{{ 'Stale'|t('smart-search') }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% if entry.url %}
+            <div class="data">
+                <h5 class="heading">{{ 'Live URL'|t('smart-search') }}</h5>
+                <div class="value"><a href="{{ entry.url }}" target="_blank" rel="noopener">{{ 'View live'|t('smart-search') }} ↗</a></div>
+            </div>
+        {% endif %}
+    </div>
+{% endset %}
+
+{% macro fieldCard(field, depth) %}
+    {% from _self import fieldCard %}
+    {% set hasBlocks = field.blocks is defined and field.blocks|length > 0 %}
+    {% set hasText = field.extractedText is not empty %}
+    {% set state = field.indexed ? 'indexed' : 'skipped' %}
+    <article class="field-card field-card--depth-{{ depth }} field-card--{{ state }}" data-state="{{ state }}">
+        <header class="field-card__head">
+            {% if field.indexed %}
+                <span class="status green" aria-label="{{ 'Indexed'|t('smart-search') }}"></span>
+            {% else %}
+                <span class="status off" aria-label="{{ 'Not indexed'|t('smart-search') }}"></span>
+            {% endif %}
+            <code class="field-card__handle">{{ field.handle }}</code>
+            <span class="field-card__type">{{ field.type }}</span>
+            <span class="field-card__spacer"></span>
+            {% if not field.searchable %}
+                <span class="field-card__tag field-card__tag--muted">{{ 'Not searchable'|t('smart-search') }}</span>
+            {% endif %}
+            {% if field.indexed %}
+                {% if hasBlocks %}
+                    <span class="field-card__tag field-card__tag--success">{{ field.blocks|length }} {{ 'block(s)'|t('smart-search') }}</span>
+                {% else %}
+                    <span class="field-card__tag field-card__tag--success">{{ 'Indexed'|t('smart-search') }}</span>
+                {% endif %}
+            {% elseif field.reason %}
+                <span class="field-card__tag field-card__tag--muted">{{ field.reason }}</span>
+            {% endif %}
+        </header>
+
+        {% if hasBlocks %}
+            <div class="field-card__blocks">
+                {% for block in field.blocks %}
+                    <section class="field-card__block">
+                        <h4 class="field-card__block-title">
+                            <span class="field-card__block-handle">{{ block.label }}</span>
+                            {% if block.id %}<span class="light">#{{ block.id }}</span>{% endif %}
+                        </h4>
+                        {% if block.fields|length %}
+                            <div class="field-card__children">
+                                {% for sub in block.fields %}
+                                    {{ fieldCard(sub, depth + 1) }}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="light">{{ 'No fields.'|t('smart-search') }}</p>
+                        {% endif %}
+                    </section>
+                {% endfor %}
+            </div>
+        {% elseif hasText %}
+            <div class="field-card__body">
+                <pre class="field-card__text">{{ field.extractedText }}</pre>
+            </div>
+        {% endif %}
+    </article>
+{% endmacro %}
+
+{% from _self import fieldCard %}
+
+{% block content %}
+    {% if error %}
+        <blockquote class="note warning">
+            <p>{{ error.message ?? error }}</p>
+        </blockquote>
+    {% endif %}
+
+    {# Diagnostic summary strip #}
+    <div class="index-entry__summary">
+        <div class="index-entry__stat">
+            <span class="index-entry__stat-label">{{ 'Status'|t('smart-search') }}</span>
+            <span class="index-entry__stat-value">
+                {% if status == 'indexed' %}
+                    <span class="status green"></span>{{ 'Indexed'|t('smart-search') }}
+                {% elseif status == 'stale' %}
+                    <span class="status orange"></span>{{ 'Stale'|t('smart-search') }}
+                {% else %}
+                    <span class="status off"></span>{{ 'Not indexed'|t('smart-search') }}
+                {% endif %}
+            </span>
+        </div>
+        <div class="index-entry__stat">
+            <span class="index-entry__stat-label">{{ 'Chunks'|t('smart-search') }}</span>
+            <span class="index-entry__stat-value">{{ chunkCount }}</span>
+        </div>
+        <div class="index-entry__stat">
+            <span class="index-entry__stat-label">{{ 'Fields indexed'|t('smart-search') }}</span>
+            <span class="index-entry__stat-value">{{ fieldsIndexed }} <span class="index-entry__stat-sub">/ {{ inspection.fields|length }}</span></span>
+        </div>
+        <div class="index-entry__stat">
+            <span class="index-entry__stat-label">{{ 'Tokens'|t('smart-search') }}</span>
+            <span class="index-entry__stat-value">~{{ totalTokens }}</span>
+        </div>
+        <div class="index-entry__stat">
+            <span class="index-entry__stat-label">{{ 'Last indexed'|t('smart-search') }}</span>
+            <span class="index-entry__stat-value index-entry__stat-value--small">{{ lastIndexed ? lastIndexed|date('M j, Y g:i A') : '—' }}</span>
+        </div>
+    </div>
+
+    {# Fields pane #}
+    <div class="pane index-entry__fields">
+        <header class="pane-header">
+            <h2>{{ 'Fields'|t('smart-search') }} <span class="light">({{ inspection.fields|length }})</span></h2>
+        </header>
+        <p class="instructions">{{ 'Each card shows a field and the exact text contributed to the index. Skipped fields explain why.'|t('smart-search') }}</p>
+
+        {% if inspection.fields|length %}
+            <div class="field-card-filters" data-field-filters>
+                <button type="button" class="btn small is-active" data-filter="all">{{ 'All'|t('smart-search') }} ({{ inspection.fields|length }})</button>
+                <button type="button" class="btn small" data-filter="indexed">{{ 'Indexed'|t('smart-search') }} ({{ fieldsIndexed }})</button>
+                <button type="button" class="btn small" data-filter="skipped">{{ 'Skipped'|t('smart-search') }} ({{ inspection.fields|length - fieldsIndexed }})</button>
+            </div>
+            <div class="field-card-list" data-field-card-list data-filter-mode="all">
+                {% for field in fieldsSorted %}
+                    {{ fieldCard(field, 0) }}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="zilch"><p>{{ 'No custom fields.'|t('smart-search') }}</p></div>
+        {% endif %}
+    </div>
+
+    {# Chunks pane #}
+    <div class="pane index-entry__chunks">
+        <header class="pane-header">
+            <h2>{{ 'Chunks'|t('smart-search') }} <span class="light">({{ chunkCount }})</span></h2>
+        </header>
+        <p class="instructions">{{ 'Stored rows from'|t('smart-search') }} <code>{{ plugin.settings.vectorsTableName }}</code>. {{ 'Concatenating these (after the title prefix) reconstructs the indexed text.'|t('smart-search') }}</p>
+
+        {% if chunkCount %}
+            <div class="chunk-list">
+                {% for chunk in inspection.chunks %}
+                    {% include 'smart-search/index-mgmt/_chunk-row' with { chunk: chunk, maxTokens: maxChunkTokens } only %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="zilch">
+                <p>{{ 'No chunks stored — this entry is not indexed yet.'|t('smart-search') }}</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

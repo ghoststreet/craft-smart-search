@@ -65,8 +65,8 @@ class DashboardController extends Controller
         $p95Duration = $history->getOverallPercentile($range, 0.95) ?? 0;
 
         $coverage = $cache->getOrSet(
-            'aisearch_dash_coverage',
-            fn() => $plugin->indexingDebugService->getCoverageBySite(),
+            'smart_search_dash_coverage',
+            fn() => $plugin->indexInspectionService->getCoverageBySite(),
             self::CACHE_TTL
         );
 

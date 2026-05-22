@@ -53,7 +53,7 @@ class DataSyncController extends BaseApiController
     }
 
     /**
-     * Destructively rebuild the vector database: truncate `aisearch_vectors`,
+     * Destructively rebuild the vector database: truncate the vectors table,
      * then queue an IndexEntryJob for every currently-valid entry.
      *
      * Search returns empty results until the queue drains. Steady-state drift

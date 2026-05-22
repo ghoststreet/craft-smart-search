@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - API endpoint authentication with configurable token (Bearer or query param)
 - Test Connection and Test API Key buttons in settings
 - Progress feedback during Data Sync reindex with live polling
-- Twig template variables (`craft.aiSearch.search()`, `craft.aiSearch.rag()`)
+- Twig template variables (`craft.smartSearch.search()`, `craft.smartSearch.rag()`)
 - Section/entry-type filtering for selective indexing
 - Configurable vector dimensions (512, 1024, 1536, 3072)
 - Uninstall cleanup for external PostgreSQL tables

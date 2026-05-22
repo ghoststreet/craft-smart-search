@@ -1,14 +1,14 @@
 {#
     Search history table (Query · Type · Status · Results · Tokens · Cost · Duration · Date).
-    Shared by history/index.twig and insights/index.twig (history tab).
+    Used by insights/index.twig (history tab).
 
     Params:
-        items     iterable of history rows
-        urlPath   string  cpUrl base, e.g. 'smart-search/history' or 'smart-search/insights'
+        items        iterable of history rows
+        cachedTitle  string  optional tooltip for the "cached" token badge
 
     Usage:
         {% include 'smart-search/_partials/search-history-table' with {
-            items: page.items, urlPath: 'smart-search/history'
+            items: page.items
         } only %}
 #}
 {% import 'smart-search/_components/badge' as b %}
@@ -32,11 +32,7 @@
                 {% for item in items %}
                     <tr>
                         <td>
-                            {% if item.detailsId %}
-                                {{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}
-                            {% else %}
-                                <span class="light">— cleared</span>
-                            {% endif %}
+                            {{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}
                         </td>
                         <td>{{ b.badge(item.type, item.type) }}</td>
                         <td>

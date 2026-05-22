@@ -19,6 +19,22 @@ final class PricingTable
         'gpt-5.4-nano' => ['input' => 0.05, 'output' => 0.40],
     ];
 
+    /**
+     * Total USD cost of one search: embedding call + RAG/LLM call.
+     */
+    public static function costForUsage(
+        ?string $embeddingModel,
+        int $embeddingTokens,
+        ?string $ragModel,
+        int $ragInputTokens,
+        int $ragOutputTokens,
+    ): float {
+        $cost = self::calculateCost($embeddingModel, $embeddingTokens, 0)
+            + self::calculateCost($ragModel, $ragInputTokens, $ragOutputTokens);
+
+        return round($cost, 6);
+    }
+
     public static function calculateCost(?string $model, int $inputTokens, int $outputTokens = 0): float
     {
         if ($model === null) {

@@ -17,8 +17,7 @@ use craft\web\View;
 use ghoststreet\craftsmartsearch\assets\SmartSearchAsset;
 use ghoststreet\craftsmartsearch\assets\DashboardAsset;
 use ghoststreet\craftsmartsearch\assets\DataSyncAsset;
-use ghoststreet\craftsmartsearch\assets\DebugAsset;
-use ghoststreet\craftsmartsearch\assets\HistoryAsset;
+use ghoststreet\craftsmartsearch\assets\IndexEntryAsset;
 use ghoststreet\craftsmartsearch\assets\IndexMgmtAsset;
 use ghoststreet\craftsmartsearch\assets\InsightsAsset;
 use ghoststreet\craftsmartsearch\assets\PreviewAsset;
@@ -32,7 +31,7 @@ use ghoststreet\craftsmartsearch\services\EmbeddingService;
 use ghoststreet\craftsmartsearch\services\ExclusionService;
 use ghoststreet\craftsmartsearch\services\HistoryService;
 use ghoststreet\craftsmartsearch\services\HybridSearchService;
-use ghoststreet\craftsmartsearch\services\IndexingDebugService;
+use ghoststreet\craftsmartsearch\services\IndexInspectionService;
 use ghoststreet\craftsmartsearch\services\OpenAIClientFactory;
 use ghoststreet\craftsmartsearch\services\RagSearchService;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
@@ -59,7 +58,7 @@ use yii\web\Response;
  * @property-read HybridSearchService $hybridSearchService
  * @property-read RagSearchService $ragSearchService
  * @property-read RateLimitService $rateLimitService
- * @property-read IndexingDebugService $indexingDebugService
+ * @property-read IndexInspectionService $indexInspectionService
  * @property-read ExclusionService $exclusionService
  * @property-read OpenAIClientFactory $openAIClientFactory
  * @property-read HistoryService $historyService
@@ -121,7 +120,7 @@ class SmartSearch extends Plugin
                 'hybridSearchService' => HybridSearchService::class,
                 'ragSearchService' => RagSearchService::class,
                 'rateLimitService' => RateLimitService::class,
-                'indexingDebugService' => IndexingDebugService::class,
+                'indexInspectionService' => IndexInspectionService::class,
                 'exclusionService' => ExclusionService::class,
                 'historyService' => HistoryService::class,
                 'recommendationsService' => RecommendationsService::class,
@@ -159,7 +158,7 @@ class SmartSearch extends Plugin
             && !empty($settings->getPostgresqlDatabase());
 
         $subNav['dashboard'] = ['label' => 'Dashboard', 'url' => 'smart-search'];
-        if ($this->historyService->detailsCount() > 0) {
+        if ($this->historyService->count() > 0) {
             $subNav['insights'] = ['label' => 'Insights', 'url' => 'smart-search/insights'];
         }
         if ($connectionsConfigured) {
@@ -254,7 +253,7 @@ class SmartSearch extends Plugin
                 $event->rules['POST smart-search/settings/test-database-connection'] = 'smart-search/settings/test-database-connection';
                 $event->rules['POST smart-search/settings/test-api-key'] = 'smart-search/settings/test-api-key';
 
-                // Index management (consolidated from data-sync + debug)
+                // Index management
                 $event->rules['smart-search/index'] = 'smart-search/index/index';
                 $event->rules['smart-search/index/entry'] = 'smart-search/index/entry';
                 $event->rules['POST smart-search/index/sync'] = 'smart-search/index/sync';
@@ -265,7 +264,6 @@ class SmartSearch extends Plugin
 
                 // Insights (consolidated from history + keywords)
                 $event->rules['smart-search/insights'] = 'smart-search/insights/index';
-                $event->rules['POST smart-search/insights/prune'] = 'smart-search/insights/prune';
 
                 // Preview
                 $event->rules['smart-search/preview'] = 'smart-search/preview/index';
@@ -310,14 +308,13 @@ class SmartSearch extends Plugin
 
                 $view = Craft::$app->getView();
                 $map = [
-                    'smart-search/preview'    => PreviewAsset::class,
-                    'smart-search/index-mgmt' => IndexMgmtAsset::class,
-                    'smart-search/insights'   => InsightsAsset::class,
-                    'smart-search/debug'      => DebugAsset::class,
-                    'smart-search/history'    => HistoryAsset::class,
-                    'smart-search/settings'   => SettingsAsset::class,
-                    'smart-search/data-sync'  => DataSyncAsset::class,
-                    'smart-search/index'      => DashboardAsset::class,
+                    'smart-search/preview'           => PreviewAsset::class,
+                    'smart-search/index-mgmt/entry'  => IndexEntryAsset::class,
+                    'smart-search/index-mgmt'        => IndexMgmtAsset::class,
+                    'smart-search/insights'          => InsightsAsset::class,
+                    'smart-search/settings'          => SettingsAsset::class,
+                    'smart-search/data-sync'         => DataSyncAsset::class,
+                    'smart-search/index'             => DashboardAsset::class,
                 ];
 
                 foreach ($map as $prefix => $bundle) {

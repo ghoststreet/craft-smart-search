@@ -101,7 +101,7 @@ class EmbeddingService extends Component
             throw EmbeddingException::emptyText();
         }
         $requestCacheKey = md5($normalizedText . '_' . $model);
-        $persistentCacheKey = 'aisearch_embedding_' . $requestCacheKey;
+        $persistentCacheKey = 'smart_search_embedding_' . $requestCacheKey;
 
         if (isset(self::$requestEmbeddingCache[$requestCacheKey])) {
             Logger::debug('Embedding cache hit (request-level)', [
@@ -355,7 +355,7 @@ class EmbeddingService extends Component
     /**
      * Per-field breakdown of how the indexer sees an element's field layout.
      *
-     * Used by the debug view to verify which fields contribute text, which are skipped,
+     * Used by the Index inspection view to verify which fields contribute text, which are skipped,
      * and why. Mirrors extractFieldsFromLayout() so the report cannot drift from real
      * indexing behavior.
      *

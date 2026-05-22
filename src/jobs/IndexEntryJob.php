@@ -11,7 +11,7 @@ use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 
 /**
- * Queue job to index a single entry for AI search.
+ * Queue job to index a single entry for Smart Search.
  *
  * Fetches the entry by ID and site, extracts text, generates embeddings,
  * and stores vectors. Throws if the entry no longer exists so the job
@@ -62,7 +62,7 @@ class IndexEntryJob extends BaseJob
 
         $title = $entry?->title ?: "#{$this->entryId}";
 
-        return Translation::prep('smart-search', 'AI search: indexing “{title}”', [
+        return Translation::prep('smart-search', 'Smart Search: indexing “{title}”', [
             'title' => $title,
         ]);
     }

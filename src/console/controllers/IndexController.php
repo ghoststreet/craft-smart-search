@@ -13,7 +13,7 @@ use yii\console\ExitCode;
 use yii\helpers\Console;
 
 /**
- * Console controller for bulk indexing entries into the AI search vector database.
+ * Console controller for bulk indexing entries into the Smart Search vector database.
  *
  * Supports filtering by site and section. By default performs an incremental
  * reindex (upserts). Use --wipe to clear all vectors before re-indexing.

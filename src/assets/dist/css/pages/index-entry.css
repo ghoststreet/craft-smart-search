@@ -1,5 +1,5 @@
 /* === Summary stat strip ============================================== */
-.debug-entry__summary {
+.index-entry__summary {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     margin: 0 0 18px;
@@ -8,7 +8,7 @@
     background: var(--white, #fff);
     overflow: hidden;
 }
-.debug-entry__stat {
+.index-entry__stat {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -17,15 +17,15 @@
     border-right: 1px solid var(--hairline-color);
     min-height: 72px;
 }
-.debug-entry__stat:last-child { border-right: none; }
-.debug-entry__stat-label {
+.index-entry__stat:last-child { border-right: none; }
+.index-entry__stat-label {
     color: var(--medium-text-color);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     font-weight: 500;
 }
-.debug-entry__stat-value {
+.index-entry__stat-value {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -34,26 +34,26 @@
     line-height: 1.2;
     color: var(--text-color);
 }
-.debug-entry__stat-value--small { font-size: 13px; font-weight: 500; }
-.debug-entry__stat-sub { color: var(--medium-text-color); font-weight: 400; font-size: 14px; }
+.index-entry__stat-value--small { font-size: 13px; font-weight: 500; }
+.index-entry__stat-sub { color: var(--medium-text-color); font-weight: 400; font-size: 14px; }
 
 @media (max-width: 900px) {
-    .debug-entry__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .debug-entry__stat { border-right: none; border-bottom: 1px solid var(--hairline-color); }
-    .debug-entry__stat:nth-child(odd) { border-right: 1px solid var(--hairline-color); }
-    .debug-entry__stat:last-child { border-bottom: none; }
+    .index-entry__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .index-entry__stat { border-right: none; border-bottom: 1px solid var(--hairline-color); }
+    .index-entry__stat:nth-child(odd) { border-right: 1px solid var(--hairline-color); }
+    .index-entry__stat:last-child { border-bottom: none; }
 }
 
 /* === Panes =========================================================== */
-.debug-entry__chunks { margin-top: 24px; }
+.index-entry__chunks { margin-top: 24px; }
 
-.debug-entry__fields > .pane-header,
-.debug-entry__chunks > .pane-header {
+.index-entry__fields > .pane-header,
+.index-entry__chunks > .pane-header {
     display: flex;
     align-items: center;
 }
-.debug-entry__fields > .pane-header h2,
-.debug-entry__chunks > .pane-header h2 { margin: 0; }
+.index-entry__fields > .pane-header h2,
+.index-entry__chunks > .pane-header h2 { margin: 0; }
 
 /* === Filter chips ==================================================== */
 .field-card-filters {

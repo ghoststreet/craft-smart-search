@@ -17,6 +17,6 @@ class ExcludedEntryRecord extends ActiveRecord
 {
     public static function tableName(): string
     {
-        return '{{%aisearch_excluded_entries}}';
+        return '{{%smart_search_excluded_entries}}';
     }
 }

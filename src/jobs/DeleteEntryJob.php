@@ -24,6 +24,6 @@ class DeleteEntryJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return "Deleting AI search vectors for entry #{$this->entryId}";
+        return "Deleting Smart Search vectors for entry #{$this->entryId}";
     }
 }

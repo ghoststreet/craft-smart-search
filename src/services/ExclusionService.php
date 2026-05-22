@@ -11,7 +11,7 @@ use yii\base\Component;
 /**
  * Tracks entries that have been manually excluded from the search index.
  *
- * An exclusion is a row in aisearch_excluded_entries. Every indexing path runs
+ * An exclusion is a row in smart_search_excluded_entries. Every indexing path runs
  * through EmbeddingService::indexElement(), which checks isExcluded() and skips
  * (and prunes vectors for) excluded entries, so bulk sync and entry-save events
  * all respect exclusions automatically.

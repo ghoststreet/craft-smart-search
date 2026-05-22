@@ -214,7 +214,6 @@
     {% elseif tab == 'history' %}
         {% include 'smart-search/_partials/search-history-table' with {
             items: page.items,
-            urlPath: 'smart-search/insights',
             cachedTitle: 'Cached',
         } only %}
 

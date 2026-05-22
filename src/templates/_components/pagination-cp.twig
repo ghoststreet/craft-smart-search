@@ -1,18 +1,18 @@
 {#
     Pagination nav using cpUrl + baseParams|merge({page: n}).
-    Used by history/insights pages that page through searches.
+    Used by the Insights pages that page through searches.
 
     Params:
         currentPage  int    current page number
         totalPages   int    total number of pages
-        path         string cpUrl path (e.g. 'smart-search/history')
+        path         string cpUrl path (e.g. 'smart-search/insights')
         baseParams   object query params to preserve across pages
         navClass     string optional extra class on the <nav>
 
     Usage:
         {% include 'smart-search/_components/pagination-cp' with {
             currentPage: page.page, totalPages: page.pages,
-            path: 'smart-search/history',
+            path: 'smart-search/insights',
             baseParams: { type: typeFilter, days: daysFilter, ... }
         } only %}
 #}

@@ -68,7 +68,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- 2. Create the vectors table.
 --    You may rename it; whatever name you choose goes into the plugin's
 --    `Vectors Table Name` setting. Identifiers must match /^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/.
-CREATE TABLE IF NOT EXISTS aisearch_vectors (
+CREATE TABLE IF NOT EXISTS smart_search_vectors (
     id            bigserial PRIMARY KEY,
     "elementId"   integer NOT NULL,
     "siteId"      integer NOT NULL,
@@ -82,29 +82,29 @@ CREATE TABLE IF NOT EXISTS aisearch_vectors (
     UNIQUE ("elementId", "siteId", "chunkIndex")
 );
 
-CREATE INDEX IF NOT EXISTS aisearch_vectors_element_idx      ON aisearch_vectors ("elementId");
-CREATE INDEX IF NOT EXISTS aisearch_vectors_site_idx         ON aisearch_vectors ("siteId");
-CREATE INDEX IF NOT EXISTS aisearch_vectors_chunk_idx        ON aisearch_vectors ("chunkIndex");
-CREATE INDEX IF NOT EXISTS aisearch_vectors_element_site_idx ON aisearch_vectors ("elementId", "siteId");
-CREATE INDEX IF NOT EXISTS aisearch_vectors_content_gin ON aisearch_vectors
+CREATE INDEX IF NOT EXISTS smart_search_vectors_element_idx      ON smart_search_vectors ("elementId");
+CREATE INDEX IF NOT EXISTS smart_search_vectors_site_idx         ON smart_search_vectors ("siteId");
+CREATE INDEX IF NOT EXISTS smart_search_vectors_chunk_idx        ON smart_search_vectors ("chunkIndex");
+CREATE INDEX IF NOT EXISTS smart_search_vectors_element_site_idx ON smart_search_vectors ("elementId", "siteId");
+CREATE INDEX IF NOT EXISTS smart_search_vectors_content_gin ON smart_search_vectors
     USING gin (to_tsvector('simple', COALESCE(content, '')));
-CREATE INDEX IF NOT EXISTS aisearch_vectors_hnsw_cos    ON aisearch_vectors
+CREATE INDEX IF NOT EXISTS smart_search_vectors_hnsw_cos    ON smart_search_vectors
     USING hnsw (vector vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- 3. Create a dedicated, least-privilege role for the plugin's runtime connection.
 --    DO NOT reuse your project owner / Supabase service-role credentials in the
 --    plugin settings. Use this role and this role only.
-CREATE ROLE craft_aisearch LOGIN PASSWORD 'replace-with-a-strong-password';
-GRANT USAGE ON SCHEMA public TO craft_aisearch;
-GRANT SELECT, INSERT, UPDATE, DELETE ON aisearch_vectors TO craft_aisearch;
-GRANT USAGE, SELECT ON SEQUENCE aisearch_vectors_id_seq TO craft_aisearch;
+CREATE ROLE craft_smartsearch LOGIN PASSWORD 'replace-with-a-strong-password';
+GRANT USAGE ON SCHEMA public TO craft_smartsearch;
+GRANT SELECT, INSERT, UPDATE, DELETE ON smart_search_vectors TO craft_smartsearch;
+GRANT USAGE, SELECT ON SEQUENCE smart_search_vectors_id_seq TO craft_smartsearch;
 
 -- 4. (Recommended) Enable Row-Level Security scoped by siteId.
 --    The plugin sets `app.site_id` per request, so this policy filters rows
 --    to the current site even if the runtime credential is exposed.
-ALTER TABLE aisearch_vectors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE smart_search_vectors ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY aisearch_vectors_site_scope ON aisearch_vectors
+CREATE POLICY smart_search_vectors_site_scope ON smart_search_vectors
     USING (
         "siteId" = COALESCE(NULLIF(current_setting('app.site_id', true), '')::int, "siteId")
     )
@@ -113,7 +113,7 @@ CREATE POLICY aisearch_vectors_site_scope ON aisearch_vectors
     );
 
 -- 5. Allow the runtime role to set the GUC used by the policy.
-GRANT SET ON PARAMETER app.site_id TO craft_aisearch;
+GRANT SET ON PARAMETER app.site_id TO craft_smartsearch;
 ```
 
 ### Plugin configuration
@@ -124,11 +124,11 @@ In **Smart Search → Settings → Database**:
 |---------|-------|
 | Host | Your Postgres host |
 | Database | Your database name (`postgres` on Supabase) |
-| User | `craft_aisearch` (the role you just created — never the project owner) |
-| Password | An env reference like `$CRAFT_AISEARCH_DB_PASSWORD` (plain text is rejected) |
+| User | `craft_smartsearch` (the role you just created — never the project owner) |
+| Password | An env reference like `$CRAFT_SMARTSEARCH_DB_PASSWORD` (plain text is rejected) |
 | SSL Mode | `require` minimum for any non-localhost host (`disable`/`allow`/`prefer` are rejected) |
 | Vectors Schema Name | `public` (or your custom schema) |
-| Vectors Table Name | `aisearch_vectors` (or whatever name you used in step 2) |
+| Vectors Table Name | `smart_search_vectors` (or whatever name you used in step 2) |
 
 The plugin validates schema/table names against `/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/` at save time — strings containing spaces, quotes, or punctuation are rejected outright. Identifiers are still interpolated into SQL, so the allowlist is the only safeguard; do not bypass it.
 
@@ -137,7 +137,7 @@ The plugin validates schema/table names against `/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/
 The example schema uses `vector(1536)` to match the default embedding model. If you change the **Vector Dimensions** setting, the existing column type must match — alter the table (or recreate it and re-index) before changing the setting:
 
 ```sql
-ALTER TABLE aisearch_vectors ALTER COLUMN vector TYPE vector(3072);
+ALTER TABLE smart_search_vectors ALTER COLUMN vector TYPE vector(3072);
 ```
 
 ### Removing the plugin
@@ -145,8 +145,8 @@ ALTER TABLE aisearch_vectors ALTER COLUMN vector TYPE vector(3072);
 Uninstalling the plugin **does not** drop your vectors table — that data belongs to you. Drop it explicitly when you no longer want it:
 
 ```sql
-DROP TABLE IF EXISTS aisearch_vectors;
-DROP ROLE  IF EXISTS craft_aisearch;
+DROP TABLE IF EXISTS smart_search_vectors;
+DROP ROLE  IF EXISTS craft_smartsearch;
 ```
 
 ## Installation
@@ -175,7 +175,7 @@ composer require ghoststreet/craft-smart-search
 1. Provision PostgreSQL and run the [Database Setup](#database-setup-required-admin-owned) SQL **before** enabling the plugin — the plugin will refuse to operate against a missing table.
 2. Navigate to **Smart Search** in the Control Panel sidebar.
 3. In **Settings → Quick start**, set your OpenAI API key (as a `$ENV_VAR` reference — plain text is rejected) and the daily cost cap.
-4. In **Settings → Advanced → Database**, fill in the connection fields using the dedicated `craft_aisearch` role, and set the **Vectors Table Name** to whatever name you used in the schema SQL.
+4. In **Settings → Advanced → Database**, fill in the connection fields using the dedicated `craft_smartsearch` role, and set the **Vectors Table Name** to whatever name you used in the schema SQL.
 5. Go to **Index → Overview & sync** and click **Sync entire index** to build your initial index.
 6. Test your search from the same site (CSRF is enforced — see [Security model](#security-model) below).
 
@@ -184,7 +184,7 @@ composer require ghoststreet/craft-smart-search
 The plugin exposes four sections under **Smart Search**:
 
 - **Dashboard** — Health score, KPI cards (searches, cost, coverage, response time) with 30-day Chart.js sparklines, daily budget gauge, top queries / zero-result queries, recent errors, and proactive recommendations (budget warnings, stale-index advisories, cache-hit hints, error-rate spikes).
-- **Insights** — Tabs for *Top queries*, *Zero results*, *Trending* (7-day delta), and *History log* (paginated, filterable). Click any history row for token / cost / result breakdown.
+- **Insights** — Tabs for *Top queries*, *Zero results*, *Trending* (7-day delta), and *History log* (paginated, filterable, with per-row token / cost / result columns).
 - **Index** — Tabs for *Overview & sync* (run a full reindex, watch live progress), *Entries* (per-entry indexed/stale/not-indexed status with section + site filters), and *Per-site coverage*.
 - **Settings** — Three tabs: *Quick start*, *Search behavior*, *Advanced*. Less-used fields are progressively disclosed inside `<details>` blocks.
 
@@ -247,7 +247,7 @@ On top of authentication, every request passes through `RateLimitService`, which
 
 User input is normalized to NFC, stripped of ASCII control characters and OpenAI chat-template control sequences (`<|...|>`), and capped at **150 characters** before it ever reaches the embeddings or LLM endpoints. The LLM system prompt wraps the visitor's question in `<user_query>...</user_query>` and instructs the model to treat its contents as data — the standard structural defense against prompt injection. The assembled RAG context is additionally capped by a token budget (`maxPromptTokens`) so a large result set cannot blow up the prompt size.
 
-API keys are stored as environment-variable references (`$OPENAI_API_KEY`, `$CRAFT_AISEARCH_DB_PASSWORD`) — plain-text secrets are rejected at save time. Stack traces in error responses are gated behind the `Expose Stack Traces` setting (off by default), not by `devMode`.
+API keys are stored as environment-variable references (`$OPENAI_API_KEY`, `$CRAFT_SMARTSEARCH_DB_PASSWORD`) — plain-text secrets are rejected at save time. Stack traces in error responses are gated behind the `Expose Stack Traces` setting (off by default), not by `devMode`.
 
 ## API Reference
 
@@ -467,7 +467,7 @@ On managed providers, enable it through their dashboard.
 ### "Connection refused" or database errors
 
 1. Verify PostgreSQL host, port, and credentials
-2. Check that the `craft_aisearch` role has `SELECT, INSERT, UPDATE, DELETE` on the vectors table and `USAGE` on the schema — the plugin needs nothing more
+2. Check that the `craft_smartsearch` role has `SELECT, INSERT, UPDATE, DELETE` on the vectors table and `USAGE` on the schema — the plugin needs nothing more
 3. For remote databases, ensure your IP is allowlisted
 4. SSL must be `require` (or stricter) for any non-localhost host; the plugin will refuse weaker modes
 

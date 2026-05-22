@@ -14,6 +14,7 @@ use ghoststreet\craftsmartsearch\helpers\PricingTable;
 use ghoststreet\craftsmartsearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftsmartsearch\helpers\SearchResultFormatter;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
+use ghoststreet\craftsmartsearch\models\SearchHistoryEntry;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
 use Throwable;
 use yii\web\BadRequestHttpException;
@@ -105,8 +106,13 @@ class SearchController extends BaseApiController
         $rl->release($this->rateLimitToken);
 
         $usage = UsageTracker::snapshot();
-        $cost = PricingTable::calculateCost($usage['embeddingModel'], (int)$usage['embeddingTokens'])
-            + PricingTable::calculateCost($usage['ragModel'], (int)$usage['ragInputTokens'], (int)$usage['ragOutputTokens']);
+        $cost = PricingTable::costForUsage(
+            $usage['embeddingModel'],
+            (int)$usage['embeddingTokens'],
+            $usage['ragModel'],
+            (int)$usage['ragInputTokens'],
+            (int)$usage['ragOutputTokens'],
+        );
         if ($cost > 0) {
             $ip = (string)(Craft::$app->getRequest()->getUserIP() ?? '0.0.0.0');
             $rl->recordCost($ip, $cost);
@@ -296,10 +302,7 @@ class SearchController extends BaseApiController
 
             $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_HYBRID);
 
-            $this->recordHistory('semantic', $params, [
-                'resultsCount' => count($formattedResults),
-                'results' => $formattedResults,
-            ]);
+            $this->recordHistory('semantic', $params, count($formattedResults));
 
             return $this->successResponse('semanticSearch', [
                 'query' => $params['query'],
@@ -307,11 +310,7 @@ class SearchController extends BaseApiController
                 'semanticCount' => count($formattedResults),
             ]);
         } catch (Throwable $e) {
-            $this->recordHistory('semantic', $params, [
-                'resultsCount' => 0,
-                'results' => null,
-                'errorMessage' => $e->getMessage(),
-            ]);
+            $this->recordHistory('semantic', $params, 0, $e->getMessage());
             return ApiResponseHelper::jsonError($this, $e, 'semanticSearch', $this->errorContext($params));
         }
     }
@@ -350,12 +349,7 @@ class SearchController extends BaseApiController
                 SearchResultFormatter::TYPE_RAG
             );
 
-            $this->recordHistory('rag', $params, [
-                'resultsCount' => count($formattedSources),
-                'results' => $formattedSources,
-                'summary' => $response['summary'] ?? null,
-                'confidence' => $response['confidence'] ?? null,
-            ]);
+            $this->recordHistory('rag', $params, count($formattedSources));
 
             return $this->successResponse('ragSearch', [
                 'query' => $params['query'],
@@ -365,11 +359,7 @@ class SearchController extends BaseApiController
                 'confidence' => $response['confidence'] ?? null,
             ]);
         } catch (Throwable $e) {
-            $this->recordHistory('rag', $params, [
-                'resultsCount' => 0,
-                'results' => null,
-                'errorMessage' => $e->getMessage(),
-            ]);
+            $this->recordHistory('rag', $params, 0, $e->getMessage());
             return ApiResponseHelper::jsonError($this, $e, 'ragSearch', $this->errorContext($params));
         }
     }
@@ -424,7 +414,6 @@ class SearchController extends BaseApiController
         $this->logRequest('ragStream', $params);
 
         $formattedSources = [];
-        $summaryBuffer = '';
         $errorMessage = null;
 
         try {
@@ -445,7 +434,6 @@ class SearchController extends BaseApiController
                         $this->emitSse('sources', ['sources' => $formattedSources, 'requestId' => $this->requestId]);
                         break;
                     case 'token':
-                        $summaryBuffer .= $event['text'];
                         $this->emitSse('token', ['t' => $event['text']]);
                         break;
                     case 'done':
@@ -472,12 +460,7 @@ class SearchController extends BaseApiController
             $this->emitSse('error', $payload);
         }
 
-        $this->recordHistory('rag', $params, [
-            'resultsCount' => count($formattedSources),
-            'results' => $formattedSources,
-            'summary' => $summaryBuffer !== '' ? $summaryBuffer : null,
-            'errorMessage' => $errorMessage,
-        ]);
+        $this->recordHistory('rag', $params, count($formattedSources), $errorMessage);
 
         $this->releaseRateLimit();
 
@@ -502,12 +485,7 @@ class SearchController extends BaseApiController
 
             $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_RAG);
 
-            $this->recordHistory('rag', $params, [
-                'resultsCount' => count($formattedSources),
-                'results' => $formattedSources,
-                'summary' => null,
-                'confidence' => null,
-            ]);
+            $this->recordHistory('rag', $params, count($formattedSources));
 
             return $this->successResponse('ragSearch', [
                 'query' => $params['query'],
@@ -518,11 +496,7 @@ class SearchController extends BaseApiController
                 'budgetExhausted' => true,
             ]);
         } catch (Throwable $e) {
-            $this->recordHistory('rag', $params, [
-                'resultsCount' => 0,
-                'results' => null,
-                'errorMessage' => $e->getMessage(),
-            ]);
+            $this->recordHistory('rag', $params, 0, $e->getMessage());
             return ApiResponseHelper::jsonError($this, $e, 'ragSearch', $this->errorContext($params));
         }
     }
@@ -562,12 +536,7 @@ class SearchController extends BaseApiController
             ]);
         }
 
-        $this->recordHistory('rag', $params, [
-            'resultsCount' => count($formattedSources),
-            'results' => $formattedSources,
-            'summary' => null,
-            'errorMessage' => $errorMessage,
-        ]);
+        $this->recordHistory('rag', $params, count($formattedSources), $errorMessage);
     }
 
     private function emitSse(string $event, array $data): void
@@ -653,29 +622,29 @@ class SearchController extends BaseApiController
     /**
      * Persist a search to history. Failures are swallowed so they never break the response.
      * Pulls token usage from UsageTracker (populated during the search).
-     *
-     * $extra keys: resultsCount, results, summary?, confidence?, errorMessage?
      */
-    private function recordHistory(string $type, array $params, array $extra): void
+    private function recordHistory(string $type, array $params, int $resultsCount, ?string $errorMessage = null): void
     {
         try {
             $usage = UsageTracker::snapshot();
             $user = Craft::$app->getUser()->getIdentity();
 
-            SmartSearch::getInstance()->historyService->record(array_merge([
-                'requestId' => $this->requestId,
-                'type' => $type,
-                'query' => $params['query'] ?? '',
-                'userId' => $user?->id,
-                'siteId' => $params['siteId'] ?? null,
-                'durationMs' => (int)round((microtime(true) - $this->startTime) * 1000),
-                'embeddingTokens' => $usage['embeddingTokens'],
-                'ragInputTokens' => $usage['ragInputTokens'],
-                'ragOutputTokens' => $usage['ragOutputTokens'],
-                'embeddingCached' => $usage['embeddingCached'],
-                'embeddingModel' => $usage['embeddingModel'],
-                'ragModel' => $usage['ragModel'],
-            ], $extra));
+            SmartSearch::getInstance()->historyService->record(new SearchHistoryEntry(
+                requestId: $this->requestId,
+                type: $type,
+                query: (string)($params['query'] ?? ''),
+                userId: $user?->id,
+                siteId: $params['siteId'] ?? null,
+                durationMs: (int)round((microtime(true) - $this->startTime) * 1000),
+                resultsCount: $resultsCount,
+                embeddingTokens: $usage['embeddingTokens'],
+                ragInputTokens: $usage['ragInputTokens'],
+                ragOutputTokens: $usage['ragOutputTokens'],
+                embeddingCached: $usage['embeddingCached'],
+                embeddingModel: $usage['embeddingModel'],
+                ragModel: $usage['ragModel'],
+                errorMessage: $errorMessage,
+            ));
         } catch (Throwable $e) {
             Logger::exception($e, 'recordHistory', $this->errorContext($params));
         }

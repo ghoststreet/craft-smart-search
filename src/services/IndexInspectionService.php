@@ -12,12 +12,12 @@ use yii\base\Component;
 /**
  * Read-only inspector for the indexing pipeline.
  *
- * Powers the Smart Search debug view: enumerates all entries in the configured
+ * Powers the Index inspection views: enumerates all entries in the configured
  * indexable sections, cross-references them with stored vectors, and replays
  * per-field extraction (without writing to the DB) so we can audit exactly
  * what the indexer sees.
  */
-class IndexingDebugService extends Component
+class IndexInspectionService extends Component
 {
     public const STATUS_INDEXED = 'indexed';
     public const STATUS_STALE = 'stale';

@@ -17,7 +17,7 @@ class InsightsController extends Controller
     {
         $this->requireAdmin();
 
-        if (SmartSearch::getInstance()->historyService->detailsCount() === 0) {
+        if (SmartSearch::getInstance()->historyService->count() === 0) {
             return $this->redirect('smart-search');
         }
 
@@ -43,7 +43,6 @@ class InsightsController extends Controller
             ],
             'sites' => $history->getAvailableSites(),
             'stats' => $history->getStats($days),
-            'detailsCount' => $history->detailsCount(),
             'selectedSubnavItem' => 'insights',
         ];
 
@@ -71,18 +70,6 @@ class InsightsController extends Controller
         }
 
         return $this->renderTemplate('smart-search/insights/index', $data);
-    }
-
-    public function actionPrune(): Response
-    {
-        $this->requirePostRequest();
-        $this->requireAdmin();
-
-        $settings = SmartSearch::getInstance()->getSettings();
-        $deleted = SmartSearch::getInstance()->historyService->pruneOlderThan($settings->historyRetentionDays);
-
-        Craft::$app->getSession()->setNotice("Pruned {$deleted} history rows older than {$settings->historyRetentionDays} days.");
-        return $this->redirectToPostedUrl();
     }
 
     public function actionLegacyRedirect(): Response

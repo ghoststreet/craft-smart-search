@@ -58,11 +58,11 @@ class SyncSearchIndexJob extends BaseBatchedJob
         if ($this->siteId !== null) {
             $site = Craft::$app->getSites()->getSiteById($this->siteId);
             $label = $site?->name ?: $site?->handle ?: ('site ' . $this->siteId);
-            return Translation::prep('smart-search', 'Syncing AI search index [site:{id}] — {name}', [
+            return Translation::prep('smart-search', 'Syncing Smart Search index [site:{id}] — {name}', [
                 'id' => $this->siteId,
                 'name' => $label,
             ]);
         }
-        return Translation::prep('smart-search', 'Syncing AI search index');
+        return Translation::prep('smart-search', 'Syncing Smart Search index');
     }
 }

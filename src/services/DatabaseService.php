@@ -20,7 +20,7 @@ use yii\base\Component;
 class DatabaseService extends Component
 {
     /** Cache key used to skip repeated preflight checks within a single deploy. */
-    public const SCHEMA_CACHE_KEY = 'aisearch_schema_initialized';
+    public const SCHEMA_CACHE_KEY = 'smart_search_schema_initialized';
 
     private const LOCAL_HOSTS = ['127.0.0.1', '::1', 'localhost'];
 
@@ -496,7 +496,7 @@ class DatabaseService extends Component
     public function getStats(bool $useCache = true): array
     {
         $cache = \Craft::$app->getCache();
-        $cacheKey = 'aisearch_dashboard_stats';
+        $cacheKey = 'smart_search_dashboard_stats';
 
         if ($useCache) {
             $cached = $cache->get($cacheKey);
