@@ -26,13 +26,6 @@
 .filter-bar__group > button.btn {
     margin-bottom: 0;
 }
-.filter-bar__spacer {
-    margin-left: auto;
-    align-self: flex-end;
-}
-.filter-bar__inline-form {
-    display: inline;
-}
 .filter-bar__reset[hidden] {
     display: none;
 }

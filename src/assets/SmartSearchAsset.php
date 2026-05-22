@@ -38,23 +38,18 @@ class SmartSearchAsset extends AssetBundle
             'css/components/data-table.css',
             'css/components/delta-tag.css',
             'css/components/empty-state.css',
-            'css/components/entry-status-pill.css',
             'css/components/error-modal.css',
             'css/components/filter-bar.css',
-            'css/components/health-row.css',
             'css/components/index-stats.css',
             'css/components/kpi-grid.css',
             'css/components/onboarding-list.css',
             'css/components/overview-cards.css',
             'css/components/pagination.css',
             'css/components/recommendation-list.css',
-            'css/components/search-toolbar.css',
-            'css/components/sync-progress.css',
 
             // Pages (alphabetical)
             'css/pages/dashboard.css',
             'css/pages/index-entry.css',
-            'css/pages/insights-index.css',
             'css/pages/settings.css',
         ];
 

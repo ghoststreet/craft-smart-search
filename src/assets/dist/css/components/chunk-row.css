@@ -22,7 +22,6 @@
     color: var(--medium-text-color);
     font-size: 12px;
 }
-.chunk-row__spacer { flex: 1; }
 
 .chunk-row__token-bar {
     flex: 1;

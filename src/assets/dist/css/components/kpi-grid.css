@@ -3,7 +3,7 @@
 
    Structure:
      .kpi-grid            grid container        (modifiers: --3, --compact)
-     .kpi-card            a single stat card    (modifiers: --compact, --donut,
+     .kpi-card            a single stat card    (modifiers: --compact,
                                                   --error, --link)
        .kpi-card__icon    leading icon          (compact cards)
        .kpi-card__body    label + value wrapper (compact cards)
@@ -124,9 +124,6 @@
 }
 .kpi-card--compact .kpi-card__label { font-size: 12px; }
 .kpi-card--compact .kpi-card__value { font-size: 22px; }
-
-/* ── Donut variant ──────────────────────────────────────────────────────── */
-.kpi-card--donut .kpi-card__chart canvas { max-height: 90px; }
 
 /* ── Error state ────────────────────────────────────────────────────────── */
 .kpi-card--compact.kpi-card--error .kpi-card__icon {

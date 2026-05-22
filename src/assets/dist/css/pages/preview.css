@@ -44,9 +44,6 @@
 .preview-badge--hybrid   { background: #dbeafe; color: #1d4ed8; }
 .preview-badge--rag      { background: #ede9fe; color: #6d28d9; }
 .preview-badge--craft    { background: #dcfce7; color: #15803d; }
-.preview-badge--semantic { background: #dbeafe; color: #1d4ed8; }
-.preview-badge--bm25     { background: #fef9c3; color: #854d0e; }
-.preview-badge--score    { background: var(--gray-100); color: var(--medium-text-color); font-variant-numeric: tabular-nums; }
 
 .preview-col__form {
     display: flex;
@@ -163,10 +160,4 @@
     color: var(--medium-text-color);
     margin: 0;
     line-height: 1.5;
-}
-
-.preview-col__empty {
-    font-size: 12px;
-    color: var(--medium-text-color);
-    padding: 8px 0;
 }

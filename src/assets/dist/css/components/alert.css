@@ -5,8 +5,3 @@
     padding: 12px 16px;
     border-radius: 6px;
 }
-.alert--warn {
-    background: var(--smart-search-warn-bg);
-    border-color: var(--smart-search-warn-border);
-    color: var(--smart-search-warn-fg);
-}
