@@ -332,11 +332,6 @@ class IndexController extends BaseApiController
         return $this->asJson(['success' => true, 'released' => $released]);
     }
 
-    public function actionLegacyRedirect(): Response
-    {
-        return $this->redirect('smart-search/index');
-    }
-
     public function actionReindexEntry(): Response
     {
         $this->requireAdmin();

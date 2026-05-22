@@ -2,7 +2,6 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use craft\elements\Entry;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
@@ -16,7 +15,7 @@ use yii\base\Component;
 /**
  * Search Service — entry point for vector similarity searches.
  * Public search() always runs hybrid (vector + BM25 via RRF) for best quality.
- * semanticSearch / semanticSearchRaw remain available for internal callers
+ * semanticSearchRaw remains available for internal callers
  * (e.g. HybridSearchService precomputed-vector path).
  */
 class SearchService extends Component
@@ -32,23 +31,6 @@ class SearchService extends Component
     public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
     {
         return SmartSearch::getInstance()->hybridSearchService->search($query, $limit, $siteId, $embeddingModel);
-    }
-
-    /**
-     * Perform a semantic search and return results with loaded Craft Entry elements.
-     *
-     * @return array Array of ['element' => Entry, 'score' => float, 'content' => string, ...]
-     * @throws SearchException If the vector query fails
-     */
-    public function semanticSearch(string $query, int $limit = 10, ?int $siteId = null, bool $applyThreshold = true, ?string $embeddingModel = null): array
-    {
-        $results = $this->semanticSearchRaw($query, $limit, $siteId, $applyThreshold, $embeddingModel);
-
-        if (empty($results)) {
-            return [];
-        }
-
-        return $this->loadAndAttachElements($results);
     }
 
     /**
@@ -128,30 +110,5 @@ class SearchService extends Component
             Logger::exception($e, 'semanticSearch', ['query' => substr($query, 0, 50)]);
             throw SearchException::vectorQueryFailed($e);
         }
-    }
-
-    /**
-     * Load Craft Entry elements for raw search results and merge them into
-     * the result array alongside scores and content.
-     */
-    private function loadAndAttachElements(array $results): array
-    {
-        $ids = array_unique(array_column($results, 'elementId'));
-        $elements = Entry::find()->id($ids)->indexBy('id')->all();
-
-        $loaded = [];
-        foreach ($results as $result) {
-            $element = $elements[(int)$result['elementId']];
-
-            $loaded[] = [
-                'element' => $element,
-                'score' => (float)$result['similarity'],
-                'semanticScore' => (float)$result['similarity'],
-                'meetsSemanticThreshold' => true,
-                'content' => $result['content'],
-            ];
-        }
-
-        return $loaded;
     }
 }

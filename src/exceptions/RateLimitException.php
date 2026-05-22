@@ -21,12 +21,4 @@ class RateLimitException extends SmartSearchException
         $e->retryAfterSeconds = 5;
         return $e;
     }
-
-    public static function budgetExhausted(string $scope, int $resetSeconds): self
-    {
-        $e = new self("Daily cost budget exhausted ({$scope}).");
-        $e->errorCode = ErrorCode::RATE_LIMIT_BUDGET;
-        $e->retryAfterSeconds = $resetSeconds;
-        return $e;
-    }
 }

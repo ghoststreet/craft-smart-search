@@ -2,7 +2,6 @@
 
 namespace ghoststreet\craftsmartsearch\jobs;
 
-use Craft;
 use craft\elements\Entry;
 use craft\i18n\Translation;
 use craft\queue\BaseJob;

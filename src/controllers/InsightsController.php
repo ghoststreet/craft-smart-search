@@ -71,9 +71,4 @@ class InsightsController extends Controller
 
         return $this->renderTemplate('smart-search/insights/index', $data);
     }
-
-    public function actionLegacyRedirect(): Response
-    {
-        return $this->redirect('smart-search/insights');
-    }
 }

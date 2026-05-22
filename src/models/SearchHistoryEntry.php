@@ -14,7 +14,6 @@ final class SearchHistoryEntry
         public readonly string $requestId,
         public readonly string $type,
         public readonly string $query,
-        public readonly ?int $userId,
         public readonly ?int $siteId,
         public readonly int $durationMs,
         public readonly int $resultsCount,

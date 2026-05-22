@@ -20,13 +20,11 @@ enum ErrorCode: string
 
     case DATABASE_QUERY_FAILED        = 'DATABASE_QUERY_FAILED';
     case DATABASE_TABLE_MISSING       = 'DATABASE_TABLE_MISSING';
-    case DATABASE_SCHEMA_INIT_FAILED  = 'DATABASE_SCHEMA_INIT_FAILED';
     case DATABASE_CONFIG_INCOMPLETE   = 'DATABASE_CONFIG_INCOMPLETE';
     case DATABASE_CONNECTION_ERROR    = 'DATABASE_CONNECTION_ERROR';
 
     case RATE_LIMIT_REQUESTS          = 'RATE_LIMIT_REQUESTS';
     case RATE_LIMIT_CONCURRENCY       = 'RATE_LIMIT_CONCURRENCY';
-    case RATE_LIMIT_BUDGET            = 'RATE_LIMIT_BUDGET';
 
     case CONFIG_MISSING_API_KEY       = 'CONFIG_MISSING_API_KEY';
 
@@ -46,7 +44,6 @@ enum ErrorCode: string
             self::DATABASE_TABLE_MISSING,
             self::DATABASE_CONFIG_INCOMPLETE,
             self::DATABASE_CONNECTION_ERROR,
-            self::RATE_LIMIT_BUDGET,
             self::CONFIG_MISSING_API_KEY => 503,
             default => 500,
         };
@@ -69,12 +66,10 @@ enum ErrorCode: string
             self::EMBEDDING_API_ERROR         => 'OpenAI embedding request failed.',
             self::DATABASE_QUERY_FAILED       => 'A database query failed.',
             self::DATABASE_TABLE_MISSING      => 'The vector table does not exist yet. Set up the pgvector schema before indexing.',
-            self::DATABASE_SCHEMA_INIT_FAILED => 'Failed to initialize the pgvector schema.',
             self::DATABASE_CONFIG_INCOMPLETE  => 'Database connection is not configured.',
             self::DATABASE_CONNECTION_ERROR   => 'Could not connect to the vector database.',
             self::RATE_LIMIT_REQUESTS         => 'Too many requests. Slow down and retry shortly.',
             self::RATE_LIMIT_CONCURRENCY      => 'Too many concurrent requests. Try again in a moment.',
-            self::RATE_LIMIT_BUDGET           => 'Daily AI cost budget exhausted. Try again later.',
             self::CONFIG_MISSING_API_KEY      => 'An API key is not configured. Please set it in plugin settings.',
             self::UNKNOWN                     => 'Something went wrong. The administrator can find details in the Smart Search log.',
         };

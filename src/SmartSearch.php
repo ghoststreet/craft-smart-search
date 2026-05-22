@@ -16,7 +16,6 @@ use craft\web\UrlManager;
 use craft\web\View;
 use ghoststreet\craftsmartsearch\assets\SmartSearchAsset;
 use ghoststreet\craftsmartsearch\assets\DashboardAsset;
-use ghoststreet\craftsmartsearch\assets\DataSyncAsset;
 use ghoststreet\craftsmartsearch\assets\IndexEntryAsset;
 use ghoststreet\craftsmartsearch\assets\IndexMgmtAsset;
 use ghoststreet\craftsmartsearch\assets\InsightsAsset;
@@ -267,12 +266,6 @@ class SmartSearch extends Plugin
 
                 // Preview
                 $event->rules['smart-search/preview'] = 'smart-search/preview/index';
-
-                // Legacy redirects
-                $event->rules['smart-search/data-sync'] = 'smart-search/index/legacy-redirect';
-                $event->rules['smart-search/debug'] = 'smart-search/index/legacy-redirect';
-                $event->rules['smart-search/history'] = 'smart-search/insights/legacy-redirect';
-                $event->rules['smart-search/history/keywords'] = 'smart-search/insights/legacy-redirect';
             }
         );
 
@@ -313,7 +306,6 @@ class SmartSearch extends Plugin
                     'smart-search/index-mgmt'        => IndexMgmtAsset::class,
                     'smart-search/insights'          => InsightsAsset::class,
                     'smart-search/settings'          => SettingsAsset::class,
-                    'smart-search/data-sync'         => DataSyncAsset::class,
                     'smart-search/index'             => DashboardAsset::class,
                 ];
 

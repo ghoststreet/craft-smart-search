@@ -25,7 +25,6 @@ class HistoryService extends Component
             $row->requestId = $entry->requestId;
             $row->type = $entry->type;
             $row->query = $entry->query;
-            $row->userId = $entry->userId;
             $row->siteId = $entry->siteId;
             $row->resultsCount = $entry->resultsCount;
             $row->embeddingModel = $entry->embeddingModel;

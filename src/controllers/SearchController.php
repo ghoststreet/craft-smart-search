@@ -5,7 +5,6 @@ namespace ghoststreet\craftsmartsearch\controllers;
 use Craft;
 use craft\elements\Entry;
 use ghoststreet\craftsmartsearch\SmartSearch;
-use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
 use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
@@ -627,13 +626,11 @@ class SearchController extends BaseApiController
     {
         try {
             $usage = UsageTracker::snapshot();
-            $user = Craft::$app->getUser()->getIdentity();
 
             SmartSearch::getInstance()->historyService->record(new SearchHistoryEntry(
                 requestId: $this->requestId,
                 type: $type,
                 query: (string)($params['query'] ?? ''),
-                userId: $user?->id,
                 siteId: $params['siteId'] ?? null,
                 durationMs: (int)round((microtime(true) - $this->startTime) * 1000),
                 resultsCount: $resultsCount,

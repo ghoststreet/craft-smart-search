@@ -2,7 +2,6 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use Craft;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\records\ExcludedEntryRecord;
@@ -35,7 +34,6 @@ class ExclusionService extends Component
             $record = new ExcludedEntryRecord();
             $record->elementId = $elementId;
             $record->siteId = $siteId;
-            $record->userId = Craft::$app->getUser()->getId();
             $record->save();
         }
 

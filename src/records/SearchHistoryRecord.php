@@ -9,7 +9,6 @@ use craft\db\ActiveRecord;
  * @property string $requestId
  * @property string $type
  * @property string $query
- * @property int|null $userId
  * @property int|null $siteId
  * @property int $resultsCount
  * @property string|null $embeddingModel

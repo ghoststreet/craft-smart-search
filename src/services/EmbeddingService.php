@@ -489,20 +489,6 @@ class EmbeddingService extends Component
     }
 
     /**
-     * Run the full extraction + chunking pipeline without writing to the DB.
-     *
-     * @return string[]
-     */
-    public function previewChunks(ElementInterface $element): array
-    {
-        $text = $this->extractTextFromElement($element);
-        if (TextValidator::isEmpty($text)) {
-            return [];
-        }
-        return $this->chunkText($text);
-    }
-
-    /**
      * Split text into chunks sized for embedding generation.
      *
      * Strategy: splits by paragraphs first, falling back to sentence-level splitting

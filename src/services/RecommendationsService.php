@@ -2,7 +2,6 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use Craft;
 use craft\helpers\UrlHelper;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\base\Component;

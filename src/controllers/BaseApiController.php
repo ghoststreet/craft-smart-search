@@ -5,7 +5,6 @@ namespace ghoststreet\craftsmartsearch\controllers;
 use craft\web\Controller;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
 use Throwable;
-use yii\base\Action;
 use yii\web\Response;
 
 /**

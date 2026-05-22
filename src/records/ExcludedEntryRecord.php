@@ -8,7 +8,6 @@ use craft\db\ActiveRecord;
  * @property int $id
  * @property int $elementId
  * @property int $siteId
- * @property int|null $userId
  * @property string $dateCreated
  * @property string $dateUpdated
  * @property string $uid

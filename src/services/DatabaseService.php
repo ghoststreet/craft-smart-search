@@ -247,25 +247,6 @@ class DatabaseService extends Component
     }
 
     /**
-     * Sets the `app.site_id` GUC the README's RLS policy reads. Without RLS enabled
-     * by the admin this is inert.
-     */
-    public function bindSiteScope(?int $siteId): void
-    {
-        if ($siteId === null) {
-            return;
-        }
-
-        try {
-            $db = $this->getConnection();
-            $stmt = $db->prepare("SELECT set_config('app.site_id', :siteId, true)");
-            $stmt->execute([':siteId' => (string)$siteId]);
-        } catch (PDOException $e) {
-            Logger::exception($e, 'bindSiteScope', ['siteId' => $siteId]);
-        }
-    }
-
-    /**
      * Verify that the configured vectors table exists. The plugin never issues
      * DDL — admin owns the schema and must run the README SQL before this call.
      *

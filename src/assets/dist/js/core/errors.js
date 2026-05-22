@@ -16,12 +16,10 @@
         EMBEDDING_API_ERROR:         'OpenAI embedding request failed.',
         DATABASE_QUERY_FAILED:       'A database query failed.',
         DATABASE_TABLE_MISSING:      'The vector table does not exist yet. Set up the pgvector schema before indexing.',
-        DATABASE_SCHEMA_INIT_FAILED: 'Failed to initialize the pgvector schema.',
         DATABASE_CONFIG_INCOMPLETE:  'Database connection is not configured.',
         DATABASE_CONNECTION_ERROR:   'Could not connect to the vector database.',
         RATE_LIMIT_REQUESTS:         'Too many requests. Slow down and retry shortly.',
         RATE_LIMIT_CONCURRENCY:      'Too many concurrent requests. Try again in a moment.',
-        RATE_LIMIT_BUDGET:           'Daily AI cost budget exhausted. Try again later.',
         CONFIG_MISSING_API_KEY:      'An API key is not configured. Please set it in plugin settings.',
         UNKNOWN:                     'Something went wrong. The administrator can find details in the Smart Search log.'
     };

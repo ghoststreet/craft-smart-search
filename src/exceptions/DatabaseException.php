@@ -27,17 +27,6 @@ class DatabaseException extends SmartSearchException
         return $e;
     }
 
-    public static function schemaInitFailed(Throwable $previous): self
-    {
-        $e = new self(
-            "Failed to initialize PostgreSQL schema: {$previous->getMessage()}",
-            0,
-            $previous
-        );
-        $e->errorCode = ErrorCode::DATABASE_SCHEMA_INIT_FAILED;
-        return $e;
-    }
-
     public static function configurationIncomplete(array $missingFields): self
     {
         $fieldList = implode(', ', $missingFields);
