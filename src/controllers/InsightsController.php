@@ -22,7 +22,7 @@ class InsightsController extends Controller
         }
 
         $request = Craft::$app->getRequest();
-        $tab = $request->getParam('tab') ?: 'queries';
+        $tab = $request->getParam('tab') ?: 'history';
         $days = $request->getParam('days');
         $days = is_numeric($days) && (int)$days > 0 ? (int)$days : null;
         $siteIdParam = $request->getParam('siteId');

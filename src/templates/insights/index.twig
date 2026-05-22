@@ -10,10 +10,10 @@
 {% set hasResults = (tab == 'queries' ? topQueries|default([])|length : page.items|default([])|length) > 0 %}
 
 {% set tabs = {
+    history:        { label: 'Overview',     url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'history' })) },
     queries:        { label: 'Top Queries',  url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'queries' })) },
     'zero-results': { label: 'Zero Results', url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'zero-results' })) },
     trending:       { label: 'Trending',     url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'trending' })) },
-    history:        { label: 'History Log',  url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'history' })) },
 } %}
 {% set selectedTab = tab %}
 
