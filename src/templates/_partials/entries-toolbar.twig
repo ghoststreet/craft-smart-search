@@ -59,6 +59,10 @@
             }) }}
 
             <button type="submit" class="btn submit">{{ L.filter }}</button>
+            {{ f.resetButton(
+                cpUrl('smart-search/index', hiddenFields ?? {}),
+                filters.siteId or filters.section or filters.status
+            ) }}
         </div>
     </form>
 </div>

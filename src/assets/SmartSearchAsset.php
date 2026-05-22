@@ -21,7 +21,6 @@ class SmartSearchAsset extends AssetBundle
             'js/smart-search-config.js',
             'js/core/dom.js',
             'js/core/errors.js',
-            'js/core/api.js',
             'js/core/utils.js',
             'js/components/filter-bar.js',
             'js/components/error-modal.js',
