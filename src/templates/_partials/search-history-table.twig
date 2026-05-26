@@ -46,19 +46,19 @@
                         </td>
                         <td class="rightalign{% if item.resultsCount == 0 %} light{% endif %}">{{ item.resultsCount }}</td>
                         <td class="rightalign">
-                            {%- set ragTokens = item.ragInputTokens + item.ragOutputTokens -%}
+                            {%- set aiAnswerTokens = item.aiAnswerInputTokens + item.aiAnswerOutputTokens -%}
                             {%- set hasEmbedding = item.embeddingCached or item.embeddingTokens > 0 -%}
                             <span class="ss-tokens">
-                                {%- if ragTokens > 0 -%}
-                                    <span class="ss-token-val" title="RAG tokens (LLM {{ item.ragInputTokens|number_format }} in / {{ item.ragOutputTokens|number_format }} out)">{{ ragTokens|number_format }}<span class="ss-token-dot ss-token-dot--rag"></span></span>
+                                {%- if aiAnswerTokens > 0 -%}
+                                    <span class="ss-token-val" title="AI Answer tokens (LLM {{ item.aiAnswerInputTokens|number_format }} in / {{ item.aiAnswerOutputTokens|number_format }} out)">{{ aiAnswerTokens|number_format }}<span class="ss-token-dot ss-token-dot--ai-answer"></span></span>
                                 {%- endif -%}
-                                {%- if ragTokens > 0 and hasEmbedding %} <span class="ss-tokens__sep">/</span> {% endif -%}
+                                {%- if aiAnswerTokens > 0 and hasEmbedding %} <span class="ss-tokens__sep">/</span> {% endif -%}
                                 {%- if item.embeddingCached -%}
                                     <span title="{{ cachedTitle }}">{{ b.badge('Cached', 'cached') }}</span>
                                 {%- elseif item.embeddingTokens > 0 -%}
                                     <span class="ss-token-val" title="Embedding tokens">{{ item.embeddingTokens|number_format }}<span class="ss-token-dot ss-token-dot--embedding"></span></span>
                                 {%- endif -%}
-                                {%- if ragTokens == 0 and not hasEmbedding -%}
+                                {%- if aiAnswerTokens == 0 and not hasEmbedding -%}
                                     <span class="light">—</span>
                                 {%- endif -%}
                             </span>

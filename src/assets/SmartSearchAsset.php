@@ -37,6 +37,7 @@ class SmartSearchAsset extends AssetBundle
             'css/components/data-table.css',
             'css/components/delta-tag.css',
             'css/components/empty-state.css',
+            'css/components/entries-loading.css',
             'css/components/error-modal.css',
             'css/components/filter-bar.css',
             'css/components/index-stats.css',

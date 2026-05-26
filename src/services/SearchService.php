@@ -14,9 +14,9 @@ use yii\base\Component;
 
 /**
  * Search Service — entry point for vector similarity searches.
- * Public search() always runs hybrid (vector + BM25 via RRF) for best quality.
+ * Public search() always runs smart search (semantic + keyword via RRF) for best quality.
  * semanticSearchRaw remains available for internal callers
- * (e.g. HybridSearchService precomputed-vector path).
+ * (e.g. SmartSearchService precomputed-vector path).
  */
 class SearchService extends Component
 {
@@ -30,19 +30,19 @@ class SearchService extends Component
      */
     public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
     {
-        return SmartSearch::getInstance()->hybridSearchService->search($query, $limit, $siteId, $embeddingModel);
+        return SmartSearch::getInstance()->smartSearchService->search($query, $limit, $siteId, $embeddingModel);
     }
 
     /**
      * Perform a raw semantic vector search against pgvector, returning database rows
      * without loading Craft elements. Supports precomputed vectors to avoid redundant
-     * embedding generation when called from HybridSearchService.
+     * embedding generation when called from SmartSearchService.
      *
      * @param array|null $precomputedVector Reuse an already-generated query vector
      * @return array Raw result rows with elementId, siteId, similarity, and content
      * @throws SearchException If the vector query fails
      */
-    public function semanticSearchRaw(string $query, int $limit = 10, ?int $siteId = null, bool $applyThreshold = true, ?string $embeddingModel = null, ?array $precomputedVector = null): array
+    public function semanticSearchRaw(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null, ?array $precomputedVector = null): array
     {
         $db = SmartSearch::getInstance()->databaseService->getConnection();
 
@@ -56,9 +56,6 @@ class SearchService extends Component
         }
 
         $queryVectorString = (string) new Vector($queryVector);
-
-        $settings = SmartSearch::getInstance()->getSettings();
-        $similarityThreshold = $applyThreshold ? max(0.0, min(1.0, (float)$settings->minimumSimilarityThreshold)) : 0.0;
 
         $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
 
@@ -78,11 +75,6 @@ class SearchService extends Component
             if ($siteId !== null) {
                 $conditions[] = "\"siteId\" = :siteId";
                 $params[':siteId'] = $siteId;
-            }
-
-            if ($similarityThreshold > 0.0) {
-                $conditions[] = "1 - (vector <=> :queryVector::vector) >= :minThreshold";
-                $params[':minThreshold'] = $similarityThreshold;
             }
 
             if (!empty($conditions)) {

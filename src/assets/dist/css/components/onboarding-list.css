@@ -37,3 +37,38 @@
     background: var(--smart-search-success);
     color: #fff;
 }
+
+/* Body wrapper inside an item — replaces the flex:1 on > div */
+.onboarding-list__body { flex: 1; min-width: 0; }
+
+/* Section headings inside the onboarding card */
+.onboarding-section {
+    margin: 18px 0 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--text-color);
+}
+.onboarding-section--muted { color: var(--medium-text-color); }
+
+.onboarding-divider {
+    margin: 22px 0 0;
+    border: none;
+    border-top: 1px solid var(--hairline-color, rgba(31, 41, 51, .1));
+}
+
+/* Recommended variant: outline-circle icon, slightly muted card */
+.onboarding-list--recommended .onboarding-list__item {
+    background: var(--gray-050, #f9fafb);
+}
+.onboarding-list--recommended .onboarding-list__icon {
+    background: transparent;
+    border: 2px solid var(--gray-200, #cdd8e4);
+    color: var(--medium-text-color);
+}
+.onboarding-list--recommended .onboarding-list__item--done .onboarding-list__icon {
+    background: var(--smart-search-success);
+    border-color: var(--smart-search-success);
+    color: #fff;
+}

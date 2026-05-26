@@ -124,9 +124,9 @@
         }
     }
 
-    function setupHybridWarning() {
-        var select = DOM.find('hybrid-embedding-model');
-        var warning = DOM.find('hybrid-embedding-warning');
+    function setupSmartWarning() {
+        var select = DOM.find('smart-embedding-model');
+        var warning = DOM.find('smart-embedding-warning');
         if (!select || !warning) return;
         var original = select.value;
         select.addEventListener('change', function () {
@@ -134,32 +134,11 @@
         });
     }
 
-    function setupWeightSumHint() {
-        var semantic = DOM.find('rrf-semantic-weight');
-        var bm25 = DOM.find('rrf-bm25-weight');
-        var hint = DOM.find('weight-sum-hint');
-        if (!semantic || !bm25 || !hint) return;
-
-        function refresh() {
-            var s = parseFloat(semantic.value) || 0;
-            var k = parseFloat(bm25.value) || 0;
-            var total = Math.round((s + k) * 100) / 100;
-            var ok = Math.abs(total - 1) < 0.001;
-            hint.textContent = 'Weights sum: ' + total.toFixed(2) + (ok ? ' ✓' : ' — should equal 1.00');
-            hint.style.color = ok ? 'green' : '#cf1124';
-        }
-
-        semantic.addEventListener('input', refresh);
-        bm25.addEventListener('input', refresh);
-        refresh();
-    }
-
     ns.pages.settings = {
         init: function () {
             setupDbTest();
             setupApiKeyTest();
-            setupHybridWarning();
-            setupWeightSumHint();
+            setupSmartWarning();
         }
     };
 

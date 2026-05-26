@@ -18,11 +18,11 @@ final class SearchHistoryEntry
         public readonly int $durationMs,
         public readonly int $resultsCount,
         public readonly int $embeddingTokens,
-        public readonly int $ragInputTokens,
-        public readonly int $ragOutputTokens,
+        public readonly int $aiAnswerInputTokens,
+        public readonly int $aiAnswerOutputTokens,
         public readonly bool $embeddingCached,
         public readonly ?string $embeddingModel,
-        public readonly ?string $ragModel,
+        public readonly ?string $aiAnswerModel,
         public readonly ?string $errorMessage = null,
     ) {
     }

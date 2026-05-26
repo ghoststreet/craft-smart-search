@@ -13,3 +13,22 @@
 }
 .budget-bar--warn .budget-bar__fill { background: var(--smart-search-warning); }
 .budget-bar--crit .budget-bar__fill { background: var(--smart-search-danger); }
+
+.budget-block { margin-top: 4px; }
+.budget-block__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+.budget-block__label {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--medium-text-color);
+    font-weight: 600;
+}
+.budget-block__usage {
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+}

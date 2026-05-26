@@ -40,7 +40,7 @@
     border-block-start: 1px solid var(--border-hairline);
 }
 
-/* Tokens column: "RAG / embedding" values, each a number + type-coloured dot */
+/* Tokens column: "AI Answer / embedding" values, each a number + type-coloured dot */
 .ss-tokens {
     display: inline-flex;
     align-items: center;
@@ -62,5 +62,5 @@
     background: var(--medium-text-color);
     flex-shrink: 0;
 }
-.ss-token-dot--rag { background: var(--smart-search-rag); }
+.ss-token-dot--ai-answer { background: var(--smart-search-ai-answer); }
 .ss-token-dot--embedding { background: var(--smart-search-semantic); }

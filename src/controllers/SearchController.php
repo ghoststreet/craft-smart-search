@@ -6,6 +6,7 @@ use Craft;
 use craft\elements\Entry;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
+use ghoststreet\craftsmartsearch\filters\SmartSearchCors;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
 use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
 use ghoststreet\craftsmartsearch\helpers\Logger;
@@ -24,11 +25,18 @@ use yii\web\UnauthorizedHttpException;
 /**
  * Search controller.
  *
- * Public, anonymous-friendly, but every request must carry a valid Craft CSRF
- * token. When `apiToken` is configured, callers must additionally present
- * `Authorization: Bearer <token>`. Origin/Referer is constrained to the site
- * host (plus the `allowedOrigins` setting). Per-IP rate limits, RAG
- * concurrency caps, and daily cost budgets are enforced by RateLimitService.
+ * Public, anonymous-friendly. Two auth modes coexist:
+ *   - Same-origin browser callers (CP Preview, Twig-rendered front-end pages)
+ *     pass Craft's CSRF token.
+ *   - Cross-origin and server-to-server callers present
+ *     `Authorization: Bearer <apiToken>`; CSRF is skipped because bearer is a
+ *     non-cookie credential and CSRF adds nothing on top of it.
+ *
+ * Origin/Referer is constrained to the site host plus the `allowedOrigins`
+ * setting. The SmartSearchCors behavior emits `Access-Control-*` response
+ * headers for the same allowlist so browser CORS preflights succeed. Per-IP
+ * rate limits, AI Answer concurrency caps, and daily cost budgets are enforced
+ * by RateLimitService.
  */
 class SearchController extends BaseApiController
 {
@@ -44,13 +52,34 @@ class SearchController extends BaseApiController
     /** Release token from RateLimitService::acquire(); passed to release() in afterAction. */
     private string $rateLimitToken = '';
 
+    /** Set true once a valid bearer token has been verified for this request. */
+    private bool $bearerAuthenticated = false;
+
+    public function behaviors(): array
+    {
+        return array_merge(parent::behaviors(), [
+            'cors' => [
+                'class' => SmartSearchCors::class,
+                'cors' => [
+                    'Origin' => [],
+                    'Access-Control-Request-Method' => ['GET', 'POST', 'OPTIONS'],
+                    'Access-Control-Request-Headers' => ['Authorization', 'Content-Type', 'X-CSRF-Token'],
+                    'Access-Control-Allow-Credentials' => null,
+                    'Access-Control-Max-Age' => 86400,
+                ],
+            ],
+        ]);
+    }
+
     /**
-     * Gate every request through CSRF, origin allowlist, optional bearer token,
-     * and the per-action rate limiter. Stamps the request with a correlation id.
+     * Gate every request through bearer/CSRF auth, origin allowlist, and the
+     * per-action rate limiter. Stamps the request with a correlation id.
      *
-     * Check order matters: bearer auth runs before the origin allowlist because
-     * the allowlist's S2S bypass trusts apiToken-authenticated callers — that
-     * trust is only sound if the token was already validated.
+     * Auth model:
+     * - Bearer token authenticates cross-origin and S2S callers. When a valid
+     *   token is presented, CSRF is skipped because the bearer is a stronger,
+     *   non-cookie credential that CSRF can't add anything to.
+     * - Same-origin browser callers without a bearer still require CSRF.
      */
     public function beforeAction($action): bool
     {
@@ -63,13 +92,16 @@ class SearchController extends BaseApiController
 
         $request = Craft::$app->getRequest();
 
-        $this->requireCsrfToken($request);
-
         $this->enforceBearerTokenIfConfigured($request);
+
+        if (!$this->bearerAuthenticated) {
+            $this->requireCsrfToken($request);
+        }
+
         $this->enforceOriginAllowlist($request);
 
         $kind = match ($action->id) {
-            'rag-search', 'rag-stream' => RateLimitService::KIND_RAG,
+            'ai-answer', 'ai-answer-stream' => RateLimitService::KIND_AI_ANSWER,
             default => RateLimitService::KIND_SEARCH,
         };
 
@@ -108,9 +140,9 @@ class SearchController extends BaseApiController
         $cost = PricingTable::costForUsage(
             $usage['embeddingModel'],
             (int)$usage['embeddingTokens'],
-            $usage['ragModel'],
-            (int)$usage['ragInputTokens'],
-            (int)$usage['ragOutputTokens'],
+            $usage['aiAnswerModel'],
+            (int)$usage['aiAnswerInputTokens'],
+            (int)$usage['aiAnswerOutputTokens'],
         );
         if ($cost > 0) {
             $ip = (string)(Craft::$app->getRequest()->getUserIP() ?? '0.0.0.0');
@@ -219,6 +251,7 @@ class SearchController extends BaseApiController
             : '';
 
         if ($presented !== '' && hash_equals($token, $presented)) {
+            $this->bearerAuthenticated = true;
             return;
         }
 
@@ -279,9 +312,9 @@ class SearchController extends BaseApiController
     }
 
     /**
-     * Hybrid (vector + BM25) search API endpoint.
+     * Smart Search (semantic + keyword) API endpoint.
      */
-    public function actionSemanticSearch(): Response
+    public function actionSearch(): Response
     {
         $this->requireAcceptsJson();
         $params = RequestParameterExtractor::extractSearchParams();
@@ -299,9 +332,9 @@ class SearchController extends BaseApiController
                 $params['siteId']
             );
 
-            $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_HYBRID);
+            $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_SMART);
 
-            $this->recordHistory('semantic', $params, count($formattedResults));
+            $this->recordHistory('smart', $params, count($formattedResults));
 
             return $this->successResponse('semanticSearch', [
                 'query' => $params['query'],
@@ -309,16 +342,16 @@ class SearchController extends BaseApiController
                 'semanticCount' => count($formattedResults),
             ]);
         } catch (Throwable $e) {
-            $this->recordHistory('semantic', $params, 0, $e->getMessage());
+            $this->recordHistory('smart', $params, 0, $e->getMessage());
             return ApiResponseHelper::jsonError($this, $e, 'semanticSearch', $this->errorContext($params));
         }
     }
 
     /**
-     * RAG search API endpoint with AI summary.
-     * Uses hybrid search + OpenAI for intelligent responses.
+     * AI Answer search API endpoint with AI summary.
+     * Uses smart search + OpenAI for intelligent responses.
      */
-    public function actionRagSearch(): Response
+    public function actionAiAnswer(): Response
     {
         $this->requirePostRequest();
         $this->requireAcceptsJson();
@@ -330,13 +363,13 @@ class SearchController extends BaseApiController
         }
 
         if (RateLimitService::isFallbackToken($this->rateLimitToken)) {
-            return $this->ragFallbackToHybrid($params);
+            return $this->aiAnswerFallback($params);
         }
 
-        $this->logRequest('ragSearch', $params);
+        $this->logRequest('aiAnswer', $params);
 
         try {
-            $response = SmartSearch::getInstance()->ragSearchService->search(
+            $response = SmartSearch::getInstance()->aiAnswerService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -345,12 +378,12 @@ class SearchController extends BaseApiController
             $formattedSources = $this->formatElementResults(
                 array_column($response['sources'], 'element'),
                 $response['sources'],
-                SearchResultFormatter::TYPE_RAG
+                SearchResultFormatter::TYPE_AI_ANSWER
             );
 
-            $this->recordHistory('rag', $params, count($formattedSources));
+            $this->recordHistory('aiAnswer', $params, count($formattedSources));
 
-            return $this->successResponse('ragSearch', [
+            return $this->successResponse('aiAnswer', [
                 'query' => $params['query'],
                 'summary' => $response['summary'] ?? null,
                 'sources' => $formattedSources,
@@ -358,13 +391,13 @@ class SearchController extends BaseApiController
                 'confidence' => $response['confidence'] ?? null,
             ]);
         } catch (Throwable $e) {
-            $this->recordHistory('rag', $params, 0, $e->getMessage());
-            return ApiResponseHelper::jsonError($this, $e, 'ragSearch', $this->errorContext($params));
+            $this->recordHistory('aiAnswer', $params, 0, $e->getMessage());
+            return ApiResponseHelper::jsonError($this, $e, 'aiAnswer', $this->errorContext($params));
         }
     }
 
     /**
-     * Streaming RAG endpoint. Emits Server-Sent Events:
+     * Streaming AI Answer endpoint. Emits Server-Sent Events:
      *   event: sources  data: {sources: [...]}
      *   event: token    data: {t: "..."}
      *   event: done     data: {}
@@ -374,7 +407,7 @@ class SearchController extends BaseApiController
      * requireCsrfToken() in beforeAction — the widget passes the token in the
      * query string, which an <img src> or cross-origin attacker cannot forge.
      */
-    public function actionRagStream(): Response
+    public function actionAiAnswerStream(): Response
     {
         $params = RequestParameterExtractor::extractSearchParams(20);
 
@@ -404,7 +437,7 @@ class SearchController extends BaseApiController
         }
 
         if (RateLimitService::isFallbackToken($this->rateLimitToken)) {
-            $this->ragStreamFallbackToHybrid($params);
+            $this->aiAnswerStreamFallback($params);
             $this->releaseRateLimit();
             Craft::$app->end();
             return $response;
@@ -416,7 +449,7 @@ class SearchController extends BaseApiController
         $errorMessage = null;
 
         try {
-            $generator = SmartSearch::getInstance()->ragSearchService->searchStream(
+            $generator = SmartSearch::getInstance()->aiAnswerService->searchStream(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -428,7 +461,7 @@ class SearchController extends BaseApiController
                         $formattedSources = $this->formatElementResults(
                             array_column($event['sources'], 'element'),
                             $event['sources'],
-                            SearchResultFormatter::TYPE_RAG
+                            SearchResultFormatter::TYPE_AI_ANSWER
                         );
                         $this->emitSse('sources', ['sources' => $formattedSources, 'requestId' => $this->requestId]);
                         break;
@@ -459,7 +492,7 @@ class SearchController extends BaseApiController
             $this->emitSse('error', $payload);
         }
 
-        $this->recordHistory('rag', $params, count($formattedSources), $errorMessage);
+        $this->recordHistory('aiAnswer', $params, count($formattedSources), $errorMessage);
 
         $this->releaseRateLimit();
 
@@ -468,12 +501,12 @@ class SearchController extends BaseApiController
     }
 
     /**
-     * RAG JSON fallback when the daily cost cap is hit: return hybrid results
-     * shaped like a RAG response, with no AI summary.
+     * AI Answer JSON fallback when the daily cost cap is hit: return search results
+     * shaped like a AI Answer response, with no AI summary.
      */
-    private function ragFallbackToHybrid(array $params): Response
+    private function aiAnswerFallback(array $params): Response
     {
-        $this->logRequest('ragSearchFallback', $params);
+        $this->logRequest('aiAnswerSearchFallback', $params);
 
         try {
             $results = SmartSearch::getInstance()->searchService->search(
@@ -482,11 +515,11 @@ class SearchController extends BaseApiController
                 $params['siteId']
             );
 
-            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_RAG);
+            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_AI_ANSWER);
 
-            $this->recordHistory('rag', $params, count($formattedSources));
+            $this->recordHistory('aiAnswer', $params, count($formattedSources));
 
-            return $this->successResponse('ragSearch', [
+            return $this->successResponse('aiAnswer', [
                 'query' => $params['query'],
                 'summary' => null,
                 'sources' => $formattedSources,
@@ -495,16 +528,16 @@ class SearchController extends BaseApiController
                 'budgetExhausted' => true,
             ]);
         } catch (Throwable $e) {
-            $this->recordHistory('rag', $params, 0, $e->getMessage());
-            return ApiResponseHelper::jsonError($this, $e, 'ragSearch', $this->errorContext($params));
+            $this->recordHistory('aiAnswer', $params, 0, $e->getMessage());
+            return ApiResponseHelper::jsonError($this, $e, 'aiAnswer', $this->errorContext($params));
         }
     }
 
     /**
-     * SSE fallback when the daily cost cap is hit: emit sources from hybrid
+     * SSE fallback when the daily cost cap is hit: emit sources from smart search
      * search and a synthetic `done` event with no token stream.
      */
-    private function ragStreamFallbackToHybrid(array $params): void
+    private function aiAnswerStreamFallback(array $params): void
     {
         $this->logRequest('ragStreamFallback', $params);
 
@@ -517,7 +550,7 @@ class SearchController extends BaseApiController
                 $params['limit'],
                 $params['siteId']
             );
-            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_RAG);
+            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_AI_ANSWER);
             $this->emitSse('sources', [
                 'sources' => $formattedSources,
                 'budgetExhausted' => true,
@@ -535,7 +568,7 @@ class SearchController extends BaseApiController
             ]);
         }
 
-        $this->recordHistory('rag', $params, count($formattedSources), $errorMessage);
+        $this->recordHistory('aiAnswer', $params, count($formattedSources), $errorMessage);
     }
 
     private function emitSse(string $event, array $data): void
@@ -635,11 +668,11 @@ class SearchController extends BaseApiController
                 durationMs: (int)round((microtime(true) - $this->startTime) * 1000),
                 resultsCount: $resultsCount,
                 embeddingTokens: $usage['embeddingTokens'],
-                ragInputTokens: $usage['ragInputTokens'],
-                ragOutputTokens: $usage['ragOutputTokens'],
+                aiAnswerInputTokens: $usage['aiAnswerInputTokens'],
+                aiAnswerOutputTokens: $usage['aiAnswerOutputTokens'],
                 embeddingCached: $usage['embeddingCached'],
                 embeddingModel: $usage['embeddingModel'],
-                ragModel: $usage['ragModel'],
+                aiAnswerModel: $usage['aiAnswerModel'],
                 errorMessage: $errorMessage,
             ));
         } catch (Throwable $e) {

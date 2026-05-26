@@ -24,15 +24,17 @@ use ghoststreet\craftsmartsearch\assets\SettingsAsset;
 use ghoststreet\craftsmartsearch\jobs\DeleteEntryJob;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use ghoststreet\craftsmartsearch\models\Settings;
-use ghoststreet\craftsmartsearch\services\BM25Service;
+use ghoststreet\craftsmartsearch\services\KeywordSearchService;
 use ghoststreet\craftsmartsearch\services\DatabaseService;
+use ghoststreet\craftsmartsearch\services\DictionaryService;
 use ghoststreet\craftsmartsearch\services\EmbeddingService;
 use ghoststreet\craftsmartsearch\services\ExclusionService;
 use ghoststreet\craftsmartsearch\services\HistoryService;
-use ghoststreet\craftsmartsearch\services\HybridSearchService;
+use ghoststreet\craftsmartsearch\services\SmartSearchService;
 use ghoststreet\craftsmartsearch\services\IndexInspectionService;
 use ghoststreet\craftsmartsearch\services\OpenAIClientFactory;
-use ghoststreet\craftsmartsearch\services\RagSearchService;
+use ghoststreet\craftsmartsearch\services\QueryCorrectorService;
+use ghoststreet\craftsmartsearch\services\AiAnswerService;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
 use ghoststreet\craftsmartsearch\services\RecommendationsService;
 use ghoststreet\craftsmartsearch\services\SearchService;
@@ -43,7 +45,7 @@ use yii\web\Response;
 
 /**
  * AI-powered semantic search plugin for Craft CMS.
- * Provides vector-based search, BM25 keyword scoring, hybrid RRF fusion, and RAG summaries
+ * Provides semantic search, keyword scoring, RRF fusion, and AI Answer summaries
  * backed by PostgreSQL with pgvector and the OpenAI embeddings API.
  *
  * @method static SmartSearch getInstance()
@@ -53,15 +55,17 @@ use yii\web\Response;
  * @property-read DatabaseService $databaseService
  * @property-read EmbeddingService $embeddingService
  * @property-read SearchService $searchService
- * @property-read BM25Service $bm25Service
- * @property-read HybridSearchService $hybridSearchService
- * @property-read RagSearchService $ragSearchService
+ * @property-read KeywordSearchService $keywordSearchService
+ * @property-read SmartSearchService $smartSearchService
+ * @property-read AiAnswerService $aiAnswerService
  * @property-read RateLimitService $rateLimitService
  * @property-read IndexInspectionService $indexInspectionService
  * @property-read ExclusionService $exclusionService
  * @property-read OpenAIClientFactory $openAIClientFactory
  * @property-read HistoryService $historyService
  * @property-read RecommendationsService $recommendationsService
+ * @property-read DictionaryService $dictionaryService
+ * @property-read QueryCorrectorService $queryCorrectorService
  */
 class SmartSearch extends Plugin
 {
@@ -115,14 +119,16 @@ class SmartSearch extends Plugin
                 'databaseService' => DatabaseService::class,
                 'embeddingService' => EmbeddingService::class,
                 'searchService' => SearchService::class,
-                'bm25Service' => BM25Service::class,
-                'hybridSearchService' => HybridSearchService::class,
-                'ragSearchService' => RagSearchService::class,
+                'keywordSearchService' => KeywordSearchService::class,
+                'smartSearchService' => SmartSearchService::class,
+                'aiAnswerService' => AiAnswerService::class,
                 'rateLimitService' => RateLimitService::class,
                 'indexInspectionService' => IndexInspectionService::class,
                 'exclusionService' => ExclusionService::class,
                 'historyService' => HistoryService::class,
                 'recommendationsService' => RecommendationsService::class,
+                'dictionaryService' => DictionaryService::class,
+                'queryCorrectorService' => QueryCorrectorService::class,
             ],
         ];
     }
@@ -234,9 +240,9 @@ class SmartSearch extends Plugin
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
             function(RegisterUrlRulesEvent $event) {
                 $event->rules['api/smart-search'] = 'smart-search/search/index';
-                $event->rules['api/smart-search/hybrid'] = 'smart-search/search/semantic-search';
-                $event->rules['api/smart-search/rag'] = 'smart-search/search/rag-search';
-                $event->rules['api/smart-search/rag/stream'] = 'smart-search/search/rag-stream';
+                $event->rules['api/smart-search/search'] = 'smart-search/search/search';
+                $event->rules['api/smart-search/ai-answer'] = 'smart-search/search/ai-answer';
+                $event->rules['api/smart-search/ai-answer/stream'] = 'smart-search/search/ai-answer-stream';
             }
         );
 
@@ -255,6 +261,9 @@ class SmartSearch extends Plugin
                 // Index management
                 $event->rules['smart-search/index'] = 'smart-search/index/index';
                 $event->rules['smart-search/index/entry'] = 'smart-search/index/entry';
+                $event->rules['smart-search/index/get-entry-rows'] = 'smart-search/index/get-entry-rows';
+                $event->rules['smart-search/index/get-coverage'] = 'smart-search/index/get-coverage';
+                $event->rules['smart-search/index/get-overview'] = 'smart-search/index/get-overview';
                 $event->rules['POST smart-search/index/sync'] = 'smart-search/index/sync';
                 $event->rules['POST smart-search/index/cancel-sync'] = 'smart-search/index/cancel-sync';
                 $event->rules['POST smart-search/index/get-stats'] = 'smart-search/index/get-stats';

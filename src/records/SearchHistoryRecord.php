@@ -12,10 +12,10 @@ use craft\db\ActiveRecord;
  * @property int|null $siteId
  * @property int $resultsCount
  * @property string|null $embeddingModel
- * @property string|null $ragModel
+ * @property string|null $aiAnswerModel
  * @property int $embeddingTokens
- * @property int $ragInputTokens
- * @property int $ragOutputTokens
+ * @property int $aiAnswerInputTokens
+ * @property int $aiAnswerOutputTokens
  * @property int $totalTokens
  * @property string $cost
  * @property int $durationMs

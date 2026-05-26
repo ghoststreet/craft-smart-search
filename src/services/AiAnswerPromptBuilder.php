@@ -6,37 +6,31 @@ use ghoststreet\craftsmartsearch\helpers\TextValidator;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
 
 /**
- * Pure prompt-assembly math for RAG.
+ * Pure prompt-assembly math for AI Answer.
  *
  * Two responsibilities, both side-effect free:
- *   1. computeContextBudget()  — how many tokens are left for source blocks
- *                                after reserving room for system/query/output.
- *   2. buildContext()          — pack as many source blocks as fit into the
- *                                budget, in priority order.
+ *   1. computeContextBudget()  the cap on tokens packed into source blocks.
+ *      This is what the admin sets in Settings; the model's own context
+ *      window absorbs the system prompt, query, and output on top.
+ *   2. buildContext()          pack as many source blocks as fit into the
+ *                              budget, in priority order.
  *
- * Source rows are accepted as plain arrays — no Entry coupling — so unit tests
+ * Source rows are accepted as plain arrays (no Entry coupling) so unit tests
  * can construct realistic fixtures without spinning up Craft elements.
  *
  * @phpstan-type SourceRow array{id: int|string, title: string, url: string, content: string}
  */
-final class RagPromptBuilder
+final class AiAnswerPromptBuilder
 {
-    public const SYSTEM_RESERVE_TOKENS = 1200;
-    public const QUERY_PADDING_TOKENS = 64;
-    public const OUTPUT_RESERVE_TOKENS = 800;
     public const MIN_CONTEXT_BUDGET = 500;
 
     /**
-     * Tokens left for source blocks after reserving room for the system prompt,
-     * the user query, and the LLM output. Never goes below MIN_CONTEXT_BUDGET so
-     * callers always have something to pack — pointless RAG calls are avoided
-     * by guarding upstream, not by silently returning 0 here.
+     * Token budget for source content. The validator on maxPromptTokens already
+     * enforces 500 as the minimum; this floor is just a defensive safety net.
      */
-    public function computeContextBudget(int $maxPromptTokens, string $query): int
+    public function computeContextBudget(int $maxPromptTokens): int
     {
-        $queryReserve = TokenEstimator::estimateTokens($query) + self::QUERY_PADDING_TOKENS;
-        $budget = $maxPromptTokens - self::SYSTEM_RESERVE_TOKENS - $queryReserve - self::OUTPUT_RESERVE_TOKENS;
-        return max(self::MIN_CONTEXT_BUDGET, $budget);
+        return max(self::MIN_CONTEXT_BUDGET, $maxPromptTokens);
     }
 
     /**

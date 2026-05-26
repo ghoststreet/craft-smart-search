@@ -15,15 +15,15 @@ final class SearchResultFormatter
 {
     public const TYPE_CRAFT = 'craft';
     public const TYPE_SEMANTIC = 'semantic';
-    public const TYPE_HYBRID = 'hybrid';
-    public const TYPE_RAG = 'rag';
+    public const TYPE_SMART = 'smart';
+    public const TYPE_AI_ANSWER = 'aiAnswer';
 
     /**
      * Format a search result for API response.
      *
      * @param Entry $element The entry element
      * @param array $metadata Additional result data (scores, ranks, content, etc.)
-     * @param string $type Result type: craft, semantic, hybrid, or rag
+     * @param string $type Result type: craft, semantic, smart, or aiAnswer
      * @return array|null Null if element has no URL
      */
     public static function format(Entry $element, array $metadata, string $type): ?array
@@ -43,8 +43,8 @@ final class SearchResultFormatter
         return match ($type) {
             self::TYPE_CRAFT => self::addCraftFields($result, $metadata),
             self::TYPE_SEMANTIC => self::addSemanticFields($result, $metadata),
-            self::TYPE_HYBRID => self::addHybridFields($result, $metadata),
-            self::TYPE_RAG => self::addRagFields($result, $metadata),
+            self::TYPE_SMART => self::addSmartFields($result, $metadata),
+            self::TYPE_AI_ANSWER => self::addAiAnswerFields($result, $metadata),
             default => $result,
         };
     }
@@ -101,21 +101,21 @@ final class SearchResultFormatter
     }
 
     /**
-     * Add hybrid search-specific fields (multiple scores and ranks).
+     * Add smart search-specific fields (multiple scores and ranks).
      */
-    private static function addHybridFields(array $result, array $metadata): array
+    private static function addSmartFields(array $result, array $metadata): array
     {
         $result['score'] = round($metadata['score'], 4);
         $result['excerpt'] = $metadata['excerpt'];
 
-        $roundedFields = ['semanticScore' => 4, 'bm25Score' => 4];
+        $roundedFields = ['semanticScore' => 4, 'keywordScore' => 4];
         foreach ($roundedFields as $field => $precision) {
             if (isset($metadata[$field])) {
                 $result[$field] = round($metadata[$field], $precision);
             }
         }
 
-        $passthroughFields = ['semanticRank', 'bm25Rank', 'hybridRank'];
+        $passthroughFields = ['semanticRank', 'keywordRank', 'smartRank'];
         foreach ($passthroughFields as $field) {
             if (isset($metadata[$field])) {
                 $result[$field] = $metadata[$field];
@@ -126,9 +126,9 @@ final class SearchResultFormatter
     }
 
     /**
-     * Add RAG search-specific fields (rank from AI).
+     * Add AI Answer search-specific fields (rank from AI).
      */
-    private static function addRagFields(array $result, array $metadata): array
+    private static function addAiAnswerFields(array $result, array $metadata): array
     {
         $result['rank'] = $metadata['ragRank'] ?? null;
         return $result;

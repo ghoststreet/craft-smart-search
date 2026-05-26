@@ -2,28 +2,11 @@
 
 {% set title = 'Smart Search' %}
 
-{# Native CP layout tabs — _layouts/cp.twig reads the `tabs` and `selectedTab` vars
-   and renders them in the page header via _includes/tabs.twig, identical to the
-   pattern used by Settings, Fields, and the rest of the CP. Only shown when the
-   plugin is set up (otherwise the onboarding card replaces everything). #}
-{% if setupComplete ?? false %}
-    {% set tabs = {
-        quality: { label: 'Search Quality'|t('smart-search'), url: cpUrl('smart-search', { range: range, tab: 'quality' }) },
-        advanced: { label: 'Advanced'|t('smart-search'), url: cpUrl('smart-search', { range: range, tab: 'advanced' }) },
-    } %}
-    {% set selectedTab = tab %}
-{% endif %}
-
-{# Build chart-friendly series upfront so partials stay presentation-only. #}
 {% set seriesSearches = [] %}
 {% set seriesCost = [] %}
-{% set seriesDuration = [] %}
-{% set seriesZero = [] %}
 {% for r in dailySeries %}
     {% set seriesSearches = seriesSearches|merge([{ date: r.date, value: r.searches }]) %}
     {% set seriesCost = seriesCost|merge([{ date: r.date, value: r.cost }]) %}
-    {% set seriesDuration = seriesDuration|merge([{ date: r.date, avg: r.avgMs, p95: r.p95Ms }]) %}
-    {% set seriesZero = seriesZero|merge([{ date: r.date, value: r.zeroResults }]) %}
 {% endfor %}
 
 {% set coverageTotals = { indexed: 0, stale: 0, notIndexed: 0 } %}
@@ -41,41 +24,139 @@
 {% set budgetPct = (budget.ratio * 100)|round %}
 
 {% block content %}
+{% if not setupComplete %}
+    <div class="dashboard dashboard--onboarding">
+        {% include 'smart-search/_dashboard/_onboarding' with {
+            settings: settings,
+            stats: stats,
+            requiredSteps: requiredSteps,
+            recommendedSteps: recommendedSteps,
+        } only %}
+    </div>
+{% else %}
 <div class="dashboard">
 
-    {% if not setupComplete %}
-        {% include 'smart-search/_dashboard/_onboarding' with { settings: settings, stats: stats } only %}
+    {# Integrated header bar: status pills (left) + range picker (right) #}
+    <div class="dash-header">
+        <div class="dash-header__status" role="status" aria-label="Smart Search health">
+            {% for item in health %}
+                <span class="dash-header__status-item dash-header__status-item--{{ item.state }}">
+                    <span class="dash-header__dot" aria-hidden="true"></span>
+                    <span>{{ item.label }}</span>
+                </span>
+            {% endfor %}
+        </div>
+        {% include 'smart-search/_dashboard/_range-picker' with { range: range, allowedRanges: allowedRanges } only %}
+    </div>
 
-    {% else %}
+    {% if not guideDismissed %}
+        {% include 'smart-search/_dashboard/_guide-card' with { recommendedSteps: recommendedSteps } only %}
+    {% endif %}
 
-        {# Critical alerts — render every crit, not just the first. #}
-        {% set criticals = recommendations|filter(r => r.level == 'crit') %}
-        {% for c in criticals %}
-            <div class="alert" role="alert">
-                <strong>{{ c.title }}.</strong> {{ c.body }}
-                {% if c.cta %} <a href="{{ c.cta.url }}">{{ c.cta.label }} →</a>{% endif %}
-            </div>
-        {% endfor %}
+    {% set criticals = recommendations|filter(r => r.level == 'crit') %}
+    {% if criticals|length %}
+        <div class="dash-alerts">
+            {% for c in criticals %}
+                <div class="alert" role="alert">
+                    <strong>{{ c.title }}.</strong> {{ c.body }}
+                    {% if c.cta %} <a href="{{ c.cta.url }}">{{ c.cta.label }} →</a>{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
-        {# Range picker — sits in its own toolbar row below the native tabs. #}
-        <div class="flex flex-justify">
-            <span></span>
-            {% include 'smart-search/_dashboard/_range-picker' with { range: range, allowedRanges: allowedRanges, tab: tab } only %}
+    {# KPI hero row — 3 cards #}
+    <div class="dash-kpis">
+        {% include 'smart-search/_dashboard/_kpi-unified' with {
+            aggregates: aggregates,
+            seriesSearches: seriesSearches,
+            seriesCost: seriesCost,
+            budget: budget,
+            budgetClass: budgetClass,
+            budgetPct: budgetPct,
+            stats: stats,
+            coveragePct: coveragePct,
+            coverageTotal: coverageTotal,
+            coverageTotals: coverageTotals,
+            isMultisite: isMultisite,
+            siteCount: siteCount,
+            indexedSiteCount: indexedSiteCount,
+            daysWithData: daysWithData,
+            minNDelta: minNDelta,
+            minDaysBudgetEta: minDaysBudgetEta,
+        } only %}
+    </div>
+
+    {# Main bento: Top queries (wide) + side stack (errors, trending) #}
+    <div class="dash-main">
+        <div class="pane">
+            <h3 class="dash-title">Top queries ({{ range }}d)</h3>
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th class="rightalign">Hits</th>
+                        <th class="rightalign">Avg results</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in topQueries %}
+                        <tr>
+                            <td>{{ q.query|slice(0, 80) }}{% if q.query|length > 80 %}…{% endif %}</td>
+                            <td class="rightalign">{{ q.hits|number_format }}</td>
+                            <td class="rightalign"><span class="light">{{ q.avgResults is defined ? q.avgResults|round(1) : '—' }}</span></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="3" class="centeralign light">No search activity yet — queries will appear here once the front-end starts hitting the endpoint.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if topQueries|length %}
+                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights') }}">View all queries</a></p>
+            {% endif %}
         </div>
 
-        {% if tab == 'advanced' %}
-            {% include 'smart-search/_dashboard/_ops-tab' with _context only %}
-        {% else %}
-            {% include 'smart-search/_dashboard/_quality-tab' with _context only %}
-        {% endif %}
+        <div class="dash-main__side">
+            <div class="pane">
+                <h3 class="dash-title">Recent errors</h3>
+                <table class="data fullwidth">
+                    <tbody>
+                        {% for e in recentErrors %}
+                            {% set label = e.query ?: e.errorMessage ?: 'error' %}
+                            <tr>
+                                <td>
+                                    {{ label|slice(0, 50) }}{% if label|length > 50 %}…{% endif %}
+                                    <button type="button" class="badge badge--error ss-error-badge"
+                                            data-error-modal data-error-message="{{ e.errorMessage }}"
+                                            title="{{ e.errorMessage }}"><span class="badge__dot"></span>Error</button>
+                                </td>
+                                <td class="rightalign"><span class="light smalltext">{{ e.dateCreated|date('M j') }}</span></td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="2" class="centeralign light">No errors recorded.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if recentErrors|length %}
+                    <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights?tab=history&errorsOnly=1') }}">View all errors</a></p>
+                {% endif %}
+            </div>
 
-        {# Data freshness disclosure — surface server timezone and "includes admin searches" caveat. #}
-        <p class="dashboard__as-of light smalltext">
-            As of {{ dataAsOf|date('M j, g:i A') }} ({{ dataAsOf|date('T') }}).
-            Counts include searches issued from the control panel.
-            Coverage may lag by up to 60s.
-        </p>
+            {% include 'smart-search/_dashboard/_trending-queries' with { trendingQueries: trendingQueries } only %}
+        </div>
+    </div>
 
+    {% if isMultisite %}
+        <div class="dash-row">
+            {% include 'smart-search/_dashboard/_coverage-by-site' with { coverage: coverage, coverageTotal: coverageTotal } only %}
+        </div>
     {% endif %}
+
+    <div class="dash-row">
+        {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations } only %}
+    </div>
+
+
 </div>
+{% endif %}
 {% endblock %}

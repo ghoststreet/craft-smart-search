@@ -1,6 +1,7 @@
 (function () {
     'use strict';
     var ns = window.SmartSearch;
+    var DOM = ns.core.DOM;
 
     // A control counts as "active" when it holds a non-default value.
     function isActive(el) {
@@ -12,9 +13,9 @@
     // submits the form — only the Filter button does that.
     ns.components.FilterBar = {
         init: function () {
-            var forms = document.querySelectorAll('.filter-bar__form');
+            var forms = document.querySelectorAll('[data-craftsearch-target="filter-bar-form"]');
             Array.prototype.forEach.call(forms, function (form) {
-                var reset = form.querySelector('.filter-bar__reset');
+                var reset = DOM.find('filter-bar-reset', form);
                 if (!reset) {
                     return;
                 }

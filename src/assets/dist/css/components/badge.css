@@ -3,7 +3,7 @@
     Pair with the _components/badge.twig macro.
 
     Modifiers:
-      badge--rag        purple dot  (RAG searches)
+      badge--ai-answer        purple dot  (AI Answer searches)
       badge--semantic   blue dot    (semantic searches)
       badge--success    green pill  (successful rows)
       badge--error      red pill    (errored rows)
@@ -33,7 +33,7 @@
     flex-shrink: 0;
 }
 
-.badge--rag .badge__dot { background: var(--smart-search-rag); }
+.badge--ai-answer .badge__dot { background: var(--smart-search-ai-answer); }
 .badge--semantic .badge__dot { background: var(--smart-search-semantic); }
 
 .badge--success {

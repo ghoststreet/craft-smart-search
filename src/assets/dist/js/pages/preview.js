@@ -11,7 +11,7 @@
         var tpl = DOM.find('cite-tpl');
         if (!tpl) return null;
         var node = tpl.content.cloneNode(true);
-        var a = node.querySelector('[data-field="url"]');
+        var a = DOM.find('field-url', node);
         a.href = src.url || '#';
         a.textContent = src.title || 'Source';
         return a;
@@ -75,9 +75,9 @@
         var tpl = DOM.find('result-card-tpl');
         if (!tpl) return null;
         var node = tpl.content.cloneNode(true);
-        var card = node.querySelector('.preview-result-card');
-        var titleEl = card.querySelector('[data-field="url"]');
-        var excerptEl = card.querySelector('[data-field="excerpt"]');
+        var card = DOM.find('result-card', node);
+        var titleEl = DOM.find('field-url', card);
+        var excerptEl = DOM.find('field-excerpt', card);
         titleEl.href = r.url || '#';
         titleEl.textContent = r.title || 'Untitled';
         if (r.excerpt) {
@@ -137,15 +137,15 @@
         errorEl.textContent = '';
     }
 
-    function runHybrid(query) {
+    function runSmart(query) {
         var root = getRoot();
-        var resultsEl = DOM.find('hybrid-results', root);
-        var errorEl = DOM.find('hybrid-error', root);
+        var resultsEl = DOM.find('smart-results', root);
+        var errorEl = DOM.find('smart-error', root);
 
         if (!query) { reset(resultsEl, errorEl); return; }
 
         setLoading(resultsEl, errorEl);
-        postSearch('smart-search/search/semantic-search', query, getSiteId())
+        postSearch('smart-search/search/search', query, getSiteId())
             .then(function (data) { renderCards(resultsEl, data.semanticResults || []); })
             .catch(function (err) { showError(resultsEl, errorEl, err.message); });
     }
@@ -163,11 +163,11 @@
             .catch(function (err) { showError(resultsEl, errorEl, err.message); });
     }
 
-    function runRag(query) {
+    function runAiAnswer(query) {
         var root = getRoot();
-        var resultsEl = DOM.find('rag-results', root);
-        var summaryEl = DOM.find('rag-summary', root);
-        var errorEl = DOM.find('rag-error', root);
+        var resultsEl = DOM.find('ai-answer-results', root);
+        var summaryEl = DOM.find('ai-answer-summary', root);
+        var errorEl = DOM.find('ai-answer-error', root);
 
         if (ragEventSource) { ragEventSource.close(); ragEventSource = null; }
 
@@ -190,7 +190,7 @@
         var csrf = csrfParam();
         if (csrf) params += '&' + csrf;
 
-        var url = streamActionUrl('smart-search/search/rag-stream', params);
+        var url = streamActionUrl('smart-search/search/ai-answer-stream', params);
         var summaryText = '';
 
         ragEventSource = new EventSource(url);
@@ -233,7 +233,7 @@
         var root = getRoot();
         if (!root) return;
 
-        var handlers = { hybrid: runHybrid, rag: runRag, craft: runCraft };
+        var handlers = { smart: runSmart, aiAnswer: runAiAnswer, craft: runCraft };
 
         Object.keys(handlers).forEach(function (type) {
             var input = DOM.findControl(type + '-input', root);

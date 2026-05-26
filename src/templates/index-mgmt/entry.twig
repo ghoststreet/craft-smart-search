@@ -178,12 +178,12 @@
         <p class="instructions">{{ 'Each card shows a field and the exact text contributed to the index. Skipped fields explain why.'|t('smart-search') }}</p>
 
         {% if inspection.fields|length %}
-            <div class="field-card-filters" data-field-filters>
-                <button type="button" class="btn small is-active" data-filter="all">{{ 'All'|t('smart-search') }} ({{ inspection.fields|length }})</button>
-                <button type="button" class="btn small" data-filter="indexed">{{ 'Indexed'|t('smart-search') }} ({{ fieldsIndexed }})</button>
-                <button type="button" class="btn small" data-filter="skipped">{{ 'Skipped'|t('smart-search') }} ({{ inspection.fields|length - fieldsIndexed }})</button>
+            <div class="field-card-filters" data-craftsearch-target="field-filters">
+                <button type="button" class="btn small is-active" data-craftsearch-control="field-filter-button" data-filter-value="all">{{ 'All'|t('smart-search') }} ({{ inspection.fields|length }})</button>
+                <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-filter-value="indexed">{{ 'Indexed'|t('smart-search') }} ({{ fieldsIndexed }})</button>
+                <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-filter-value="skipped">{{ 'Skipped'|t('smart-search') }} ({{ inspection.fields|length - fieldsIndexed }})</button>
             </div>
-            <div class="field-card-list" data-field-card-list data-filter-mode="all">
+            <div class="field-card-list" data-craftsearch-target="field-card-list" data-filter-mode="all">
                 {% for field in fieldsSorted %}
                     {{ fieldCard(field, 0) }}
                 {% endfor %}

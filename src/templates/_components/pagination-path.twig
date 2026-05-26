@@ -19,18 +19,19 @@
 #}
 {% set prevLabel = prevLabel ?? 'Prev' %}
 {% set nextLabel = nextLabel ?? 'Next' %}
+{% set path = path ?? craft.app.request.pathInfo %}
 {% if totalPages > 1 %}
     <div class="pagination">
         <div class="btngroup">
             {% if currentPage > 1 %}
-                <a class="btn" href="{{ url(craft.app.request.pathInfo, params|merge({ page: currentPage - 1 })) }}">
+                <a class="btn" href="{{ url(path, params|merge({ page: currentPage - 1 })) }}">
                     <span data-icon="leftangle"></span> {{ prevLabel }}
                 </a>
             {% else %}
                 <span class="btn disabled"><span data-icon="leftangle"></span> {{ prevLabel }}</span>
             {% endif %}
             {% if currentPage < totalPages %}
-                <a class="btn" href="{{ url(craft.app.request.pathInfo, params|merge({ page: currentPage + 1 })) }}">
+                <a class="btn" href="{{ url(path, params|merge({ page: currentPage + 1 })) }}">
                     {{ nextLabel }} <span data-icon="rightangle"></span>
                 </a>
             {% else %}

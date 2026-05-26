@@ -1,0 +1,26 @@
+.craftsearch-entries { position: relative; }
+
+.craftsearch-entries__content { position: relative; }
+
+.craftsearch-entries__content.is-loading > *:not(.craftsearch-entries__loading) {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.craftsearch-entries .filter-bar[hidden] { display: none !important; }
+
+.craftsearch-coverage__content { position: relative; }
+
+.craftsearch-overview__content { position: relative; }
+
+.craftsearch-entries__loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.6);
+    z-index: 10;
+}
+
+.craftsearch-entries__loading[hidden] { display: none; }

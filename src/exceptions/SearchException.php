@@ -13,16 +13,16 @@ class SearchException extends SmartSearchException
         return $e;
     }
 
-    public static function ragSearchFailed(string $reason, Throwable $previous): self
+    public static function aiAnswerFailed(string $reason, Throwable $previous): self
     {
-        $e = new self("RAG search failed: {$reason}", 0, $previous);
+        $e = new self("AI Answer search failed: {$reason}", 0, $previous);
         $e->errorCode = ErrorCode::SEARCH_RAG_FAILED;
         return $e;
     }
 
     public static function ragLlmFailed(string $reason, Throwable $previous): self
     {
-        $e = new self("RAG LLM call failed: {$reason}", 0, $previous);
+        $e = new self("AI Answer LLM call failed: {$reason}", 0, $previous);
         $e->errorCode = ErrorCode::SEARCH_RAG_LLM_ERROR;
         return $e;
     }

@@ -1,18 +1,12 @@
 {#
-    Recommendations card. Splits Action Required (crit+warn) from Suggestions (info).
+    Recommendations card. Splits Action Required (warn) from Suggestions (info).
     Crit items are surfaced as a page-top banner already, so they're omitted here.
 
     Params:
-        recommendations  iterable of { level, category, title, body, cta? }
-        scope            optional 'quality' | 'advanced' — when set, only show advisories whose category matches
+        recommendations  iterable of { level, title, body, cta? }
 #}
-{% set scope = scope ?? null %}
-{% set scoped = scope is null
-    ? recommendations
-    : recommendations|filter(r => (r.category ?? 'advanced') == scope) %}
-
-{% set actionRequired = scoped|filter(r => r.level == 'warn') %}
-{% set suggestions = scoped|filter(r => r.level == 'info') %}
+{% set actionRequired = recommendations|filter(r => r.level == 'warn') %}
+{% set suggestions = recommendations|filter(r => r.level == 'info') %}
 
 {% if actionRequired|length or suggestions|length %}
     <div class="pane recommendation-list">

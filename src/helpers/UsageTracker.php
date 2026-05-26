@@ -12,22 +12,22 @@ namespace ghoststreet\craftsmartsearch\helpers;
 final class UsageTracker
 {
     private static int $embeddingTokens = 0;
-    private static int $ragInputTokens = 0;
-    private static int $ragOutputTokens = 0;
+    private static int $aiAnswerInputTokens = 0;
+    private static int $aiAnswerOutputTokens = 0;
     private static bool $embeddingCached = true; // assume cached until a real API call happens
     private static bool $embeddingHit = false;
     private static ?string $embeddingModel = null;
-    private static ?string $ragModel = null;
+    private static ?string $aiAnswerModel = null;
 
     public static function reset(): void
     {
         self::$embeddingTokens = 0;
-        self::$ragInputTokens = 0;
-        self::$ragOutputTokens = 0;
+        self::$aiAnswerInputTokens = 0;
+        self::$aiAnswerOutputTokens = 0;
         self::$embeddingCached = true;
         self::$embeddingHit = false;
         self::$embeddingModel = null;
-        self::$ragModel = null;
+        self::$aiAnswerModel = null;
     }
 
     public static function addEmbedding(string $model, int $promptTokens): void
@@ -46,20 +46,20 @@ final class UsageTracker
 
     public static function addRag(string $model, int $inputTokens, int $outputTokens): void
     {
-        self::$ragModel = $model;
-        self::$ragInputTokens += $inputTokens;
-        self::$ragOutputTokens += $outputTokens;
+        self::$aiAnswerModel = $model;
+        self::$aiAnswerInputTokens += $inputTokens;
+        self::$aiAnswerOutputTokens += $outputTokens;
     }
 
     public static function snapshot(): array
     {
         return [
             'embeddingTokens' => self::$embeddingTokens,
-            'ragInputTokens' => self::$ragInputTokens,
-            'ragOutputTokens' => self::$ragOutputTokens,
+            'aiAnswerInputTokens' => self::$aiAnswerInputTokens,
+            'aiAnswerOutputTokens' => self::$aiAnswerOutputTokens,
             'embeddingCached' => self::$embeddingHit && self::$embeddingCached,
             'embeddingModel' => self::$embeddingModel,
-            'ragModel' => self::$ragModel,
+            'aiAnswerModel' => self::$aiAnswerModel,
         ];
     }
 }

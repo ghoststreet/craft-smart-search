@@ -69,8 +69,8 @@
     {% endif %}
 
     {% if hasResults %}
-        <div class="filter-bar">
-            <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form">
+        <div class="filter-bar" data-craftsearch-target="filter-bar">
+            <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
                 <input type="hidden" name="tab" value="{{ tab }}">
                 <div class="filter-bar__group">
                     {{ f.sitesSelect(sites, siteId) }}

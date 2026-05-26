@@ -43,24 +43,24 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><code>/api/smart-search/hybrid</code></td>
+                    <td><code>/api/smart-search/search</code></td>
                     <td>POST</td>
-                    <td>Semantic vector + BM25 keyword</td>
+                    <td>Semantic vector + keyword</td>
                 </tr>
                 <tr>
-                    <td><code>/api/smart-search/rag</code></td>
+                    <td><code>/api/smart-search/ai-answer</code></td>
                     <td>POST</td>
-                    <td>AI-generated summary with citations</td>
+                    <td>AI Answer with citations</td>
                 </tr>
                 <tr>
-                    <td><code>/api/smart-search/rag/stream</code></td>
+                    <td><code>/api/smart-search/ai-answer/stream</code></td>
                     <td>GET (SSE)</td>
-                    <td>Streaming version of RAG</td>
+                    <td>Streaming version of AI Answer</td>
                 </tr>
                 <tr>
                     <td><code>/api/smart-search</code></td>
                     <td>POST</td>
-                    <td>Craft native full-text search</td>
+                    <td>Craft native keyword search</td>
                 </tr>
             </tbody>
         </table>
@@ -70,34 +70,34 @@
 
         <div class="preview-col">
             <div class="pane preview-col__pane">
-                <h2 class="preview-col__heading">Hybrid Search <span class="preview-badge preview-badge--hybrid">Semantic + BM25</span></h2>
-                <p class="preview-col__desc">Combines semantic (vector) similarity with BM25 keyword scoring for the most relevant results.</p>
+                <h2 class="preview-col__heading">Smart Search <span class="preview-badge preview-badge--smart">Semantic + Keyword</span></h2>
+                <p class="preview-col__desc">Combines semantic (vector) similarity with keyword scoring for the most relevant results.</p>
                 <div class="preview-col__form">
                     <input type="search" class="text" placeholder="Search…" autocomplete="off"
-                           data-craftsearch-control="hybrid-input">
-                    <button class="btn" data-craftsearch-control="hybrid-submit" aria-label="Search">
+                           data-craftsearch-control="smart-input">
+                    <button class="btn" data-craftsearch-control="smart-submit" aria-label="Search">
                         <span data-icon="search" aria-hidden="true"></span>
                     </button>
                 </div>
-                <div class="preview-col__results" data-craftsearch-target="hybrid-results" role="region" hidden></div>
-                <div class="preview-col__error" data-craftsearch-target="hybrid-error" role="alert" hidden></div>
+                <div class="preview-col__results" data-craftsearch-target="smart-results" role="region" hidden></div>
+                <div class="preview-col__error" data-craftsearch-target="smart-error" role="alert" hidden></div>
             </div>
         </div>
 
         <div class="preview-col">
             <div class="pane preview-col__pane">
-                <h2 class="preview-col__heading">RAG Search <span class="preview-badge preview-badge--rag">AI Summary</span></h2>
+                <h2 class="preview-col__heading">AI Answer <span class="preview-badge preview-badge--ai-answer">Generated</span></h2>
                 <p class="preview-col__desc">Retrieves matching entries then generates a streaming AI summary with inline citations.</p>
                 <div class="preview-col__form">
                     <input type="search" class="text" placeholder="Search…" autocomplete="off"
-                           data-craftsearch-control="rag-input">
-                    <button class="btn" data-craftsearch-control="rag-submit" aria-label="Search">
+                           data-craftsearch-control="ai-answer-input">
+                    <button class="btn" data-craftsearch-control="ai-answer-submit" aria-label="Search">
                         <span data-icon="search" aria-hidden="true"></span>
                     </button>
                 </div>
-                <div class="preview-col__summary" data-craftsearch-target="rag-summary" hidden></div>
-                <div class="preview-col__results" data-craftsearch-target="rag-results" role="region" hidden></div>
-                <div class="preview-col__error" data-craftsearch-target="rag-error" role="alert" hidden></div>
+                <div class="preview-col__summary" data-craftsearch-target="ai-answer-summary" hidden></div>
+                <div class="preview-col__results" data-craftsearch-target="ai-answer-results" role="region" hidden></div>
+                <div class="preview-col__error" data-craftsearch-target="ai-answer-error" role="alert" hidden></div>
             </div>
         </div>
 
@@ -127,13 +127,13 @@
     </template>
 
     <template data-craftsearch-target="cite-tpl">
-        <a class="preview-col__cite" href="" target="_blank" rel="noopener" data-field="url"></a>
+        <a class="preview-col__cite" href="" target="_blank" rel="noopener" data-craftsearch-target="field-url"></a>
     </template>
 
     <template data-craftsearch-target="result-card-tpl">
-        <div class="preview-result-card">
-            <a class="preview-result-card__title" href="" target="_blank" rel="noopener" data-field="url"></a>
-            <p class="preview-result-card__excerpt" data-field="excerpt"></p>
+        <div class="preview-result-card" data-craftsearch-target="result-card">
+            <a class="preview-result-card__title" href="" target="_blank" rel="noopener" data-craftsearch-target="field-url"></a>
+            <p class="preview-result-card__excerpt" data-craftsearch-target="field-excerpt"></p>
         </div>
     </template>
 

@@ -7,12 +7,12 @@ use ghoststreet\craftsmartsearch\SmartSearch;
 /**
  * Twig variable class for Smart Search.
  *
- * Provides `craft.smartSearch.search()` and `craft.smartSearch.rag()` for frontend templates.
+ * Provides `craft.smartSearch.search()` and `craft.smartSearch.aiAnswer()` for frontend templates.
  */
 class SmartSearchVariable
 {
     /**
-     * Perform a hybrid (vector + BM25) search from Twig templates.
+     * Perform a smart search (semantic + keyword) search from Twig templates.
      *
      * @param string $query The search query
      * @param int $limit Maximum number of results
@@ -25,15 +25,15 @@ class SmartSearchVariable
     }
 
     /**
-     * Perform a RAG search from Twig templates.
+     * Perform a AI Answer search from Twig templates.
      *
      * @param string $query The search query
      * @param int $limit Maximum number of source entries
      * @param int|null $siteId Optional site ID filter
-     * @return array RAG response with summary, sources, and confidence
+     * @return array AI Answer response with summary, sources, and confidence
      */
-    public function rag(string $query, int $limit = 5, ?int $siteId = null): array
+    public function aiAnswer(string $query, int $limit = 5, ?int $siteId = null): array
     {
-        return SmartSearch::getInstance()->ragSearchService->search($query, $limit, $siteId);
+        return SmartSearch::getInstance()->aiAnswerService->search($query, $limit, $siteId);
     }
 }

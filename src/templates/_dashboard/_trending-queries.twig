@@ -33,4 +33,7 @@
             {% endfor %}
         </tbody>
     </table>
+    {% if trendingQueries|length %}
+        <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights', { tab: 'trending' }) }}">View all trending</a></p>
+    {% endif %}
 </div>

@@ -2,68 +2,87 @@
     A single site's index health card on the Overview tab.
 
     Params:
-        site         object  per-site row (siteId, name, handle, indexed, stale, notIndexed, total, chunkCount, lastIndexed)
-        isMultiSite  bool    when false, the Sync button label is "Sync index" instead of "Sync this site"
+        site         object  per-site row (siteId, name, indexed, stale, notIndexed, total,
+                             lastIndexed, activeJob?)
+        isMultiSite  bool    when false, the Sync button label is "Sync index"
+                             instead of "Sync this site"
+
+    State derivation mirrors the JS in index-mgmt.js so initial paint matches
+    the first poll response.
 #}
 {% set hasGaps = site.stale > 0 or site.notIndexed > 0 %}
 {% set coverage = site.total > 0 ? (site.indexed / site.total * 100)|round : 0 %}
+{% set activeJob = site.activeJob ?? null %}
+{% set jobRunning = activeJob and activeJob.status == 2 %}
 
-<div class="craftsearch-card{% if hasGaps %} craftsearch-card--warn{% endif %}" data-craftsearch-site-id="{{ site.siteId }}">
+{% if activeJob %}
+    {% set state = 'indexing' %}
+{% elseif not site.lastIndexed or site.indexed == 0 %}
+    {% set state = 'not-synced' %}
+{% elseif hasGaps %}
+    {% set state = 'needs-sync' %}
+{% else %}
+    {% set state = 'synced' %}
+{% endif %}
+
+{% set presets = {
+    'synced':      { pillLabel: 'Healthy',    pillDot: 'on',     buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
+    'needs-sync':  { pillLabel: 'Needs sync', pillDot: 'orange', buttonClass: ' caution',                 buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
+    'not-synced':  { pillLabel: 'Not synced', pillDot: 'off',    buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
+    'indexing':    { pillLabel: jobRunning ? 'Indexing' : 'Queued',
+                     pillDot: 'blue',
+                     buttonClass: '',
+                     buttonDisabled: false,
+                     heroPrefix: jobRunning ? 'indexing · ' : 'waiting for worker · ',
+                     buttonLabel: 'Cancel' },
+} %}
+{% set p = presets[state] %}
+
+<div class="craftsearch-card craftsearch-card--{{ state }}" data-craftsearch-target="site-card" data-craftsearch-site-id="{{ site.siteId }}">
     <div class="craftsearch-card__head">
         <h3 class="craftsearch-card__title">{{ site.name }}</h3>
-        {% if hasGaps %}
-            <span class="craftsearch-card__pill craftsearch-card__pill--warn">
-                <span class="status orange"></span> Needs sync
-            </span>
-        {% else %}
-            <span class="craftsearch-card__pill craftsearch-card__pill--ok">
-                <span class="status on"></span> Healthy
-            </span>
-        {% endif %}
+        <span class="craftsearch-card__pill" data-craftsearch-target="pill">
+            <span class="status {{ p.pillDot }}" data-craftsearch-target="pill-dot"></span>
+            <span data-craftsearch-target="pill-label">{{ p.pillLabel }}</span>
+        </span>
     </div>
 
     <div class="craftsearch-card__hero">
         <div class="craftsearch-card__hero-number">
-            {{ site.indexed }}<span class="craftsearch-card__hero-total"> / {{ site.total }}</span>
+            <span data-craftsearch-target="hero-indexed">{{ site.indexed }}</span><span class="craftsearch-card__hero-total"> / <span data-craftsearch-target="hero-total">{{ site.total }}</span></span>
         </div>
-        <div class="craftsearch-card__hero-label">entries indexed · {{ coverage }}%</div>
+        <div class="craftsearch-card__hero-label" data-craftsearch-target="hero-label">{{ p.heroPrefix }}<span data-craftsearch-target="hero-percent">{{ coverage }}</span>%</div>
+        <div class="craftsearch-card__progress" data-craftsearch-target="site-progress"{% if not activeJob %} hidden{% endif %}>
+            <div data-craftsearch-target="site-progress-bar"></div>
+            <p class="error smalltext" data-craftsearch-target="site-progress-error" hidden></p>
+        </div>
     </div>
 
-    {% if hasGaps %}
-        <ul class="craftsearch-card__gaps">
-            {% if site.stale > 0 %}
-                <li><span class="status orange"></span> <strong>{{ site.stale }}</strong> stale <span class="light">(edited since last sync)</span></li>
-            {% endif %}
-            {% if site.notIndexed > 0 %}
-                <li><span class="status off"></span> <strong>{{ site.notIndexed }}</strong> not indexed <span class="light">(never embedded)</span></li>
-            {% endif %}
-        </ul>
-    {% endif %}
-
-    <div class="craftsearch-card__progress" data-craftsearch-target="site-progress" hidden>
-        <p class="light smalltext" data-craftsearch-target="site-progress-label">Queued…</p>
-        <div data-craftsearch-target="site-progress-bar"></div>
-        <p class="error smalltext" data-craftsearch-target="site-progress-error" hidden></p>
-    </div>
+    <ul class="craftsearch-card__gaps" data-craftsearch-target="gaps"{% if not hasGaps or activeJob %} hidden{% endif %}>
+        <li data-craftsearch-target="gap-stale"{% if site.stale == 0 %} hidden{% endif %}>
+            <span class="status orange"></span> <strong data-craftsearch-target="gap-stale-count">{{ site.stale }}</strong> stale <span class="light">(edited since last sync)</span>
+        </li>
+        <li data-craftsearch-target="gap-not-indexed"{% if site.notIndexed == 0 %} hidden{% endif %}>
+            <span class="status off"></span> <strong data-craftsearch-target="gap-not-indexed-count">{{ site.notIndexed }}</strong> not indexed <span class="light">(never embedded)</span>
+        </li>
+    </ul>
 
     <div class="craftsearch-card__footer">
         <div class="craftsearch-card__meta">
-            <span data-craftsearch-stat="lastSync">
+            <span data-craftsearch-target="last-sync">
                 {% if site.lastIndexed %}
-                    Last sync {{ site.lastIndexed|date('M j, g:i a') }}
+                    Last sync {{ site.lastIndexed|datetime('short') }}
                 {% else %}
                     Never synced
                 {% endif %}
             </span>
-            <span class="light">·</span>
-            <span class="light"><span data-craftsearch-stat="chunks">{{ site.chunkCount|number_format }}</span> chunks</span>
         </div>
         <form method="post">
             {{ csrfInput() }}
             {{ actionInput('smart-search/index/sync') }}
             <input type="hidden" name="siteId" value="{{ site.siteId }}">
-            <button type="submit" class="btn{% if hasGaps %} craftsearch-btn--danger{% else %} submit{% endif %}" data-craftsearch-control="sync-site-btn">
-                {{ isMultiSite ? 'Sync this site' : 'Sync index' }}
+            <button type="submit" class="btn{{ p.buttonClass }}{% if p.buttonDisabled %} disabled{% endif %}" data-craftsearch-control="sync-site-btn"{% if p.buttonDisabled %} disabled aria-disabled="true"{% endif %}>
+                <span data-craftsearch-target="button-label">{{ p.buttonLabel }}</span>
             </button>
         </form>
     </div>

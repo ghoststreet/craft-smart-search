@@ -94,7 +94,7 @@ class EmbeddingService extends Component
         }
 
         $settings = SmartSearch::getInstance()->getSettings();
-        $model = $model ?? $settings->hybridEmbeddingModel;
+        $model = $model ?? $settings->embeddingModel;
 
         $normalizedText = TextValidator::sanitizeEmbeddingInput($text);
         if (TextValidator::isEmpty($normalizedText)) {
@@ -142,8 +142,8 @@ class EmbeddingService extends Component
 
             self::$requestEmbeddingCache[$requestCacheKey] = $embedding;
 
-            if ($cache !== null) {
-                $cache->set($persistentCacheKey, $embedding, $settings->embeddingCacheTtl);
+            if ($cache !== null && $settings->embeddingCacheTtlDays > 0) {
+                $cache->set($persistentCacheKey, $embedding, $settings->embeddingCacheTtlDays * 86400);
             }
 
             return $embedding;
@@ -529,7 +529,7 @@ class EmbeddingService extends Component
                     $currentChunk = '';
                     $currentTokens = 0;
                 }
-                $sentenceChunks = $this->splitBySentences($paragraph, $settings->targetChunkTokens);
+                $sentenceChunks = $this->splitBySentences($paragraph, $settings->targetChunkTokens, $settings->maxChunkTokens);
                 $chunks = array_merge($chunks, $sentenceChunks);
                 continue;
             }
@@ -537,8 +537,8 @@ class EmbeddingService extends Component
             if ($currentTokens + $paragraphTokens > $settings->targetChunkTokens && $currentTokens >= $settings->minChunkTokens) {
                 $chunks[] = trim($currentChunk);
                 $overlap = $this->getOverlapText($currentChunk, $settings->overlapTokens);
-                $currentChunk = $overlap . "\n\n" . $paragraph;
-                $currentTokens = $settings->overlapTokens + $paragraphTokens;
+                $currentChunk = ($overlap === '' ? '' : $overlap . "\n\n") . $paragraph;
+                $currentTokens = TokenEstimator::estimateTokens($currentChunk);
             } else {
                 $currentChunk .= (TextValidator::isEmpty($currentChunk) ? '' : "\n\n") . $paragraph;
                 $currentTokens += $paragraphTokens;
@@ -561,9 +561,10 @@ class EmbeddingService extends Component
      *
      * @param string $text The paragraph text to split
      * @param int $targetChunkTokens Target token count per chunk
+     * @param int $maxChunkTokens Hard upper limit; sentences longer than this are cut mid-sentence
      * @return string[] Sentence-level chunks
      */
-    private function splitBySentences(string $text, int $targetChunkTokens): array
+    private function splitBySentences(string $text, int $targetChunkTokens, int $maxChunkTokens): array
     {
         $sentences = ContentPatterns::splitSentences($text);
 
@@ -578,6 +579,18 @@ class EmbeddingService extends Component
             }
 
             $sentenceTokens = TokenEstimator::estimateTokens($sentence);
+
+            if ($sentenceTokens > $maxChunkTokens) {
+                if (TextValidator::isNotEmpty($currentChunk)) {
+                    $chunks[] = trim($currentChunk);
+                    $currentChunk = '';
+                    $currentTokens = 0;
+                }
+                foreach ($this->splitByLength($sentence, $maxChunkTokens) as $piece) {
+                    $chunks[] = $piece;
+                }
+                continue;
+            }
 
             if ($currentTokens + $sentenceTokens > $targetChunkTokens && TextValidator::isNotEmpty($currentChunk)) {
                 $chunks[] = trim($currentChunk);
@@ -594,6 +607,28 @@ class EmbeddingService extends Component
         }
 
         return $chunks;
+    }
+
+    /**
+     * Hard-cut a string into pieces no longer than $maxChunkTokens.
+     * Used when a single sentence exceeds the maximum chunk size.
+     *
+     * @return string[]
+     */
+    private function splitByLength(string $text, int $maxChunkTokens): array
+    {
+        $maxChars = TokenEstimator::estimateChars($maxChunkTokens);
+        $pieces = [];
+        $length = \strlen($text);
+
+        for ($offset = 0; $offset < $length; $offset += $maxChars) {
+            $piece = trim(substr($text, $offset, $maxChars));
+            if (TextValidator::isNotEmpty($piece)) {
+                $pieces[] = $piece;
+            }
+        }
+
+        return $pieces;
     }
 
     /**
@@ -663,6 +698,7 @@ class EmbeddingService extends Component
                 'siteId' => $element->siteId,
                 'chunks' => $totalChunks,
             ]);
+            $this->touchVectors($element->id, $element->siteId);
             return;
         }
 
@@ -759,6 +795,32 @@ class EmbeddingService extends Component
         } catch (PDOException $e) {
             Logger::exception($e, 'deleteExcessChunks', ['elementId' => $elementId, 'siteId' => $siteId, 'totalChunks' => $totalChunks]);
             throw DatabaseException::queryFailed('deleteExcessChunks', $e);
+        }
+    }
+
+    /**
+     * Refresh the dateUpdated of an entry's existing chunk rows without re-embedding.
+     *
+     * Called when indexElement() finds the content unchanged: the index is still
+     * valid, so advancing dateUpdated past the entry's dateUpdated clears the stale
+     * status that an unrelated entry re-save would otherwise leave behind.
+     *
+     * @throws \ghoststreet\craftsmartsearch\exceptions\DatabaseException
+     */
+    private function touchVectors(int $elementId, int $siteId): void
+    {
+        $db = SmartSearch::getInstance()->databaseService->getConnection();
+        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
+
+        try {
+            $stmt = $db->prepare("UPDATE {$table} SET \"dateUpdated\" = CURRENT_TIMESTAMP WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId");
+            $stmt->execute([
+                ':elementId' => $elementId,
+                ':siteId' => $siteId,
+            ]);
+        } catch (PDOException $e) {
+            Logger::exception($e, 'touchVectors', ['elementId' => $elementId, 'siteId' => $siteId]);
+            throw DatabaseException::queryFailed('touchVectors', $e);
         }
     }
 

@@ -21,6 +21,7 @@ class SettingsController extends BaseApiController
             'plugin' => SmartSearch::getInstance(),
             'settings' => SmartSearch::getInstance()->getSettings(),
             'selectedSubnavItem' => 'settings',
+            'insightsAvailable' => SmartSearch::getInstance()->historyService->count() > 0,
         ]);
     }
 

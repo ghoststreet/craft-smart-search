@@ -12,94 +12,35 @@
 
 {% block content %}
     {% if tab == 'overview' %}
-        {% if overview.state == 'onboarding' %}
-            {% include 'smart-search/_partials/overview-onboarding' with { setup: setup } only %}
-
-        {% elseif overview.state == 'disconnected' %}
-            {% include 'smart-search/_partials/overview-disconnected' with { error: overview.error } only %}
-
-        {% else %}
-            {% if overview.isMultiSite %}
-                <div class="craftsearch-overview-actions">
-                    <form method="post">
-                        {{ csrfInput() }}
-                        {{ actionInput('smart-search/index/sync') }}
-                        <button type="submit" class="btn submit" data-craftsearch-control="sync-all-btn">Sync all sites</button>
-                    </form>
-                    <p class="light smalltext">Only changed entries are re-embedded — unchanged ones are skipped.</p>
-                </div>
-            {% endif %}
-
-            <div class="craftsearch-card-grid"
-                 data-craftsearch-target="overview-grid"
-                 {% if syncStarted ?? false %}data-craftsearch-sync-started="1"{% endif %}>
-                {% for site in overview.sites %}
-                    {% include 'smart-search/_partials/overview-site-card' with { site: site, isMultiSite: overview.isMultiSite } only %}
-                {% endfor %}
+        <div class="craftsearch-overview" data-craftsearch-target="overview-region">
+            <div class="craftsearch-overview__content" data-craftsearch-target="overview-content">
+                <div class="craftsearch-entries__loading"><div class="spinner"></div></div>
             </div>
-        {% endif %}
+        </div>
 
     {% elseif tab == 'entries' %}
-        {% if error %}
-            <blockquote class="note warning"><p><strong>Database error.</strong> {{ error }}</p></blockquote>
-        {% endif %}
+        <div class="craftsearch-entries" data-craftsearch-target="entries-region">
+            {% include 'smart-search/_partials/entries-toolbar' with {
+                filters: filters,
+                sites: sites,
+                sections: sections,
+                hiddenFields: { tab: 'entries' },
+                hasActiveFilters: hasActiveFilters,
+            } only %}
 
-        {% set counts = result.counts ?? { indexed: 0, stale: 0, 'not-indexed': 0, total: result.total } %}
-        {% set totalPages = (result.total / result.pageSize)|round(0, 'ceil') %}
-
-        {% include 'smart-search/_partials/entries-toolbar' with {
-            filters: filters,
-            sites: sites,
-            sections: sections,
-            hiddenFields: { tab: 'entries' },
-        } only %}
-
-        {% include 'smart-search/_partials/entries-stats' with { counts: counts } only %}
-
-        {% include 'smart-search/_partials/entries-table' with {
-            rows: result.rows,
-            entryUrlPath: 'smart-search/index/entry',
-        } only %}
-
-        {% include 'smart-search/_components/pagination-path' with {
-            currentPage: result.page,
-            totalPages: totalPages,
-            params: filters|merge({ tab: 'entries' }),
-            pageLabel: 'Page ' ~ result.page ~ ' of ' ~ totalPages,
-        } only %}
+            <div class="craftsearch-entries__content" data-craftsearch-target="entries-content">
+                <div class="craftsearch-entries__loading" data-craftsearch-target="entries-loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
 
     {% elseif tab == 'coverage' %}
-        {% if coverage|length %}
-            <div class="tableview">
-                <table class="data fullwidth big">
-                    <thead>
-                        <tr>
-                            <th scope="col">Site</th>
-                            <th scope="col" class="rightalign">Indexed</th>
-                            <th scope="col" class="rightalign">Stale</th>
-                            <th scope="col" class="rightalign">Not indexed</th>
-                            <th scope="col" class="rightalign">Total</th>
-                            <th scope="col" class="rightalign">Coverage</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for c in coverage %}
-                            {% set pct = c.total > 0 ? (c.indexed / c.total * 100)|round : 0 %}
-                            <tr>
-                                <td>{{ c.site|default('') ? c.site : c.handle }}</td>
-                                <td class="rightalign">{{ c.indexed }}</td>
-                                <td class="rightalign">{% if c.stale > 0 %}<span class="status orange"></span> {% endif %}{{ c.stale }}</td>
-                                <td class="rightalign">{% if c.notIndexed > 0 %}<span class="status off"></span> {% endif %}{{ c.notIndexed }}</td>
-                                <td class="rightalign">{{ c.total }}</td>
-                                <td class="rightalign">{{ pct }}%</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="craftsearch-coverage" data-craftsearch-target="coverage-region">
+            <div class="craftsearch-coverage__content" data-craftsearch-target="coverage-content">
+                <div class="craftsearch-entries__loading"><div class="spinner"></div></div>
             </div>
-        {% else %}
-            <div class="zilch small">No sites configured.</div>
-        {% endif %}
+        </div>
     {% endif %}
 {% endblock %}
 

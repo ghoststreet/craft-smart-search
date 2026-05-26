@@ -5,54 +5,56 @@ namespace ghoststreet\craftsmartsearch\services;
 /**
  * Pure Reciprocal Rank Fusion math.
  *
- * Takes two ranked signal lookups (semantic, BM25) keyed by elementId and
+ * Takes two ranked signal lookups (semantic, keyword) keyed by elementId and
  * returns a single map of fused scores per element. No I/O, no Craft, no
  * settings object — every parameter is explicit.
  *
  * Per-signal score: weight / (k + rank).
  * Elements appearing in only one signal are multiplied by singleSignalPenalty.
- * Elements appearing only in semantic results must exceed minSemanticThreshold
- * to be kept; otherwise dropped.
+ * Any element whose semantic score is below minSemanticThreshold is dropped,
+ * regardless of whether the keyword signal also matched — a weak vector match
+ * with a loose keyword hit is still likely a false positive.
  *
  * @phpstan-type SignalEntry array{score: float, rank: int, content: string}
- * @phpstan-type ScoredEntry array{rrfScore: float, semanticScore: float, semanticRank: ?int, bm25Score: float, bm25Rank: ?int, content: string}
+ * @phpstan-type ScoredEntry array{rrfScore: float, semanticScore: float, semanticRank: ?int, keywordScore: float, keywordRank: ?int, content: string}
  */
 final class RrfFuser
 {
+    public const RANK_OFFSET = 60;
+
     /**
      * @param array<int, SignalEntry> $semanticLookup
-     * @param array<int, SignalEntry> $bm25Lookup
+     * @param array<int, SignalEntry> $keywordLookup
      * @return array<int, ScoredEntry>
      */
     public function fuse(
         array $semanticLookup,
-        array $bm25Lookup,
-        int $k,
+        array $keywordLookup,
         float $semanticWeight,
-        float $bm25Weight,
+        float $keywordWeight,
         float $singleSignalPenalty,
         float $minSemanticThreshold,
     ): array {
-        $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($bm25Lookup)]);
+        $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($keywordLookup)]);
 
         $scored = [];
         foreach ($allIds as $id) {
             $hasSemantic = isset($semanticLookup[$id]);
-            $hasBm25 = isset($bm25Lookup[$id]);
+            $hasKeyword = isset($keywordLookup[$id]);
             $semanticScore = $hasSemantic ? $semanticLookup[$id]['score'] : 0.0;
 
-            if ($hasSemantic && !$hasBm25 && $semanticScore < $minSemanticThreshold) {
+            if ($hasSemantic && $semanticScore < $minSemanticThreshold) {
                 continue;
             }
 
-            $isSingleSignal = !($hasSemantic && $hasBm25);
+            $isSingleSignal = !($hasSemantic && $hasKeyword);
             $rrfScore = 0.0;
 
             if ($hasSemantic) {
-                $rrfScore += $semanticWeight / ($k + $semanticLookup[$id]['rank']);
+                $rrfScore += $semanticWeight / (self::RANK_OFFSET + $semanticLookup[$id]['rank']);
             }
-            if ($hasBm25) {
-                $rrfScore += $bm25Weight / ($k + $bm25Lookup[$id]['rank']);
+            if ($hasKeyword) {
+                $rrfScore += $keywordWeight / (self::RANK_OFFSET + $keywordLookup[$id]['rank']);
             }
 
             if ($isSingleSignal) {
@@ -63,11 +65,11 @@ final class RrfFuser
                 'rrfScore' => $rrfScore,
                 'semanticScore' => $semanticScore,
                 'semanticRank' => $hasSemantic ? $semanticLookup[$id]['rank'] : null,
-                'bm25Score' => $hasBm25 ? $bm25Lookup[$id]['score'] : 0.0,
-                'bm25Rank' => $hasBm25 ? $bm25Lookup[$id]['rank'] : null,
+                'keywordScore' => $hasKeyword ? $keywordLookup[$id]['score'] : 0.0,
+                'keywordRank' => $hasKeyword ? $keywordLookup[$id]['rank'] : null,
                 'content' => $hasSemantic
                     ? $semanticLookup[$id]['content']
-                    : ($hasBm25 ? ($bm25Lookup[$id]['content'] ?? '') : ''),
+                    : ($hasKeyword ? ($keywordLookup[$id]['content'] ?? '') : ''),
             ];
         }
 

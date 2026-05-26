@@ -9,21 +9,21 @@ use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use yii\base\Component;
 
 /**
- * Hybrid Search Service — combines semantic vector similarity and BM25 keyword scoring
+ * Smart Search Service — combines semantic vector similarity and keyword scoring
  * using Reciprocal Rank Fusion (RRF) to produce a single ranked result list.
  *
  * Each signal contributes a weighted RRF score; results appearing in only one signal
  * receive a configurable penalty. Semantic-only results below a minimum threshold
  * are excluded entirely.
  */
-class HybridSearchService extends Component
+class SmartSearchService extends Component
 {
     /**
-     * Perform hybrid search combining semantic similarity and BM25 keyword scoring
+     * Perform smart search combining semantic similarity and keyword scoring
      * using Reciprocal Rank Fusion (RRF) to merge both signal types.
      *
      * @throws \ghoststreet\craftsmartsearch\exceptions\EmbeddingException If embedding generation fails
-     * @throws \ghoststreet\craftsmartsearch\exceptions\SearchException If vector or BM25 query fails
+     * @throws \ghoststreet\craftsmartsearch\exceptions\SearchException If vector or Keyword query fails
      */
     public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
     {
@@ -34,37 +34,36 @@ class HybridSearchService extends Component
             fn() => SmartSearch::getInstance()->embeddingService->generateEmbedding($query, true, $embeddingModel)
         );
 
-        $bm25Results = TimingProfiler::profile(
-            'BM25 scoring',
-            fn() => SmartSearch::getInstance()->bm25Service->calculateScores($query, $siteId)
+        $keywordResults = TimingProfiler::profile(
+            'Keyword scoring',
+            fn() => SmartSearch::getInstance()->keywordSearchService->calculateScores($query, $siteId)
         );
 
         $semanticResults = TimingProfiler::profile(
             'Vector similarity query',
-            fn() => SmartSearch::getInstance()->searchService->semanticSearchRaw($query, min($settings->maxSemanticResults, $limit * 10), $siteId, false, $embeddingModel, $queryVector)
+            fn() => SmartSearch::getInstance()->searchService->semanticSearchRaw($query, min($settings->maxSemanticResults, $limit * 10), $siteId, $embeddingModel, $queryVector)
         );
 
         $semanticLookup = $this->buildSemanticLookup($semanticResults);
-        $bm25Lookup = $this->buildBM25Lookup($bm25Results);
+        $keywordLookup = $this->buildKeywordLookup($keywordResults);
 
-        Logger::debug('Hybrid search signals', [
+        Logger::debug('Smart search signals', [
             'semanticRawRows' => count($semanticResults),
             'semanticUniqueElements' => count($semanticLookup),
-            'bm25UniqueElements' => count($bm25Lookup),
+            'keywordUniqueElements' => count($keywordLookup),
         ]);
 
-        $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($bm25Lookup)]);
+        $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($keywordLookup)]);
 
-        Logger::debug('Hybrid search candidates', [
+        Logger::debug('Smart search candidates', [
             'totalUniqueCandidates' => count($allIds),
         ]);
 
         $scoredResults = (new RrfFuser())->fuse(
             $semanticLookup,
-            $bm25Lookup,
-            $settings->rrfK,
+            $keywordLookup,
             $settings->rrfSemanticWeight,
-            $settings->rrfBm25Weight,
+            $settings->rrfKeywordWeight,
             $settings->singleSignalPenalty,
             $settings->minSemanticThreshold,
         );
@@ -76,7 +75,7 @@ class HybridSearchService extends Component
             'minSemanticThreshold' => $settings->minSemanticThreshold,
             'singleSignalPenalty' => $settings->singleSignalPenalty,
             'rrfSemanticWeight' => $settings->rrfSemanticWeight,
-            'rrfBm25Weight' => $settings->rrfBm25Weight,
+            'rrfKeywordWeight' => $settings->rrfKeywordWeight,
         ]);
 
         Logger::debug('RRF scoring complete', [
@@ -88,7 +87,7 @@ class HybridSearchService extends Component
 
         $finalResults = $this->loadElementsWithScores($scoredResults, $limit);
 
-        Logger::debug('Hybrid search final results', [
+        Logger::debug('Smart search final results', [
             'requestedLimit' => $limit,
             'returnedResults' => count($finalResults),
         ]);
@@ -117,17 +116,17 @@ class HybridSearchService extends Component
     }
 
     /**
-     * Index BM25 results by elementId with rank and score for RRF lookup.
+     * Index Keyword results by elementId with rank and score for RRF lookup.
      */
-    private function buildBM25Lookup(array $bm25Results): array
+    private function buildKeywordLookup(array $keywordResults): array
     {
         $lookup = [];
         $rank = 1;
 
-        foreach ($bm25Results as $score) {
-            if ($score['bm25Score'] > 0) {
+        foreach ($keywordResults as $score) {
+            if ($score['keywordScore'] > 0) {
                 $lookup[$score['elementId']] = [
-                    'score' => $score['bm25Score'],
+                    'score' => $score['keywordScore'],
                     'rank' => $rank++,
                     'content' => $score['content'] ?? '',
                 ];
@@ -169,9 +168,9 @@ class HybridSearchService extends Component
                 'score' => $data['rrfScore'],
                 'semanticScore' => $data['semanticScore'],
                 'semanticRank' => $data['semanticRank'],
-                'bm25Score' => $data['bm25Score'],
-                'bm25Rank' => $data['bm25Rank'],
-                'hybridRank' => count($results) + 1,
+                'keywordScore' => $data['keywordScore'],
+                'keywordRank' => $data['keywordRank'],
+                'smartRank' => count($results) + 1,
                 'content' => $data['content'],
             ];
 

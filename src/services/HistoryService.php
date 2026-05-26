@@ -28,17 +28,17 @@ class HistoryService extends Component
             $row->siteId = $entry->siteId;
             $row->resultsCount = $entry->resultsCount;
             $row->embeddingModel = $entry->embeddingModel;
-            $row->ragModel = $entry->ragModel;
+            $row->aiAnswerModel = $entry->aiAnswerModel;
             $row->embeddingTokens = $entry->embeddingTokens;
-            $row->ragInputTokens = $entry->ragInputTokens;
-            $row->ragOutputTokens = $entry->ragOutputTokens;
-            $row->totalTokens = $entry->embeddingTokens + $entry->ragInputTokens + $entry->ragOutputTokens;
+            $row->aiAnswerInputTokens = $entry->aiAnswerInputTokens;
+            $row->aiAnswerOutputTokens = $entry->aiAnswerOutputTokens;
+            $row->totalTokens = $entry->embeddingTokens + $entry->aiAnswerInputTokens + $entry->aiAnswerOutputTokens;
             $row->cost = (string)PricingTable::costForUsage(
                 $entry->embeddingModel,
                 $entry->embeddingTokens,
-                $entry->ragModel,
-                $entry->ragInputTokens,
-                $entry->ragOutputTokens,
+                $entry->aiAnswerModel,
+                $entry->aiAnswerInputTokens,
+                $entry->aiAnswerOutputTokens,
             );
             $row->durationMs = $entry->durationMs;
             $row->embeddingCached = $entry->embeddingCached;
@@ -66,7 +66,7 @@ class HistoryService extends Component
                 'searches' => 'COUNT(*)',
                 'tokens' => 'COALESCE(SUM(totalTokens), 0)',
                 'embeddingTokens' => 'COALESCE(SUM(embeddingTokens), 0)',
-                'llmTokens' => 'COALESCE(SUM(ragInputTokens + ragOutputTokens), 0)',
+                'llmTokens' => 'COALESCE(SUM(aiAnswerInputTokens + aiAnswerOutputTokens), 0)',
                 'cost' => 'COALESCE(SUM(cost), 0)',
                 'avgDuration' => 'COALESCE(AVG(durationMs), 0)',
                 'errorCount' => 'SUM(CASE WHEN hasError = 1 OR hasError = TRUE THEN 1 ELSE 0 END)',
@@ -132,8 +132,8 @@ class HistoryService extends Component
 
         $items = (clone $base)
             ->select([
-                'id', 'requestId', 'type', 'query', 'resultsCount', 'embeddingModel', 'ragModel',
-                'embeddingTokens', 'ragInputTokens', 'ragOutputTokens', 'totalTokens',
+                'id', 'requestId', 'type', 'query', 'resultsCount', 'embeddingModel', 'aiAnswerModel',
+                'embeddingTokens', 'aiAnswerInputTokens', 'aiAnswerOutputTokens', 'totalTokens',
                 'cost', 'durationMs', 'embeddingCached', 'hasError', 'errorMessage', 'dateCreated',
             ])
             ->orderBy(['dateCreated' => SORT_DESC])
@@ -155,14 +155,6 @@ class HistoryService extends Component
     public function getTopKeywords(?int $days = null, ?int $siteId = null, int $limit = 10): array
     {
         return $this->aggregateKeywords($days, $siteId, $limit, false);
-    }
-
-    /**
-     * Most-frequent queries that returned zero results.
-     */
-    public function getZeroResultQueries(?int $days = null, ?int $siteId = null, int $limit = 10): array
-    {
-        return $this->aggregateKeywords($days, $siteId, $limit, true);
     }
 
     /**
@@ -302,39 +294,6 @@ class HistoryService extends Component
     }
 
     /**
-     * True overall percentile of durationMs across raw rows in the window. Portable across MySQL/Postgres:
-     * counts qualifying rows, then SELECTs the value at the percentile offset.
-     * Returns null when no rows.
-     */
-    public function getOverallPercentile(int $days, float $percentile = 0.95, ?int $siteId = null): ?int
-    {
-        $percentile = max(0.0, min(1.0, $percentile));
-
-        $base = (new Query())
-            ->from(SearchHistoryRecord::tableName())
-            ->andWhere(['>=', 'dateCreated', $this->cutoff($days)])
-            ->andWhere(['>', 'durationMs', 0]);
-        if ($siteId !== null) {
-            $base->andWhere(['siteId' => $siteId]);
-        }
-
-        $count = (int)(clone $base)->count('*');
-        if ($count === 0) {
-            return null;
-        }
-
-        $offset = (int)floor($percentile * ($count - 1));
-        $row = (clone $base)
-            ->select(['durationMs'])
-            ->orderBy(['durationMs' => SORT_ASC])
-            ->offset($offset)
-            ->limit(1)
-            ->one();
-
-        return $row ? (int)$row['durationMs'] : null;
-    }
-
-    /**
      * Embedding cache hit rate over the last $days, 0..1. Returns null when no searches.
      */
     public function getCacheHitRate(int $days = 30): ?float
@@ -348,29 +307,6 @@ class HistoryService extends Component
     public function getZeroResultRate(int $days = 30): ?float
     {
         return $this->rateOverWindow($days, 'SUM(CASE WHEN resultsCount = 0 THEN 1 ELSE 0 END)');
-    }
-
-    /**
-     * Queries whose average response time exceeds $thresholdMs in the window.
-     * Returns rows: [k, query, hits, avgDurationMs, lastSeen].
-     */
-    public function getSlowQueries(?int $days = 30, ?int $siteId = null, int $limit = 10, int $thresholdMs = 1500): array
-    {
-        $limit = max(1, min(50, $limit));
-
-        $q = $this->groupedQuery($this->cutoff($days), null, $siteId, false)
-            ->select([
-                'k' => 'LOWER(TRIM([[query]]))',
-                'query' => 'MIN([[query]])',
-                'hits' => 'COUNT(*)',
-                'avgDurationMs' => 'AVG([[durationMs]])',
-                'lastSeen' => 'MAX([[dateCreated]])',
-            ])
-            ->having(['>=', 'AVG([[durationMs]])', $thresholdMs])
-            ->orderBy(['avgDurationMs' => SORT_DESC])
-            ->limit($limit);
-
-        return $q->all();
     }
 
     /**
@@ -439,7 +375,7 @@ class HistoryService extends Component
     }
 
     /**
-     * Paginated variant of getTopKeywords / getZeroResultQueries.
+     * Paginated variant of getTopKeywords (with optional zero-results filter).
      * Returns { items, total, page, perPage, pages }.
      */
     public function paginateKeywords(?int $days, ?int $siteId, bool $zeroOnly, int $page = 1, int $perPage = 25): array

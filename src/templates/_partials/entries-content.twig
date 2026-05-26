@@ -1,0 +1,31 @@
+{#
+    Stats + table + pagination block for the Entries tab.
+    Rendered both as the AJAX response of actionGetEntryRows and (implicitly)
+    on the initial page after JS swaps it in.
+
+    Params:
+        result   array  { rows, total, page, pageSize, counts }
+        filters  array  filter state, used to build pagination URLs
+        error    ?string  optional database error message
+#}
+{% if error %}
+    <blockquote class="note warning"><p><strong>Database error.</strong> {{ error }}</p></blockquote>
+{% endif %}
+
+{% set counts = result.counts ?? { indexed: 0, stale: 0, 'not-indexed': 0, total: result.total } %}
+{% set totalPages = (result.total / result.pageSize)|round(0, 'ceil') %}
+
+{% include 'smart-search/_partials/entries-stats' with { counts: counts } only %}
+
+{% include 'smart-search/_partials/entries-table' with {
+    rows: result.rows,
+    entryUrlPath: 'smart-search/index/entry',
+} only %}
+
+{% include 'smart-search/_components/pagination-path' with {
+    currentPage: result.page,
+    totalPages: totalPages,
+    params: filters|merge({ tab: 'entries' }),
+    pageLabel: 'Page ' ~ result.page ~ ' of ' ~ totalPages,
+    path: 'smart-search/index',
+} only %}

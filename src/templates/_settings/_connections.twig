@@ -1,12 +1,13 @@
 {% import '_includes/forms.twig' as forms %}
 
-<h2>OpenAI</h2>
-<p class="light">Required to generate embeddings and run AI answers. <a href="https://github.com/ghoststreet/craft-smart-search#setup" target="_blank">Setup docs →</a></p>
+<h2 id="connection-openai">OpenAI</h2>
+<p class="light">Smart Search uses OpenAI for two jobs: turning your content (and visitor queries) into vector embeddings so meaning-based search can work, and writing AI Answer summaries when a visitor asks a question. Both run against your own account, so the API key below is the only thing that authorises calls and gets billed for them.</p>
+<p class="light">You'll need a paid OpenAI account with billing set up. Embeddings are inexpensive; AI Answer costs vary by model. <a href="{{ wikiUrl }}/Connections#openai-api-key" target="_blank" rel="noopener">Setup guide →</a></p>
 
 {% namespace 'settings' %}
     {{ forms.autosuggestField({
-        label: 'API key',
-        instructions: 'Reference an environment variable, e.g. <code>$OPENAI_API_KEY</code>.',
+        label: 'OpenAI API key',
+        instructions: 'Your OpenAI secret key, used to create embeddings and AI Answer. Reference an environment variable like <code>$OPENAI_API_KEY</code> instead of pasting the raw key.',
         id: 'openaiApiKey', name: 'openaiApiKey',
         value: settings.openaiApiKey, suggestEnvVars: true, required: true,
         errors: settings.getErrors('openaiApiKey'),
@@ -21,26 +22,29 @@
 
 <hr>
 
-<h2>PostgreSQL</h2>
-<p class="light">PostgreSQL with pgvector. The plugin does not create the schema — see the <a href="https://github.com/ghoststreet/craft-smart-search#database-setup-required-admin-owned" target="_blank">README</a>.</p>
+<h2 id="connection-postgres">PostgreSQL</h2>
+<p class="light">Smart Search keeps its search index outside Craft's own database. Every entry it indexes is turned into a numerical vector (the "embedding") and stored in a Postgres table with the <code>pgvector</code> extension, which is what makes meaning-based search fast. Craft's MySQL/Postgres database isn't touched.</p>
+<p class="light">Any Postgres ≥ 14 with <code>pgvector</code> works: Supabase, Neon, AWS RDS, or self-hosted. The plugin connects with the credentials below and reads/writes the table you point it at; it never runs schema migrations, so creating the table is something you (or your DBA) do once via the SQL in the setup guide. <a href="{{ wikiUrl }}/Installation#vectors-table" target="_blank" rel="noopener">Database setup guide →</a></p>
 
 {% namespace 'settings' %}
-    {{ forms.autosuggestField({ label: 'Host', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost'), inputAttributes: { 'data-craftsearch-target': 'db-host' } }) }}
-    {{ forms.autosuggestField({ label: 'Port', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, required: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort'), inputAttributes: { 'data-craftsearch-target': 'db-port' } }) }}
-    {{ forms.autosuggestField({ label: 'Database', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase'), inputAttributes: { 'data-craftsearch-target': 'db-database' } }) }}
-    {{ forms.autosuggestField({ label: 'User', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser'), inputAttributes: { 'data-craftsearch-target': 'db-user' } }) }}
-    {{ forms.autosuggestField({ label: 'Password', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, required: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword'), inputAttributes: { 'data-craftsearch-target': 'db-password' } }) }}
-    {{ forms.textField({ label: 'Schema', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, placeholder: 'public', errors: settings.getErrors('vectorsSchemaName') }) }}
-    {{ forms.textField({ label: 'Vectors table', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, placeholder: 'smart_search_vectors', errors: settings.getErrors('vectorsTableName') }) }}
+    {{ forms.autosuggestField({ label: 'Host', instructions: 'The address of your Postgres server (e.g. <code>db.xxxx.supabase.co</code>). Reference an env var like <code>$SUPABASE_DB_HOST</code> when possible.', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost'), inputAttributes: { 'data-craftsearch-target': 'db-host' } }) }}
+    {{ forms.autosuggestField({ label: 'Port', instructions: 'The port your Postgres server listens on. Default is <code>5432</code>.', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, required: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort'), inputAttributes: { 'data-craftsearch-target': 'db-port' } }) }}
+    {{ forms.autosuggestField({ label: 'Database', instructions: 'The name of the database to use. Supabase and most providers default to <code>postgres</code>.', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase'), inputAttributes: { 'data-craftsearch-target': 'db-database' } }) }}
+    {{ forms.autosuggestField({ label: 'User', instructions: 'The database username. Must have permission to create tables in the schema below.', id: 'postgresqlUser', name: 'postgresqlUser', value: settings.postgresqlUser, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlUser'), inputAttributes: { 'data-craftsearch-target': 'db-user' } }) }}
+    {{ forms.autosuggestField({ label: 'Password', instructions: 'The database password. Reference an env var like <code>$SUPABASE_DB_PASSWORD</code>. Never paste the raw value.', id: 'postgresqlPassword', name: 'postgresqlPassword', value: settings.postgresqlPassword, suggestEnvVars: true, required: true, placeholder: '$SUPABASE_DB_PASSWORD', errors: settings.getErrors('postgresqlPassword'), inputAttributes: { 'data-craftsearch-target': 'db-password' } }) }}
+    {{ forms.textField({ label: 'Schema', instructions: 'Postgres schema where the vectors table lives. Leave as <code>public</code> unless your DBA has set up a different schema.', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, placeholder: 'public', errors: settings.getErrors('vectorsSchemaName') }) }}
+    {{ forms.textField({ label: 'Vectors table', instructions: 'Name of the table that already holds your search vectors (you create it once via the install SQL; the plugin will not create it for you).<br><a href="' ~ wikiUrl ~ '/Installation#vectors-table" target="_blank" rel="noopener">Learn more →</a>', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, placeholder: 'smart_search_vectors', errors: settings.getErrors('vectorsTableName') }) }}
     {{ forms.selectField({
-        label: 'SSL mode', id: 'postgresqlSslMode', name: 'postgresqlSslMode', value: settings.postgresqlSslMode,
+        label: 'Connection security (SSL mode)',
+        instructions: 'How strictly to verify the database TLS connection. <em>Require</em> is right for almost all hosted databases. Only use <em>Disable / Allow / Prefer</em> on a local dev database.<br><a href="' ~ wikiUrl ~ '/Connections#ssl-modes" target="_blank" rel="noopener">Learn more →</a>',
+        id: 'postgresqlSslMode', name: 'postgresqlSslMode', value: settings.postgresqlSslMode,
         options: [
-            { label: 'Disable — localhost only', value: 'disable' },
-            { label: 'Allow — localhost only', value: 'allow' },
-            { label: 'Prefer — localhost only', value: 'prefer' },
-            { label: 'Require (recommended)', value: 'require' },
-            { label: 'Verify CA', value: 'verify-ca' },
-            { label: 'Verify full', value: 'verify-full' },
+            { label: 'Disable (local dev only)', value: 'disable' },
+            { label: 'Allow (local dev only)', value: 'allow' },
+            { label: 'Prefer (local dev only)', value: 'prefer' },
+            { label: 'Require (recommended for hosted databases)', value: 'require' },
+            { label: 'Verify CA (also checks the certificate authority)', value: 'verify-ca' },
+            { label: 'Verify Full (strictest; also checks the hostname)', value: 'verify-full' },
         ],
         required: true, errors: settings.getErrors('postgresqlSslMode'),
         inputAttributes: { 'data-craftsearch-target': 'db-ssl-mode' },

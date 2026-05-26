@@ -3,12 +3,12 @@
 
     Usage:
         {% import 'smart-search/_components/badge' as b %}
-        {{ b.badge('rag', 'rag') }}
+        {{ b.badge('ai-answer', 'ai-answer') }}
         {{ b.badge('Error', 'error') }}
 
     Params:
         label    string  text shown (uppercased via CSS)
-        variant  string  rag | semantic | error
+        variant  string  ai-answer | semantic | error
 #}
 {% macro badge(label, variant) %}
     <span class="badge badge--{{ variant }}"><span class="badge__dot"></span>{{ label }}</span>

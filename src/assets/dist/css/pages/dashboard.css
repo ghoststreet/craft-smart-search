@@ -1,51 +1,294 @@
+/* ==========================================================================
+   Dashboard — bento-grid layout with consistent card chrome.
+   ========================================================================== */
+
 .dashboard {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-.dashboard__cols {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
 }
-@media (max-width: 900px) {
-    .dashboard__cols { grid-template-columns: 1fr; }
+.dashboard--onboarding {
+    display: block;
 }
 
-.dash-title {
-    margin: 0 0 10px;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: .04em;
+/* ── Header bar: title + status pills + range picker on one line ────────── */
+.dash-header {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    padding: 12px 16px;
+    background: var(--gray-050, #f9fafb);
+    border: 1px solid var(--hairline-color, #e5e7eb);
+    border-radius: 8px;
+}
+.dash-header__status {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 20px;
+    font-size: 12px;
     color: var(--medium-text-color);
+    flex: 1 1 auto;
+    min-width: 0;
 }
-.dash-title--section {
-    margin-top: 18px;
+.dash-header__status-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
 }
+.dash-header__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--medium-text-color);
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.04);
+}
+.dash-header__status-item--ok .dash-header__dot { background: #2bb673; }
+.dash-header__status-item--warn .dash-header__dot { background: #f5a623; }
+.dash-header__status-item--crit .dash-header__dot { background: #d0021b; }
+.dash-header__status-item--crit { color: #d0021b; font-weight: 500; }
+
+/* ── Critical alerts row ────────────────────────────────────────────────── */
+.dash-alerts {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ── Universal card chrome (replaces bare .pane in dashboard scope) ─────── */
+.dashboard .pane,
+.dash-card {
+    background: #ffffff;
+    border: 1px solid var(--hairline-color, #e5e7eb);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 0;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* ── KPI hero row ───────────────────────────────────────────────────────── */
+.dash-kpis {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+.dash-kpis .kpi-card {
+    background: #ffffff;
+    border: 1px solid var(--hairline-color, #e5e7eb);
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    min-height: 190px;
+}
+.dash-kpis .kpi-card__value {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+.dash-kpis .kpi-card__chart {
+    min-height: 60px;
+}
+.dash-kpis .kpi-card__chart canvas { max-height: 80px; }
+
+/* Coverage donut variant — chart center hosts the percentage */
+.kpi-card--coverage {
+    align-items: stretch;
+}
+.kpi-card--coverage .kpi-card__donut-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.kpi-card--coverage .kpi-card__donut-wrap canvas {
+    max-height: 130px;
+    width: auto !important;
+    height: 100% !important;
+}
+.kpi-card--coverage .kpi-card__donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+}
+.kpi-card--coverage .kpi-card__donut-pct {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-color);
+}
+.kpi-card--coverage .kpi-card__donut-sub {
+    font-size: 11px;
+    color: var(--medium-text-color);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.kpi-card--coverage .kpi-card__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    font-size: 11px;
+    color: var(--medium-text-color);
+    margin-top: 10px;
+    justify-content: center;
+}
+.kpi-card--coverage .kpi-card__legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.kpi-card--coverage .kpi-card__legend-swatch {
+    width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto;
+}
+
+/* ── Main bento grid (queries + side column) ────────────────────────────── */
+.dash-main {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+.dash-main__side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+/* ── Full-width row helpers ─────────────────────────────────────────────── */
+.dash-row {
+    grid-column: 1 / -1;
+}
+
+/* ── Card head ──────────────────────────────────────────────────────────── */
+.dash-title {
+    margin: 0 0 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--medium-text-color);
+    font-weight: 600;
+}
+.dash-title--section { margin-top: 20px; }
 .dash-sub {
-    margin: -4px 0 8px;
+    margin: -6px 0 10px;
+    color: var(--medium-text-color);
 }
 .dash-empty {
     color: var(--medium-text-color);
     font-style: italic;
     padding: 12px 0;
 }
-.dash-cta {
-    margin-top: 10px;
-}
-.dash-chart {
-    height: 180px;
-}
-.dash-lede {
-    margin-top: 0;
-}
+.dash-cta { margin-top: 12px; }
 
-.kpi-card__value--muted {
+/* ── Tables in dashboard cards: tighter, lighter ────────────────────────── */
+.dashboard .pane table.data {
+    border: none;
+}
+.dashboard .pane table.data th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--medium-text-color);
+    font-weight: 600;
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+.dashboard .pane table.data td {
+    padding-top: 8px;
+    padding-bottom: 8px;
 }
 
+/* ── Chart sizing ───────────────────────────────────────────────────────── */
+.dash-chart { height: 220px; }
+.dash-chart--coverage {
+    height: auto;
+    min-height: 220px;
+}
+
+/* ── KPI value muted ────────────────────────────────────────────────────── */
+.kpi-card__value--muted { color: var(--medium-text-color); }
+
+/* ── Footer disclosure ──────────────────────────────────────────────────── */
 .dashboard__as-of {
-    margin-top: 4px;
+    grid-column: 1 / -1;
+    margin: 4px 2px 0;
     text-align: right;
     color: var(--medium-text-color);
+}
+
+/* ── Guide card (post-setup recommended steps) ──────────────────────────── */
+.guide-card {
+    grid-column: 1 / -1;
+    position: relative;
+    background: #f5faff;
+    border: 1px solid #cfe2f7;
+    border-radius: 8px;
+    padding: 14px 44px 14px 18px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.guide-card__close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--medium-text-color);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+}
+.guide-card__close:hover { background: rgba(0,0,0,0.05); color: var(--text-color); }
+.guide-card__title {
+    margin: 0 0 10px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #2c5d8f;
+    font-weight: 600;
+}
+.guide-card__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.guide-card__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    font-size: 13px;
+}
+.guide-card__item > div { min-width: 0; }
+.guide-card__item strong { color: var(--text-color); }
+
+/* ── Responsive collapse ────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+    .dash-main { grid-template-columns: 1fr; }
+    .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+    .dash-kpis { grid-template-columns: 1fr; }
 }

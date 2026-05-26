@@ -16,21 +16,23 @@ final class PricingTable
         'text-embedding-3-small' => ['input' => 0.02, 'output' => 0.0],
         'text-embedding-3-large' => ['input' => 0.13, 'output' => 0.0],
 
-        'gpt-5.4-nano' => ['input' => 0.05, 'output' => 0.40],
+        'gpt-5.4-nano' => ['input' => 0.20, 'output' => 1.25],
+        'gpt-5.4-mini' => ['input' => 0.75, 'output' => 4.50],
+        'gpt-5.4'      => ['input' => 2.50, 'output' => 15.00],
     ];
 
     /**
-     * Total USD cost of one search: embedding call + RAG/LLM call.
+     * Total USD cost of one search: embedding call + AI Answer/LLM call.
      */
     public static function costForUsage(
         ?string $embeddingModel,
         int $embeddingTokens,
-        ?string $ragModel,
-        int $ragInputTokens,
-        int $ragOutputTokens,
+        ?string $aiAnswerModel,
+        int $aiAnswerInputTokens,
+        int $aiAnswerOutputTokens,
     ): float {
         $cost = self::calculateCost($embeddingModel, $embeddingTokens, 0)
-            + self::calculateCost($ragModel, $ragInputTokens, $ragOutputTokens);
+            + self::calculateCost($aiAnswerModel, $aiAnswerInputTokens, $aiAnswerOutputTokens);
 
         return round($cost, 6);
     }

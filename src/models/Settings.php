@@ -14,14 +14,14 @@ class Settings extends Model
 
     public const SCENARIO_CONNECTIONS   = 'connections';
     public const SCENARIO_INDEXING      = 'indexing';
-    public const SCENARIO_HYBRID_SEARCH = 'hybridSearch';
-    public const SCENARIO_AI_ANSWERS    = 'aiAnswers';
+    public const SCENARIO_SMART_SEARCH = 'smartSearch';
+    public const SCENARIO_AI_ANSWER    = 'aiAnswer';
     public const SCENARIO_ADVANCED      = 'advanced';
 
     public ?string $openaiApiKey = null;
     public ?string $apiToken = null;
 
-    public string $hybridEmbeddingModel = 'text-embedding-3-small';
+    public string $embeddingModel = 'text-embedding-3-small';
 
     public ?string $postgresqlHost = null;
     public string|int $postgresqlPort = 5432;
@@ -33,13 +33,13 @@ class Settings extends Model
     public string $vectorsTableName = '';
     public string $vectorsSchemaName = 'public';
 
-    public float $minimumSimilarityThreshold = 0.90;
-    public int $rrfK = 60;
-    public float $rrfSemanticWeight = 0.3;
-    public float $rrfBm25Weight = 0.7;
+    public string $termsTableName = 'smart_search_terms';
 
-    public string $ragModel = 'gpt-5.4-nano';
-    public ?string $ragCustomPrompt = null;
+    public float $rrfSemanticWeight = 0.3;
+    public float $rrfKeywordWeight = 0.7;
+
+    public string $aiAnswerModel = 'gpt-5.4-nano';
+    public ?string $aiAnswerCustomPrompt = null;
 
     public int $maxPromptTokens = 12000;
 
@@ -49,13 +49,15 @@ class Settings extends Model
     public int $overlapTokens = 40;
     public int $chunkThresholdTokens = 500;
 
-    public int $embeddingCacheTtl = 604800;
+    public int $embeddingCacheTtlDays = 7;
 
-    public float $minSemanticThreshold = 0.20;
+    public float $minSemanticThreshold = 0.40;
     public float $singleSignalPenalty = 0.5;
     public int $maxSemanticResults = 100;
 
     public int $excerptLength = 200;
+
+    public bool $enableTypoTolerance = true;
 
     public const VECTOR_DIMENSIONS = 1536;
 
@@ -63,13 +65,13 @@ class Settings extends Model
 
     public int $rateLimitSearchPerMinute = 10;
     public int $rateLimitSearchPerHour = 60;
-    public int $rateLimitRagPerMinute = 3;
-    public int $rateLimitRagPerHour = 20;
+    public int $rateLimitAiAnswerPerMinute = 3;
+    public int $rateLimitAiAnswerPerHour = 20;
 
-    public int $ragConcurrencyPerIp = 2;
-    public int $ragConcurrencyGlobal = 10;
+    public int $aiAnswerConcurrencyPerIp = 2;
+    public int $aiAnswerConcurrencyGlobal = 10;
 
-    public float $costBudgetDailyGlobal = 20.0;
+    public float $costBudgetDailyGlobal = 3.0;
 
     /**
      * Maps each CP settings tab to the attributes it owns. Drives both `scenarios()`
@@ -84,20 +86,21 @@ class Settings extends Model
         ],
         self::SCENARIO_INDEXING      => [
             'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
-            'embeddingCacheTtl',
+            'embeddingCacheTtlDays',
         ],
-        self::SCENARIO_HYBRID_SEARCH => [
-            'hybridEmbeddingModel',
-            'minimumSimilarityThreshold', 'rrfSemanticWeight', 'rrfBm25Weight',
-            'rrfK', 'minSemanticThreshold', 'singleSignalPenalty', 'maxSemanticResults',
+        self::SCENARIO_SMART_SEARCH => [
+            'embeddingModel',
+            'rrfSemanticWeight', 'rrfKeywordWeight',
+            'minSemanticThreshold', 'singleSignalPenalty', 'maxSemanticResults',
             'excerptLength',
+            'enableTypoTolerance', 'termsTableName',
             'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
         ],
-        self::SCENARIO_AI_ANSWERS    => [
-            'ragModel', 'maxPromptTokens', 'ragCustomPrompt',
+        self::SCENARIO_AI_ANSWER    => [
+            'aiAnswerModel', 'maxPromptTokens', 'aiAnswerCustomPrompt',
             'costBudgetDailyGlobal',
-            'rateLimitRagPerMinute', 'rateLimitRagPerHour',
-            'ragConcurrencyPerIp', 'ragConcurrencyGlobal',
+            'rateLimitAiAnswerPerMinute', 'rateLimitAiAnswerPerHour',
+            'aiAnswerConcurrencyPerIp', 'aiAnswerConcurrencyGlobal',
         ],
         self::SCENARIO_ADVANCED      => [
             'apiToken', 'allowedOrigins',
@@ -112,8 +115,8 @@ class Settings extends Model
     private const TAB_TO_SCENARIO = [
         'tab-connections'   => self::SCENARIO_CONNECTIONS,
         'tab-indexing'      => self::SCENARIO_INDEXING,
-        'tab-hybrid-search' => self::SCENARIO_HYBRID_SEARCH,
-        'tab-ai-answers'    => self::SCENARIO_AI_ANSWERS,
+        'tab-smart-search' => self::SCENARIO_SMART_SEARCH,
+        'tab-ai-answer'    => self::SCENARIO_AI_ANSWER,
         'tab-advanced'      => self::SCENARIO_ADVANCED,
     ];
 
@@ -151,8 +154,8 @@ class Settings extends Model
     {
         $connections  = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS];
         $indexing     = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
-        $hybridSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_HYBRID_SEARCH];
-        $aiAnswers    = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWERS];
+        $smartSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_SMART_SEARCH];
+        $aiAnswer     = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWER];
         $advanced     = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
 
         return [
@@ -192,49 +195,56 @@ class Settings extends Model
             [['overlapTokens'], 'default', 'value' => 40],
             [['chunkThresholdTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $indexing],
             [['chunkThresholdTokens'], 'default', 'value' => 500],
+            [['minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens'], 'validateChunkSizing', 'on' => $indexing],
 
             // Embedding cache TTL — Indexing
-            [['embeddingCacheTtl'], 'integer', 'min' => 0, 'max' => 2592000, 'on' => $indexing],
-            [['embeddingCacheTtl'], 'default', 'value' => 604800],
+            [['embeddingCacheTtlDays'], 'integer', 'min' => 0, 'max' => 30, 'on' => $indexing],
+            [['embeddingCacheTtlDays'], 'default', 'value' => 7],
 
-            // Hybrid Search — corpus embedding model
-            [['hybridEmbeddingModel'], 'required', 'on' => $hybridSearch],
-            [['hybridEmbeddingModel'], 'string', 'on' => $hybridSearch],
-            [['hybridEmbeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $hybridSearch],
+            // Smart Search — corpus embedding model
+            [['embeddingModel'], 'required', 'on' => $smartSearch],
+            [['embeddingModel'], 'string', 'on' => $smartSearch],
+            [['embeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $smartSearch],
 
-            // Hybrid Search — ranking
-            [['minimumSimilarityThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
-            [['minimumSimilarityThreshold'], 'default', 'value' => 0.90],
-            [['rrfK'], 'integer', 'min' => 1, 'max' => 1000, 'on' => $hybridSearch],
-            [['rrfK'], 'default', 'value' => 60],
-            [['rrfSemanticWeight', 'rrfBm25Weight'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
+            // Smart Search — ranking
+            [['rrfSemanticWeight', 'rrfKeywordWeight'], 'number', 'min' => 0, 'max' => 1, 'on' => $smartSearch],
             [['rrfSemanticWeight'], 'default', 'value' => 0.3],
-            [['rrfBm25Weight'], 'default', 'value' => 0.7],
-            [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
-            [['minSemanticThreshold'], 'default', 'value' => 0.20],
-            [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1, 'on' => $hybridSearch],
+            [['rrfKeywordWeight'], 'default', 'value' => 0.7],
+            [['rrfSemanticWeight', 'rrfKeywordWeight'], 'validateRankingWeights', 'on' => $smartSearch],
+            [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $smartSearch],
+            [['minSemanticThreshold'], 'default', 'value' => 0.40],
+            [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1, 'on' => $smartSearch],
             [['singleSignalPenalty'], 'default', 'value' => 0.5],
-            [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500, 'on' => $hybridSearch],
+            [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500, 'on' => $smartSearch],
             [['maxSemanticResults'], 'default', 'value' => 100],
 
-            // Hybrid Search — result display
-            [['excerptLength'], 'integer', 'min' => 50, 'max' => 500, 'on' => $hybridSearch],
+            // Smart Search — result display
+            [['excerptLength'], 'integer', 'min' => 50, 'max' => 500, 'on' => $smartSearch],
             [['excerptLength'], 'default', 'value' => 200],
 
-            // Hybrid Search — rate limits (0 disables the window)
-            [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $hybridSearch],
+            [['enableTypoTolerance'], 'boolean', 'on' => $smartSearch],
+            [['enableTypoTolerance'], 'default', 'value' => true],
 
-            // AI Answers — models and prompt
-            [['ragModel'], 'required', 'on' => $aiAnswers],
-            [['ragModel'], 'string', 'on' => $aiAnswers],
-            [['ragModel'], 'in', 'range' => ['gpt-5.4-nano'], 'on' => $aiAnswers],
-            [['ragCustomPrompt'], 'string', 'on' => $aiAnswers],
-            [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000, 'on' => $aiAnswers],
+            [['termsTableName'], 'required', 'on' => $smartSearch],
+            [['termsTableName'], 'default', 'value' => 'smart_search_terms'],
+            [['termsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
+                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
+                'on' => $smartSearch],
 
-            // AI Answers — budget + limits
-            [['costBudgetDailyGlobal'], 'number', 'min' => 0, 'on' => $aiAnswers],
-            [['rateLimitRagPerMinute', 'rateLimitRagPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $aiAnswers],
-            [['ragConcurrencyPerIp', 'ragConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $aiAnswers],
+            // Smart Search — rate limits (0 disables the window)
+            [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $smartSearch],
+
+            // AI Answer — models and prompt
+            [['aiAnswerModel'], 'required', 'on' => $aiAnswer],
+            [['aiAnswerModel'], 'string', 'on' => $aiAnswer],
+            [['aiAnswerModel'], 'in', 'range' => ['gpt-5.4-nano', 'gpt-5.4-mini', 'gpt-5.4'], 'on' => $aiAnswer],
+            [['aiAnswerCustomPrompt'], 'string', 'on' => $aiAnswer],
+            [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000, 'on' => $aiAnswer],
+
+            // AI Answer — budget + limits
+            [['costBudgetDailyGlobal'], 'number', 'min' => 0, 'on' => $aiAnswer],
+            [['rateLimitAiAnswerPerMinute', 'rateLimitAiAnswerPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $aiAnswer],
+            [['aiAnswerConcurrencyPerIp', 'aiAnswerConcurrencyGlobal'], 'integer', 'min' => 1, 'max' => 100000, 'on' => $aiAnswer],
 
             // Advanced — API access
             [['apiToken'], 'string', 'on' => $advanced],
@@ -242,6 +252,48 @@ class Settings extends Model
             [['allowedOrigins'], 'string', 'on' => $advanced],
             [['allowedOrigins'], 'validateAllowedOrigins', 'on' => $advanced],
         ];
+    }
+
+    public function validateChunkSizing(string $attribute): void
+    {
+        if ($this->hasErrors('minChunkTokens') || $this->hasErrors('targetChunkTokens')
+            || $this->hasErrors('maxChunkTokens') || $this->hasErrors('overlapTokens')) {
+            return;
+        }
+
+        switch ($attribute) {
+            case 'minChunkTokens':
+                if ($this->minChunkTokens >= $this->targetChunkTokens) {
+                    $this->addError($attribute, 'Smallest chunk size must be less than the target chunk size.');
+                }
+                break;
+            case 'targetChunkTokens':
+                if ($this->targetChunkTokens >= $this->maxChunkTokens) {
+                    $this->addError($attribute, 'Target chunk size must be less than the largest chunk size.');
+                }
+                break;
+            case 'overlapTokens':
+                if ($this->overlapTokens >= $this->minChunkTokens) {
+                    $this->addError($attribute, 'Chunk overlap must be less than the smallest chunk size.');
+                }
+                break;
+        }
+    }
+
+    public function validateRankingWeights(string $attribute): void
+    {
+        if ($this->hasErrors('rrfSemanticWeight') || $this->hasErrors('rrfKeywordWeight')) {
+            return;
+        }
+
+        $total = (float)$this->rrfSemanticWeight + (float)$this->rrfKeywordWeight;
+
+        if (abs($total - 1.0) > 0.001) {
+            $this->addError(
+                $attribute,
+                'Semantic weight and Keyword weight must add up to 1.00 (currently ' . number_format($total, 2) . ').',
+            );
+        }
     }
 
     public function validateEnvSecret(string $attribute): void

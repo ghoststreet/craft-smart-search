@@ -8,7 +8,7 @@ use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use yii\base\Component;
 
 /**
- * Per-IP request limits, RAG concurrency caps, and the daily cost budget.
+ * Per-IP request limits, AI Answer concurrency caps, and the daily cost budget.
  *
  * Counter mutations are serialized with Craft's Mutex component so cache reads
  * and writes are atomic regardless of the configured cache backend.
@@ -16,13 +16,13 @@ use yii\base\Component;
 class RateLimitService extends Component
 {
     public const KIND_SEARCH = 'search';
-    public const KIND_RAG = 'rag';
+    public const KIND_AI_ANSWER = 'aiAnswer';
 
     private const WINDOW_MINUTE = 60;
     private const WINDOW_HOUR = 3600;
 
     /**
-     * How long a RAG concurrency slot can be held before the gauge entry
+     * How long a AI Answer concurrency slot can be held before the gauge entry
      * expires on its own. Sized to cover the longest realistic streaming
      * response (typical generation + safety margin); if a request runs past
      * this, both the nonce and the gauge slot expire together, so the slot
@@ -32,20 +32,20 @@ class RateLimitService extends Component
 
     private const MUTEX_WAIT_SECONDS = 2;
 
-    private const RAG_ADMIT_MUTEX = 'mtx:rl:rag:admit';
+    private const AI_ANSWER_ADMIT_MUTEX = 'mtx:rl:aians:admit';
 
-    private const TOKEN_OK_PREFIX = 'rag:ok:';
-    private const TOKEN_FALLBACK_PREFIX = 'rag:fallback:';
-    private const NONCE_KEY_PREFIX = 'conc:rag:nonce:';
+    private const TOKEN_OK_PREFIX = 'aians:ok:';
+    private const TOKEN_FALLBACK_PREFIX = 'aians:fallback:';
+    private const NONCE_KEY_PREFIX = 'conc:aians:nonce:';
 
     /**
      * Admit a request and return an opaque token. Caller MUST pass the token
      * back to release() exactly once when the request completes.
      *
-     * RAG ordering is deliberate:
+     * AI Answer ordering is deliberate:
      *   1. Budget kill-switch (no rate-limit window consumed on the fallback path
      *      — a budget-exhausted request must not also count against the IP's
-     *      regular RAG quota).
+     *      regular AI Answer quota).
      *   2. Per-IP sliding-window rate limits.
      *   3. Concurrency gauges + single-use nonce.
      *
@@ -55,54 +55,54 @@ class RateLimitService extends Component
     {
         $settings = SmartSearch::getInstance()->getSettings();
 
-        if ($kind !== self::KIND_RAG) {
+        if ($kind !== self::KIND_AI_ANSWER) {
             $this->enforceWindow("rate:{$kind}:m:{$ip}", $settings->rateLimitSearchPerMinute, self::WINDOW_MINUTE);
             $this->enforceWindow("rate:{$kind}:h:{$ip}", $settings->rateLimitSearchPerHour, self::WINDOW_HOUR);
             return '';
         }
 
-        $this->lock(self::RAG_ADMIT_MUTEX);
+        $this->lock(self::AI_ANSWER_ADMIT_MUTEX);
         try {
             if ($this->isGlobalBudgetExhausted()) {
                 return self::TOKEN_FALLBACK_PREFIX . $ip;
             }
         } finally {
-            $this->unlock(self::RAG_ADMIT_MUTEX);
+            $this->unlock(self::AI_ANSWER_ADMIT_MUTEX);
         }
 
-        $this->enforceWindow("rate:rag:m:{$ip}", $settings->rateLimitRagPerMinute, self::WINDOW_MINUTE);
-        $this->enforceWindow("rate:rag:h:{$ip}", $settings->rateLimitRagPerHour, self::WINDOW_HOUR);
+        $this->enforceWindow("rate:aians:m:{$ip}", $settings->rateLimitAiAnswerPerMinute, self::WINDOW_MINUTE);
+        $this->enforceWindow("rate:aians:h:{$ip}", $settings->rateLimitAiAnswerPerHour, self::WINDOW_HOUR);
 
         $nonce = bin2hex(random_bytes(8));
 
-        $this->lock(self::RAG_ADMIT_MUTEX);
+        $this->lock(self::AI_ANSWER_ADMIT_MUTEX);
         try {
             if ($this->isGlobalBudgetExhausted()) {
                 return self::TOKEN_FALLBACK_PREFIX . $ip;
             }
 
-            $this->incrementGaugeLocked("conc:rag:ip:{$ip}", $settings->ragConcurrencyPerIp, 'per-IP');
+            $this->incrementGaugeLocked("conc:aians:ip:{$ip}", $settings->aiAnswerConcurrencyPerIp, 'per-IP');
             try {
-                $this->incrementGaugeLocked('conc:rag:global', $settings->ragConcurrencyGlobal, 'global');
+                $this->incrementGaugeLocked('conc:aians:global', $settings->aiAnswerConcurrencyGlobal, 'global');
             } catch (RateLimitException $e) {
-                $this->decrementGaugeLocked("conc:rag:ip:{$ip}");
+                $this->decrementGaugeLocked("conc:aians:ip:{$ip}");
                 throw $e;
             }
 
             Craft::$app->getCache()->set(self::NONCE_KEY_PREFIX . $nonce, $ip, self::CONCURRENCY_TTL);
         } finally {
-            $this->unlock(self::RAG_ADMIT_MUTEX);
+            $this->unlock(self::AI_ANSWER_ADMIT_MUTEX);
         }
 
         return self::TOKEN_OK_PREFIX . $nonce . ':' . $ip;
     }
 
     /**
-     * Release a RAG slot. Idempotent: the per-token nonce is consumed atomically
+     * Release a AI Answer slot. Idempotent: the per-token nonce is consumed atomically
      * under the admit mutex, so a second release() for the same token is a no-op
      * — concurrency gauges are decremented exactly once per acquire.
      *
-     * Tokens from non-RAG acquires (empty string) and fallback tokens are ignored.
+     * Tokens from non-AI-Answer acquires (empty string) and fallback tokens are ignored.
      */
     public function release(string $token): void
     {
@@ -120,17 +120,17 @@ class RateLimitService extends Component
 
         $nonceKey = self::NONCE_KEY_PREFIX . $nonce;
 
-        $this->lock(self::RAG_ADMIT_MUTEX);
+        $this->lock(self::AI_ANSWER_ADMIT_MUTEX);
         try {
             $cache = Craft::$app->getCache();
             if ($cache->get($nonceKey) === false) {
                 return;
             }
             $cache->delete($nonceKey);
-            $this->decrementGaugeLocked("conc:rag:ip:{$ip}");
-            $this->decrementGaugeLocked('conc:rag:global');
+            $this->decrementGaugeLocked("conc:aians:ip:{$ip}");
+            $this->decrementGaugeLocked('conc:aians:global');
         } finally {
-            $this->unlock(self::RAG_ADMIT_MUTEX);
+            $this->unlock(self::AI_ANSWER_ADMIT_MUTEX);
         }
     }
 
@@ -190,8 +190,8 @@ class RateLimitService extends Component
     }
 
     /**
-     * True when today's global RAG spend has hit the configured cap. Callers
-     * should fall back to plain hybrid search rather than failing the request.
+     * True when today's global AI Answer spend has hit the configured cap. Callers
+     * should fall back to plain smart search rather than failing the request.
      */
     public function isGlobalBudgetExhausted(): bool
     {

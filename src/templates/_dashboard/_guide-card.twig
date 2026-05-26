@@ -1,0 +1,28 @@
+{#
+    Post-setup guide card — surfaces recommended (non-required) next steps.
+    Renders only when at least one pending step exists and user hasn't dismissed.
+
+    Params:
+        recommendedSteps  list<{ done, label, hint, cta: { url, label } }>
+#}
+{% set pending = recommendedSteps|filter(s => not s.done) %}
+{% if pending|length %}
+<div class="guide-card" data-craftsearch-guide>
+    <button type="button" class="guide-card__close"
+            data-craftsearch-control="dismiss-guide"
+            aria-label="Dismiss"
+            title="Dismiss">×</button>
+    <h3 class="guide-card__title">Recommended next steps</h3>
+    <ul class="guide-card__list">
+        {% for s in pending %}
+            <li class="guide-card__item">
+                <div>
+                    <strong>{{ s.label }}</strong>
+                    <span class="light smalltext"> — {{ s.hint }}</span>
+                </div>
+                <a class="btn small" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}

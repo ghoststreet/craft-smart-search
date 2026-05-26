@@ -11,7 +11,7 @@ use PDOException;
 use yii\base\Component;
 
 /**
- * BM25-style scoring via PostgreSQL full-text search, with a title-match rerank.
+ * Keyword scoring via PostgreSQL full-text search, with a title-match rerank.
  *
  * Each chunk is scored against the query with ts_rank_cd (length-normalized), parsed
  * via websearch_to_tsquery so quoted phrases and OR/- operators work. Multi-token
@@ -20,7 +20,7 @@ use yii\base\Component;
  * tokens found in the entry title — titles live in the main Craft DB (not the
  * vectors DB), so this can't be expressed as a SQL JOIN.
  */
-class BM25Service extends Component
+class KeywordSearchService extends Component
 {
     /** ts_rank_cd normalization flag: divide rank by document length. */
     private const TS_RANK_NORMALIZE_LENGTH = 32;
@@ -38,7 +38,7 @@ class BM25Service extends Component
     ];
 
     /**
-     * @return array<int, array{elementId: int, siteId: int, bm25Score: float, content: string}>
+     * @return array<int, array{elementId: int, siteId: int, keywordScore: float, content: string}>
      * @throws SearchException If the database query fails
      */
     public function calculateScores(string $query, ?int $siteId = null): array
@@ -67,7 +67,7 @@ class BM25Service extends Component
 
             if ($applyPhraseBoost) {
                 // +1.0 is large relative to typical ts_rank_cd values (~0.0-0.5),
-                // floating any chunk containing the exact phrase to the top of BM25.
+                // floating any chunk containing the exact phrase to the top of the keyword ranking.
                 $scoreExpr .= " + (CASE WHEN content ILIKE :raw THEN 1.0 ELSE 0 END)";
                 // OR'd into WHERE so exact substring matches still surface even when
                 // websearch_to_tsquery returns empty (e.g. all-stopword queries).
@@ -80,6 +80,25 @@ class BM25Service extends Component
                 $params[':raw'] = '%' . $normalizedQuery . '%';
             }
 
+            // Best-effort typo expansion. Returns null whenever pg_trgm or the
+            // dictionary isn't ready, so keyword search reads identically to before in
+            // that case. When it returns an expression, OR it into the WHERE
+            // and score so corrected matches contribute without displacing
+            // exact-match ranking.
+            $corrected = SmartSearch::getInstance()->queryCorrectorService->rewrite($normalizedQuery, $siteId);
+            if ($corrected !== null) {
+                $correctedTsQuery = "to_tsquery('{$language}', :corrected)";
+                $whereExpr = "({$whereExpr} OR {$contentTs} @@ {$correctedTsQuery})";
+                // Half-weight: a typo match should never outrank an exact-token match.
+                $scoreExpr .= " + (0.5 * ts_rank_cd({$contentTs}, {$correctedTsQuery}, {$normalization}))";
+                $params[':corrected'] = $corrected;
+
+                Logger::debug('Keyword typo correction applied', [
+                    'original' => $normalizedQuery,
+                    'tsquery' => $corrected,
+                ]);
+            }
+
             $siteFilter = '';
             if ($siteId !== null) {
                 $siteFilter = ' AND "siteId" = :siteId';
@@ -89,8 +108,8 @@ class BM25Service extends Component
             $maxResults = SmartSearch::getInstance()->getSettings()->maxSemanticResults;
 
             // CTE + ROW_NUMBER keeps the *content* of the best-scoring chunk per
-            // (elementId, siteId). Hybrid needs that content for excerpt rendering
-            // when a result is BM25-only (not in the semantic top-N).
+            // (elementId, siteId). Smart Search needs that content for excerpt rendering
+            // when a result is keyword-only (not in the semantic top-N).
             $sql = "
                 WITH scored AS (
                     SELECT
@@ -112,14 +131,14 @@ class BM25Service extends Component
                         ) AS rn
                     FROM scored
                 )
-                SELECT \"elementId\", \"siteId\", chunk_score AS bm25_score, content
+                SELECT \"elementId\", \"siteId\", chunk_score AS keyword_score, content
                 FROM ranked
                 WHERE rn = 1
-                ORDER BY bm25_score DESC
+                ORDER BY keyword_score DESC
                 LIMIT {$maxResults}
             ";
 
-            Logger::debug('BM25 query', [
+            Logger::debug('Keyword query', [
                 'query' => $normalizedQuery,
                 'siteId' => $siteId,
                 'maxResults' => $maxResults,
@@ -131,7 +150,7 @@ class BM25Service extends Component
 
             $rows = $stmt->fetchAll();
 
-            Logger::debug('BM25 results', [
+            Logger::debug('Keyword results', [
                 'matchedElements' => count($rows),
             ]);
 
@@ -140,7 +159,7 @@ class BM25Service extends Component
                 $scores[] = [
                     'elementId' => (int)$row['elementId'],
                     'siteId' => (int)$row['siteId'],
-                    'bm25Score' => (float)$row['bm25_score'],
+                    'keywordScore' => (float)$row['keyword_score'],
                     'content' => (string)($row['content'] ?? ''),
                 ];
             }
@@ -148,7 +167,7 @@ class BM25Service extends Component
             return $this->applyTitleBoost($scores, $normalizedQuery);
         } catch (PDOException $e) {
             Logger::exception($e, 'calculateScores', ['query' => substr($query, 0, 50)]);
-            throw SearchException::semanticSearchFailed('BM25 scoring failed', $e);
+            throw SearchException::semanticSearchFailed('Keyword scoring failed', $e);
         }
     }
 
@@ -156,10 +175,10 @@ class BM25Service extends Component
      * Rerank candidates by the longest consecutive run of query tokens found in the entry title.
      *
      * A bigram match adds +1.5, trigram +3.0, etc. Single-token matches add nothing
-     * here — BM25's body scoring already accounts for individual word presence.
+     * here — Keyword body scoring already accounts for individual word presence.
      *
-     * @param array<int, array{elementId: int, siteId: int, bm25Score: float, content: string}> $scores
-     * @return array<int, array{elementId: int, siteId: int, bm25Score: float, content: string}>
+     * @param array<int, array{elementId: int, siteId: int, keywordScore: float, content: string}> $scores
+     * @return array<int, array{elementId: int, siteId: int, keywordScore: float, content: string}>
      */
     private function applyTitleBoost(array $scores, string $query): array
     {
@@ -199,16 +218,16 @@ class BM25Service extends Component
 
             $longest = $this->longestConsecutiveTokenMatch($tokens, $title);
             if ($longest >= 2) {
-                $score['bm25Score'] += ($longest - 1) * self::TITLE_NGRAM_BONUS_PER_EXTRA_TOKEN;
+                $score['keywordScore'] += ($longest - 1) * self::TITLE_NGRAM_BONUS_PER_EXTRA_TOKEN;
                 $boostedCount++;
                 $longestObserved = max($longestObserved, $longest);
             }
         }
         unset($score);
 
-        usort($scores, static fn(array $a, array $b) => $b['bm25Score'] <=> $a['bm25Score']);
+        usort($scores, static fn(array $a, array $b) => $b['keywordScore'] <=> $a['keywordScore']);
 
-        Logger::debug('BM25 title-boost', [
+        Logger::debug('Keyword title-boost', [
             'candidates' => count($scores),
             'titlesResolved' => count($titles),
             'titleBoosted' => $boostedCount,

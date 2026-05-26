@@ -1,34 +1,52 @@
 {#
-    Onboarding card shown on the dashboard until setup is complete.
+    Onboarding card shown on the dashboard until required setup is complete.
 
     Params:
-        settings  Plugin settings model
-        stats     { isConnected, entryCount }
+        settings           Plugin settings model
+        stats              { isConnected, entryCount }
+        requiredSteps      list<{ done, label, hint, cta: { url, label } }>
+        recommendedSteps   list<{ done, label, hint, cta: { url, label } }>
 #}
-{% set steps = [
-    { done: settings.openaiApiKey ? true : false, label: 'Configure your OpenAI API key', hint: 'Generate embeddings and power RAG search.', cta: 'smart-search/settings' },
-    { done: stats.isConnected, label: 'Connect your PostgreSQL / pgvector database', hint: 'Stores embeddings for fast semantic lookup.', cta: 'smart-search/settings' },
-    { done: stats.isConnected and stats.entryCount > 0, label: 'Run your first index', hint: 'Generates vectors for every published entry.', cta: 'smart-search/index' },
-] %}
-
-<div class="pane">
+<div class="pane onboarding-card">
     <h2 class="dash-lede">Finish setting up Smart Search</h2>
-    <p class="light dash-lede">Three steps separate you from intelligent, AI-powered search on your Craft site.</p>
+    <p class="light dash-lede">Get search running, then customise the experience.</p>
 
+    <h3 class="onboarding-section">Required to start searching</h3>
     <ol class="onboarding-list">
-        {% for s in steps %}
+        {% for s in requiredSteps %}
             <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}">
                 <span class="onboarding-list__icon">
                     {% if s.done %}<span data-icon="check"></span>{% else %}{{ loop.index }}{% endif %}
                 </span>
-                <div>
+                <div class="onboarding-list__body">
                     <strong>{{ s.label }}</strong>
                     <div class="light smalltext">{{ s.hint }}</div>
                 </div>
                 {% if not s.done %}
-                    <a class="btn submit" href="{{ cpUrl(s.cta) }}">Open</a>
+                    <a class="btn submit" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
                 {% endif %}
             </li>
         {% endfor %}
     </ol>
+
+    {% if recommendedSteps|length %}
+        <hr class="onboarding-divider">
+        <h3 class="onboarding-section onboarding-section--muted">Recommended next</h3>
+        <ol class="onboarding-list onboarding-list--recommended">
+            {% for s in recommendedSteps %}
+                <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}">
+                    <span class="onboarding-list__icon">
+                        {% if s.done %}<span data-icon="check"></span>{% endif %}
+                    </span>
+                    <div class="onboarding-list__body">
+                        <strong>{{ s.label }}</strong>
+                        <div class="light smalltext">{{ s.hint }}</div>
+                    </div>
+                    {% if not s.done %}
+                        <a class="btn" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ol>
+    {% endif %}
 </div>

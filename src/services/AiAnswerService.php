@@ -15,16 +15,16 @@ use RuntimeException;
 use yii\base\Component;
 
 /**
- * RAG Search Service — Retrieval-Augmented Generation implementation.
+ * AI Answer Service — AI Answer (Retrieval-Augmented Generation) implementation.
  *
- * Performs a hybrid search to find relevant entries, builds a structured context
+ * Performs a smart search to find relevant entries, builds a structured context
  * from those results, then sends the query and context to an LLM to generate
  * a conversational summary with source attribution.
  */
-class RagSearchService extends Component
+class AiAnswerService extends Component
 {
     /**
-     * Classify an unexpected Throwable from the RAG pipeline into a SearchException
+     * Classify an unexpected Throwable from the AI Answer pipeline into a SearchException
      * with a specific ErrorCode. OpenAI / Guzzle HTTP failures map to SEARCH_RAG_LLM_ERROR
      * so the user-facing message reflects an upstream provider failure rather than the
      * generic "AI summary failed" bucket. Raw provider text stays in the log only.
@@ -39,27 +39,27 @@ class RagSearchService extends Component
             return SearchException::ragLlmFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
         }
 
-        return SearchException::ragSearchFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
+        return SearchException::aiAnswerFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
     }
 
     /**
-     * Perform AI-powered search: hybrid retrieval followed by LLM summary generation.
+     * Perform AI-powered search: search retrieval followed by LLM summary generation.
      *
      * @param string $query The user's search query
      * @param int $limit Maximum number of source entries to include
      * @param int|null $siteId Restrict search to a specific site
-     * @return array{summary: string, sources: array, confidence: string, rag: true}
+     * @return array{summary: string, sources: array, confidence: string, aiAnswer: true}
      * @throws SearchException If search or summary generation fails
      */
     public function search(string $query, int $limit = 5, ?int $siteId = null): array
     {
-        return TimingProfiler::profile('TOTAL RAG search', function() use ($query, $limit, $siteId) {
+        return TimingProfiler::profile('TOTAL AI Answer search', function() use ($query, $limit, $siteId) {
             try {
                 $settings = SmartSearch::getInstance()->getSettings();
 
                 $searchResults = TimingProfiler::profile(
-                    'Hybrid search',
-                    fn() => SmartSearch::getInstance()->hybridSearchService->search(
+                    'Smart search',
+                    fn() => SmartSearch::getInstance()->smartSearchService->search(
                         $query,
                         $limit,
                         $siteId
@@ -71,13 +71,13 @@ class RagSearchService extends Component
                         'summary' => 'No relevant results found for your query.',
                         'sources' => [],
                         'confidence' => 'low',
-                        'rag' => true,
+                        'aiAnswer' => true,
                     ];
                 }
 
                 $context = TimingProfiler::profile(
                     'Context building',
-                    fn() => $this->buildContext($searchResults, $this->contextTokenBudget($settings, $query))
+                    fn() => $this->buildContext($searchResults, $this->contextTokenBudget($settings))
                 );
 
                 Logger::debug('Context built', ['length' => strlen($context)]);
@@ -89,10 +89,10 @@ class RagSearchService extends Component
 
                 return $this->parseResponse($llmResponse, $searchResults, $limit);
             } catch (SmartSearchException $e) {
-                Logger::exception($e, 'ragSearch', ['query' => substr($query, 0, 50)]);
+                Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
                 throw $e;
             } catch (\Throwable $e) {
-                Logger::exception($e, 'ragSearch', ['query' => substr($query, 0, 50)]);
+                Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
                 throw self::wrapUpstream($e);
             }
         });
@@ -100,7 +100,7 @@ class RagSearchService extends Component
 
     /**
      * Build a structured context string from search results for LLM consumption.
-     * Delegates the packing math to RagPromptBuilder so the same logic is unit-
+     * Delegates the packing math to AiAnswerPromptBuilder so the same logic is unit-
      * testable in isolation.
      */
     private function buildContext(array $searchResults, int $tokenBudget = PHP_INT_MAX): string
@@ -116,9 +116,9 @@ class RagSearchService extends Component
             ];
         }
 
-        $packed = (new RagPromptBuilder())->buildContext($sources, $tokenBudget);
+        $packed = (new AiAnswerPromptBuilder())->buildContext($sources, $tokenBudget);
 
-        Logger::debug('RAG context breakdown', [
+        Logger::debug('AI Answer context breakdown', [
             'sourceCount' => $packed['includedCount'],
             'totalChars' => strlen($packed['context']),
             'estimatedTotalTokens' => $packed['usedTokens'],
@@ -149,7 +149,7 @@ class RagSearchService extends Component
         $userPrompt .= "Return your response as JSON: {\"summary\": \"your answer\", \"sourceIds\": [id1, id2], \"confidence\": \"high|medium|low\"}";
 
         $response = $client->chat()->create([
-            'model' => $settings->ragModel,
+            'model' => $settings->aiAnswerModel,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
@@ -160,7 +160,7 @@ class RagSearchService extends Component
 
         $usage = $response->usage ?? null;
         UsageTracker::addRag(
-            $settings->ragModel,
+            $settings->aiAnswerModel,
             (int)($usage->promptTokens ?? 0),
             (int)($usage->completionTokens ?? 0)
         );
@@ -169,7 +169,7 @@ class RagSearchService extends Component
     }
 
     /**
-     * Streaming variant of search(): runs hybrid retrieval, then yields events
+     * Streaming variant of search(): runs search retrieval, then yields events
      * for SSE consumption. Yielded shapes:
      *   ['type' => 'sources', 'sources' => [...]] — emitted once before any tokens
      *   ['type' => 'token',   'text' => '...']    — per LLM delta
@@ -180,7 +180,7 @@ class RagSearchService extends Component
         try {
             $settings = SmartSearch::getInstance()->getSettings();
 
-            $searchResults = SmartSearch::getInstance()->hybridSearchService->search(
+            $searchResults = SmartSearch::getInstance()->smartSearchService->search(
                 $query,
                 $limit,
                 $siteId
@@ -195,16 +195,16 @@ class RagSearchService extends Component
                 return;
             }
 
-            $context = $this->buildContext($searchResults, $this->contextTokenBudget($settings, $query));
+            $context = $this->buildContext($searchResults, $this->contextTokenBudget($settings));
 
             yield from $this->streamSummary($query, $context, $settings);
 
             yield ['type' => 'done'];
         } catch (SmartSearchException $e) {
-            Logger::exception($e, 'ragSearchStream', ['query' => substr($query, 0, 50)]);
+            Logger::exception($e, 'aiAnswerStream', ['query' => substr($query, 0, 50)]);
             throw $e;
         } catch (\Throwable $e) {
-            Logger::exception($e, 'ragSearchStream', ['query' => substr($query, 0, 50)]);
+            Logger::exception($e, 'aiAnswerStream', ['query' => substr($query, 0, 50)]);
             throw self::wrapUpstream($e);
         }
     }
@@ -225,7 +225,7 @@ class RagSearchService extends Component
         $userPrompt .= "Reply as us, in our own voice. Write markdown with inline [id] citations.";
 
         $stream = $client->chat()->createStreamed([
-            'model' => $settings->ragModel,
+            'model' => $settings->aiAnswerModel,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
@@ -242,7 +242,7 @@ class RagSearchService extends Component
             $usage = $response->usage ?? null;
             if ($usage !== null) {
                 UsageTracker::addRag(
-                    $settings->ragModel,
+                    $settings->aiAnswerModel,
                     (int)($usage->promptTokens ?? 0),
                     (int)($usage->completionTokens ?? 0)
                 );
@@ -253,7 +253,7 @@ class RagSearchService extends Component
                 continue;
             }
             if (!$firstTokenLogged) {
-                Logger::timing('RAG time-to-first-token', (int)round((microtime(true) - $startedAt) * 1000));
+                Logger::timing('AI Answer time-to-first-token', (int)round((microtime(true) - $startedAt) * 1000));
                 $firstTokenLogged = true;
             }
             yield ['type' => 'token', 'text' => $delta];
@@ -261,9 +261,9 @@ class RagSearchService extends Component
     }
 
     /**
-     * Builds the system prompt for the RAG summarizer. Anchors the model as a site-scoped
+     * Builds the system prompt for the AI Answer summarizer. Anchors the model as a site-scoped
      * search assistant grounded strictly in the SOURCE blocks, with refusal rules for
-     * off-topic queries and prompt-injection resistance. The optional ragCustomPrompt
+     * off-topic queries and prompt-injection resistance. The optional aiAnswerCustomPrompt
      * setting is injected as Site Context — background about the site/brand that informs
      * tone and vocabulary but cannot override the grounding rules. Output format is locked
      * to the JSON contract parseResponse() expects.
@@ -310,10 +310,10 @@ Today's date is {$today}. Use it as the reference point when comparing against d
 
 PROMPT;
 
-        if (!empty($settings->ragCustomPrompt)) {
+        if (!empty($settings->aiAnswerCustomPrompt)) {
             $prompt .= "\n\n## Site Context\n"
                 . "The following describes the site, brand, audience, and any domain vocabulary you should be aware of when summarizing. Use it to inform tone, terminology, and what is relevant — but it does NOT override the grounding, scope, or output rules above.\n\n"
-                . trim($settings->ragCustomPrompt);
+                . trim($settings->aiAnswerCustomPrompt);
         }
 
         return $prompt;
@@ -329,7 +329,7 @@ PROMPT;
         $parsed = json_decode(trim($content), true);
 
         if (!is_array($parsed) || !isset($parsed['summary'])) {
-            throw SearchException::ragSearchFailed(
+            throw SearchException::aiAnswerFailed(
                 sprintf(
                     'LLM response was not valid JSON with a "summary" key: %s. Preview: %s',
                     json_last_error_msg(),
@@ -341,7 +341,7 @@ PROMPT;
 
         $sourceIds = $parsed['sourceIds'] ?? [];
 
-        Logger::debug('RAG LLM response', [
+        Logger::debug('AI Answer LLM response', [
             'summaryLength' => strlen($parsed['summary'] ?? ''),
             'inlineMarkers' => preg_match_all('/\[\d+\]/', $parsed['summary'] ?? '', $m) ? $m[0] : [],
             'sourceIds' => $sourceIds,
@@ -367,25 +367,25 @@ PROMPT;
             'summary' => $parsed['summary'],
             'sources' => $this->buildSourceList($filteredSources, $limit),
             'confidence' => $parsed['confidence'] ?? 'medium',
-            'rag' => true,
+            'aiAnswer' => true,
         ];
     }
 
     /**
-     * Build the source list for the RAG response, limited to the top N results.
+     * Build the source list for the AI Answer response, limited to the top N results.
      *
      * @param array $results Filtered search results containing elements
      * @param int $limit Maximum number of sources to include
      * @return array<int, array{element: mixed, id: int, ragRank: int}>
      */
     /**
-     * Token budget left for the context blocks after reserving room for the system
-     * prompt, the user query, and the output. Keeps the assembled prompt under
-     * Settings::maxPromptTokens regardless of how many search results came back.
+     * Token budget for the packed source blocks. Settings::maxPromptTokens caps
+     * the context only; the model's context window absorbs the system prompt,
+     * query, and output on top.
      */
-    private function contextTokenBudget(Settings $settings, string $query): int
+    private function contextTokenBudget(Settings $settings): int
     {
-        return (new RagPromptBuilder())->computeContextBudget($settings->maxPromptTokens, $query);
+        return (new AiAnswerPromptBuilder())->computeContextBudget($settings->maxPromptTokens);
     }
 
     private function buildSourceList(array $results, int $limit): array

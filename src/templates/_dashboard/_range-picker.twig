@@ -5,12 +5,11 @@
     Params:
         range          int  current range
         allowedRanges  list<int>
-        tab            string
 #}
 <div class="btngroup" role="group" aria-label="Date range">
     {% for r in allowedRanges %}
         <a class="btn small{% if r == range %} is-active{% endif %}"
-           href="{{ cpUrl('smart-search', { range: r, tab: tab }) }}"
+           href="{{ cpUrl('smart-search', { range: r }) }}"
            {% if r == range %}aria-current="page"{% endif %}>{{ r }}d</a>
     {% endfor %}
 </div>

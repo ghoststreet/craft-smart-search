@@ -2,12 +2,13 @@
 
 {% set title = 'Settings' %}
 {% set fullPageForm = true %}
+{% set wikiUrl = 'https://github.com/ghoststreet/craft-smart-search/wiki' %}
 
 {% set tabs = {
     'tab-connections':   { label: 'Connections',   url: '#tab-connections',   class: settings.errorsForTab('tab-connections')   ? 'error' : '' },
     'tab-indexing':      { label: 'Indexing',      url: '#tab-indexing',      class: settings.errorsForTab('tab-indexing')      ? 'error' : '' },
-    'tab-hybrid-search': { label: 'Hybrid Search', url: '#tab-hybrid-search', class: settings.errorsForTab('tab-hybrid-search') ? 'error' : '' },
-    'tab-ai-answers':    { label: 'AI Answers',    url: '#tab-ai-answers',    class: settings.errorsForTab('tab-ai-answers')    ? 'error' : '' },
+    'tab-smart-search': { label: 'Smart Search', url: '#tab-smart-search', class: settings.errorsForTab('tab-smart-search') ? 'error' : '' },
+    'tab-ai-answer':    { label: 'AI Answer',    url: '#tab-ai-answer',    class: settings.errorsForTab('tab-ai-answer')    ? 'error' : '' },
     'tab-advanced':    { label: 'Advanced',     url: '#tab-advanced',    class: settings.errorsForTab('tab-advanced')    ? 'error' : '' },
 } %}
 
@@ -23,12 +24,12 @@
         {% include 'smart-search/_settings/_indexing' %}
     </div>
 
-    <div id="tab-hybrid-search" class="hidden">
-        {% include 'smart-search/_settings/_hybrid_search' %}
+    <div id="tab-smart-search" class="hidden">
+        {% include 'smart-search/_settings/_smart_search' %}
     </div>
 
-    <div id="tab-ai-answers" class="hidden">
-        {% include 'smart-search/_settings/_ai_answers' %}
+    <div id="tab-ai-answer" class="hidden">
+        {% include 'smart-search/_settings/_ai_answer' %}
     </div>
 
     <div id="tab-advanced" class="hidden">

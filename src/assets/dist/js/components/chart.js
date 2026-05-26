@@ -36,23 +36,6 @@
         return cfg;
     }
 
-    function durationConfig(series) {
-        var p = Theme.palette();
-        var cfg = sparklineConfig(series.map(function (r) { return { date: r.date, value: r.avg }; }), p.primary);
-        if (series.some(function (r) { return r.p95 != null; })) {
-            cfg.data.datasets.push({
-                data: series.map(function (r) { return r.p95; }),
-                borderColor: p.warn,
-                borderWidth: 1,
-                borderDash: [4, 3],
-                pointRadius: 0,
-                tension: 0.3,
-                fill: false
-            });
-        }
-        return cfg;
-    }
-
     function donutConfig(parts) {
         var p = Theme.palette();
         return {
@@ -74,25 +57,39 @@
         };
     }
 
-    function stackedBarConfig(data) {
+    function horizontalStackedBarConfig(data) {
         var p = Theme.palette();
         return {
             type: 'bar',
             data: {
                 labels: data.map(function (r) { return r.site; }),
                 datasets: [
-                    { label: 'Indexed', data: data.map(function (r) { return r.indexed; }), backgroundColor: p.success },
-                    { label: 'Stale', data: data.map(function (r) { return r.stale; }), backgroundColor: p.stale },
-                    { label: 'Not indexed', data: data.map(function (r) { return r.notIndexed; }), backgroundColor: p.unindexed }
+                    { label: 'Indexed', data: data.map(function (r) { return r.indexed; }), backgroundColor: p.success, borderWidth: 0 },
+                    { label: 'Stale', data: data.map(function (r) { return r.stale; }), backgroundColor: p.stale, borderWidth: 0 },
+                    { label: 'Not indexed', data: data.map(function (r) { return r.notIndexed; }), backgroundColor: p.unindexed, borderWidth: 0 }
                 ]
             },
             options: {
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } },
+                plugins: {
+                    legend: { position: 'top', align: 'end', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: false } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                var row = data[ctx.dataIndex] || {};
+                                var total = (row.indexed || 0) + (row.stale || 0) + (row.notIndexed || 0);
+                                var v = ctx.parsed.x || 0;
+                                var pct = total > 0 ? Math.round((v / total) * 100) : 0;
+                                return ctx.dataset.label + ': ' + v + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                },
                 scales: {
-                    x: { stacked: true, grid: { display: false } },
-                    y: { stacked: true, grid: { color: p.grid }, beginAtZero: true }
+                    x: { stacked: true, grid: { color: p.grid }, beginAtZero: true, ticks: { precision: 0 } },
+                    y: { stacked: true, grid: { display: false } }
                 }
             }
         };
@@ -101,9 +98,8 @@
     var BUILDERS = {
         'sparkline': sparklineConfig,
         'area': areaConfig,
-        'duration': durationConfig,
         'donut': donutConfig,
-        'stacked-bar': stackedBarConfig
+        'horizontal-stacked-bar': horizontalStackedBarConfig
     };
 
     window.SmartSearch.components.Chart = {
@@ -120,7 +116,7 @@
             return new Chart(canvas.getContext('2d'), builder(series));
         },
         buildAll: function (root) {
-            var canvases = (root || document).querySelectorAll('canvas[data-craftsearch-chart]');
+            var canvases = (root || document).querySelectorAll('[data-craftsearch-target="chart-canvas"]');
             return Array.prototype.map.call(canvases, this.build, this);
         }
     };

@@ -1,0 +1,17 @@
+{#
+    Coverage by site — horizontal stacked-bar chart. Multisite only.
+
+    Params:
+        coverage       list<{ site, indexed, stale, notIndexed }>
+        coverageTotal  int
+#}
+<div class="pane">
+    <h3 class="dash-title">Coverage by site</h3>
+    {% if coverage|length and coverageTotal > 0 %}
+        <div class="dash-chart dash-chart--coverage" style="height: {{ (coverage|length * 36) + 60 }}px;">
+            <canvas data-craftsearch-target="chart-canvas" data-craftsearch-chart="horizontal-stacked-bar" data-craftsearch-series="{{ coverage|json_encode|e('html_attr') }}"></canvas>
+        </div>
+    {% else %}
+        <p class="dash-empty">No entries indexed yet — <a href="{{ cpUrl('smart-search/index') }}">run your first sync</a>.</p>
+    {% endif %}
+</div>

@@ -19,8 +19,6 @@ class RecommendationsService extends Component
     public const LEVEL_WARN = 'warn';
     public const LEVEL_CRIT = 'crit';
 
-    public const CAT_ADVANCED = 'advanced';
-    public const CAT_QUALITY = 'quality';
 
     /**
      * @param array $context  Pre-computed values the dashboard already has, to avoid duplicate work.
@@ -39,7 +37,7 @@ class RecommendationsService extends Component
                 $out[] = $this->advisory(
                     self::LEVEL_CRIT,
                     'Daily cost budget at ' . round($ratio * 100) . '%',
-                    sprintf('$%.4f of $%.2f spent today. New RAG requests will be rejected at 100%%.',
+                    sprintf('$%.4f of $%.2f spent today. New AI Answer requests will be rejected at 100%%.',
                         $budget['spent'], $budget['cap']),
                     'Adjust budget',
                     'smart-search/settings#budgets'
@@ -56,7 +54,7 @@ class RecommendationsService extends Component
                 $out[] = $this->advisory(
                     self::LEVEL_INFO,
                     'Projected to hit cap in ' . $budget['etaDays'] . ' days',
-                    'Based on 7-day burn rate. Raise the daily cap or reduce RAG traffic if this is unexpected.',
+                    'Based on 7-day burn rate. Raise the daily cap or reduce AI Answer traffic if this is unexpected.',
                     'Adjust budget',
                     'smart-search/settings#budgets'
                 );
@@ -116,8 +114,7 @@ class RecommendationsService extends Component
                     round($context['zeroResultRate'] * 100) . '% of recent searches return zero results',
                     'Inspect top zero-result queries — they often indicate missing content or overly strict thresholds.',
                     'View zero-results',
-                    'smart-search/insights?tab=zero-results',
-                    self::CAT_QUALITY
+                    'smart-search/insights?tab=zero-results'
                 );
             }
         }
@@ -132,8 +129,7 @@ class RecommendationsService extends Component
                     'No searches recorded in the last 7 days',
                     'Content is indexed but the search endpoint is not receiving traffic. Verify your front-end integration.',
                     null,
-                    null,
-                    self::CAT_QUALITY
+                    null
                 );
             }
 
@@ -164,11 +160,10 @@ class RecommendationsService extends Component
         return $out;
     }
 
-    private function advisory(string $level, string $title, string $body, ?string $ctaLabel, ?string $ctaUrl, string $category = self::CAT_ADVANCED): array
+    private function advisory(string $level, string $title, string $body, ?string $ctaLabel, ?string $ctaUrl): array
     {
         return [
             'level' => $level,
-            'category' => $category,
             'title' => $title,
             'body' => $body,
             'cta' => ($ctaLabel && $ctaUrl) ? ['label' => $ctaLabel, 'url' => UrlHelper::cpUrl($ctaUrl)] : null,
