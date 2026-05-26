@@ -7,22 +7,29 @@
 #}
 {% set pending = recommendedSteps|filter(s => not s.done) %}
 {% if pending|length %}
-<div class="guide-card" data-craftsearch-guide>
-    <button type="button" class="guide-card__close"
-            data-craftsearch-control="dismiss-guide"
-            aria-label="Dismiss"
-            title="Dismiss">×</button>
-    <h3 class="guide-card__title">Recommended next steps</h3>
-    <ul class="guide-card__list">
+<div class="pane guide-card" data-craftsearch-guide>
+    {% if hasSearches ?? false %}
+        <button type="button" class="guide-card__close"
+                data-craftsearch-control="dismiss-guide"
+                aria-label="Dismiss"
+                title="Dismiss">×</button>
+    {% endif %}
+    <h3 class="onboarding-section onboarding-section--muted">Recommended next steps</h3>
+    <p class="light onboarding-section__hint">
+        You’re almost there. These extra steps will give your visitors a better search experience and keep
+        AI Answer running the way you want it.
+    </p>
+    <ol class="onboarding-list onboarding-list--recommended">
         {% for s in pending %}
-            <li class="guide-card__item">
-                <div>
+            <li class="onboarding-list__item">
+                <span class="onboarding-list__icon">{{ loop.index }}</span>
+                <div class="onboarding-list__body">
                     <strong>{{ s.label }}</strong>
-                    <span class="light smalltext"> — {{ s.hint }}</span>
+                    <div class="light">{{ s.hint }}</div>
                 </div>
-                <a class="btn small" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
+                <a class="btn" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
             </li>
         {% endfor %}
-    </ul>
+    </ol>
 </div>
 {% endif %}

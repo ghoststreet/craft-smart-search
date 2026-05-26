@@ -4,9 +4,11 @@
 
     Params:
         recommendations  iterable of { level, title, body, cta? }
+        show             'all' | 'action' | 'suggestions' (default 'all')
 #}
-{% set actionRequired = recommendations|filter(r => r.level == 'warn') %}
-{% set suggestions = recommendations|filter(r => r.level == 'info') %}
+{% set show = show ?? 'all' %}
+{% set actionRequired = (show in ['all', 'action']) ? recommendations|filter(r => r.level == 'warn') : [] %}
+{% set suggestions = (show in ['all', 'suggestions']) ? recommendations|filter(r => r.level == 'info') : [] %}
 
 {% if actionRequired|length or suggestions|length %}
     <div class="pane recommendation-list">

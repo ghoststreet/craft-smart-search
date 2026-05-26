@@ -6,8 +6,12 @@
 {% set tabs = {
     overview: { label: 'Overview & sync',   url: cpUrl('smart-search/index', { tab: 'overview' }) },
     entries:  { label: 'Entries',           url: cpUrl('smart-search/index', { tab: 'entries' }) },
-    coverage: { label: 'Per-site coverage', url: cpUrl('smart-search/index', { tab: 'coverage' }) },
 } %}
+{% if isMultiSite %}
+    {% set tabs = tabs|merge({
+        coverage: { label: 'Per-site coverage', url: cpUrl('smart-search/index', { tab: 'coverage' }) },
+    }) %}
+{% endif %}
 {% set selectedTab = tab %}
 
 {% block content %}

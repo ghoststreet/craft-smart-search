@@ -91,20 +91,20 @@ class DashboardController extends Controller
         $requiredSteps = [
             [
                 'done' => (bool)($stats['isConnected'] ?? false),
-                'label' => 'Connect your PostgreSQL / pgvector database',
-                'hint' => 'Stores the embedding vectors search runs against.',
-                'cta' => ['url' => $settingsBase . '#connection-postgres', 'label' => 'Open settings'],
+                'label' => 'Connect a Postgres database with pgvector',
+                'hint' => 'Smart Search keeps a vector embedding for every entry so it can compare meaning, not just words. We use Postgres with the pgvector extension because it scales to millions of rows and keeps the data on infrastructure you control.',
+                'cta' => ['url' => $settingsBase . '#connection-postgres', 'label' => 'Setup Postgres'],
             ],
             [
                 'done' => !empty($settings->getOpenaiApiKey()),
                 'label' => 'Add your OpenAI API key',
-                'hint' => 'Generates embeddings and powers AI Answer.',
-                'cta' => ['url' => $settingsBase . '#connection-openai', 'label' => 'Open settings'],
+                'hint' => 'Your entries are sent to OpenAI’s embedding model to turn each one into a vector, and to the chat model when AI Answer synthesises a reply. The key is read from your Craft config and never stored in the plugin database.',
+                'cta' => ['url' => $settingsBase . '#connection-openai', 'label' => 'Setup Api Key'],
             ],
             [
                 'done' => (bool)($stats['isConnected'] ?? false) && (int)($stats['entryCount'] ?? 0) > 0,
                 'label' => 'Run your first index',
-                'hint' => 'Generates vectors for every published entry.',
+                'hint' => 'This reads every published entry, generates an embedding, and writes it to Postgres. Once it finishes, semantic search and AI Answer are live on your front-end. New and updated entries are indexed automatically from then on.',
                 'cta' => ['url' => UrlHelper::cpUrl('smart-search/index'), 'label' => 'Open indexer'],
             ],
         ];
@@ -112,15 +112,21 @@ class DashboardController extends Controller
         $customPrompt = (string)($settings->aiAnswerCustomPrompt ?? '');
         $recommendedSteps = [
             [
+                'done' => $history->count() > 0,
+                'label' => 'Try a search in the Preview',
+                'hint' => 'Run a few real queries against your index to see how results rank, what the AI Answer sounds like, and how the dashboard fills in. This is also the fastest way to spot content gaps before visitors do.',
+                'cta' => ['url' => UrlHelper::cpUrl('smart-search/preview'), 'label' => 'Open Preview'],
+            ],
+            [
                 'done' => $customPrompt !== '',
-                'label' => 'Customize the AI Answer system prompt',
-                'hint' => 'Match the tone and rules of your brand for synthesised answers.',
+                'label' => 'Customise the AI Answer system prompt',
+                'hint' => 'By default the answer model is told to reply from your content in a neutral tone. Override the system prompt to match your brand voice, restrict what it can talk about, or add domain rules like always linking to the relevant product page.',
                 'cta' => ['url' => $settingsBase . '#tab-ai-answer', 'label' => 'Configure'],
             ],
             [
                 'done' => abs(((float)($settings->costBudgetDailyGlobal ?? 0)) - 3.0) > 0.001,
                 'label' => 'Set a daily AI Answer spend cap',
-                'hint' => 'Stops runaway cost on the answer model — default is $3/day.',
+                'hint' => 'Every AI Answer call costs a few cents on the OpenAI side. The daily cap pauses synthesis once spending hits your limit, so a traffic spike or a misbehaving bot can’t drain your account overnight. Default is $3/day.',
                 'cta' => ['url' => $settingsBase . '#tab-ai-answer', 'label' => 'Set budget'],
             ],
         ];
@@ -149,6 +155,7 @@ class DashboardController extends Controller
             'trendingQueries' => $trendingQueries,
             'recentErrors' => $recentErrors,
             'recommendations' => $recommendations,
+            'hasSearches' => $history->count() > 0,
             'siteCount' => $siteCount,
             'isMultisite' => $isMultisite,
             'indexedSiteCount' => $indexedSiteCount,

@@ -50,7 +50,7 @@
     </div>
 
     {% if not guideDismissed %}
-        {% include 'smart-search/_dashboard/_guide-card' with { recommendedSteps: recommendedSteps } only %}
+        {% include 'smart-search/_dashboard/_guide-card' with { recommendedSteps: recommendedSteps, hasSearches: hasSearches } only %}
     {% endif %}
 
     {% set criticals = recommendations|filter(r => r.level == 'crit') %}
@@ -87,7 +87,7 @@
         } only %}
     </div>
 
-    {# Main bento: Top queries (wide) + side stack (errors, trending) #}
+    {# Top queries + Trending queries (50/50) #}
     <div class="dash-main">
         <div class="pane">
             <h3 class="dash-title">Top queries ({{ range }}d)</h3>
@@ -116,7 +116,11 @@
             {% endif %}
         </div>
 
-        <div class="dash-main__side">
+        {% include 'smart-search/_dashboard/_trending-queries' with { trendingQueries: trendingQueries } only %}
+    </div>
+
+    {% if recentErrors|length %}
+        <div class="dash-row">
             <div class="pane">
                 <h3 class="dash-title">Recent errors</h3>
                 <table class="data fullwidth">
@@ -132,19 +136,13 @@
                                 </td>
                                 <td class="rightalign"><span class="light smalltext">{{ e.dateCreated|date('M j') }}</span></td>
                             </tr>
-                        {% else %}
-                            <tr><td colspan="2" class="centeralign light">No errors recorded.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                {% if recentErrors|length %}
-                    <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights?tab=history&errorsOnly=1') }}">View all errors</a></p>
-                {% endif %}
+                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights?tab=history&errorsOnly=1') }}">View all errors</a></p>
             </div>
-
-            {% include 'smart-search/_dashboard/_trending-queries' with { trendingQueries: trendingQueries } only %}
         </div>
-    </div>
+    {% endif %}
 
     {% if isMultisite %}
         <div class="dash-row">
@@ -153,8 +151,14 @@
     {% endif %}
 
     <div class="dash-row">
-        {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations } only %}
+        {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, show: 'action' } only %}
     </div>
+
+    {% if hasSearches %}
+        <div class="dash-row">
+            {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, show: 'suggestions' } only %}
+        </div>
+    {% endif %}
 
 
 </div>

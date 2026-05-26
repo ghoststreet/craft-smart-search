@@ -35,12 +35,17 @@ class IndexController extends BaseApiController
 
         $request = Craft::$app->getRequest();
         $tab = $request->getQueryParam('tab') ?: 'overview';
+        $isMultiSite = count(Craft::$app->getSites()->getAllSites()) > 1;
+        if ($tab === 'coverage' && !$isMultiSite) {
+            $tab = 'overview';
+        }
 
         $data = [
             'tab' => $tab,
             'plugin' => $plugin,
             'settings' => $settings,
             'selectedSubnavItem' => 'index',
+            'isMultiSite' => $isMultiSite,
         ];
 
         if ($tab === 'entries') {

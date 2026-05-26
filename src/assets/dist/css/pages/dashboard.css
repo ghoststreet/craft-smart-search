@@ -160,7 +160,7 @@
 .dash-main {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 16px;
     align-items: start;
 }
@@ -258,6 +258,7 @@
     line-height: 1;
 }
 .guide-card__close:hover { background: rgba(0,0,0,0.05); color: var(--text-color); }
+.guide-card > .onboarding-section { margin-top: 0; }
 .guide-card__title {
     margin: 0 0 10px;
     font-size: 11px;

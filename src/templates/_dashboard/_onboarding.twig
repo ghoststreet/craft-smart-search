@@ -8,10 +8,27 @@
         recommendedSteps   list<{ done, label, hint, cta: { url, label } }>
 #}
 <div class="pane onboarding-card">
-    <h2 class="dash-lede">Finish setting up Smart Search</h2>
-    <p class="light dash-lede">Get search running, then customise the experience.</p>
+    <div class="onboarding-card__intro">
+        <div class="onboarding-card__icon" aria-hidden="true">
+            {{ svg('@ghoststreet/craftsmartsearch/icon.svg') }}
+        </div>
+        <div class="onboarding-card__intro-body">
+            <h2 class="dash-lede">Welcome to Smart Search</h2>
+            <p class="light dash-lede">
+                Smart Search adds semantic search to your Craft site, so visitors get results based on what
+                they meant rather than just what they typed, with typo tolerance and multi-language stemming
+                handled for you. You can also turn on AI Answer to show a short cited summary written from
+                your own entries. The checklist below covers the three connections needed to turn it on, plus
+                two optional settings for AI Answer.
+            </p>
+        </div>
+    </div>
 
-    <h3 class="onboarding-section">Required to start searching</h3>
+    <h3 class="onboarding-section">1. Connect the services search runs on</h3>
+    <p class="light onboarding-section__hint">
+        Smart Search stores a vector for every entry and asks an AI model to read them at query time.
+        These three steps wire up that storage, that model, and the first batch of vectors.
+    </p>
     <ol class="onboarding-list">
         {% for s in requiredSteps %}
             <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}">
@@ -20,7 +37,7 @@
                 </span>
                 <div class="onboarding-list__body">
                     <strong>{{ s.label }}</strong>
-                    <div class="light smalltext">{{ s.hint }}</div>
+                    <div class="light">{{ s.hint }}</div>
                 </div>
                 {% if not s.done %}
                     <a class="btn submit" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
@@ -30,8 +47,11 @@
     </ol>
 
     {% if recommendedSteps|length %}
-        <hr class="onboarding-divider">
-        <h3 class="onboarding-section onboarding-section--muted">Recommended next</h3>
+        <h3 class="onboarding-section onboarding-section--muted">2. Tailor it to your site</h3>
+        <p class="light onboarding-section__hint">
+            Search will work without these, but they’re the two settings most teams want to change
+            before going live. They control how the AI Answer sounds and how much it’s allowed to spend.
+        </p>
         <ol class="onboarding-list onboarding-list--recommended">
             {% for s in recommendedSteps %}
                 <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}">
@@ -40,7 +60,7 @@
                     </span>
                     <div class="onboarding-list__body">
                         <strong>{{ s.label }}</strong>
-                        <div class="light smalltext">{{ s.hint }}</div>
+                        <div class="light">{{ s.hint }}</div>
                     </div>
                     {% if not s.done %}
                         <a class="btn" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
