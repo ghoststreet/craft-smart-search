@@ -4,7 +4,6 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use ghoststreet\craftsmartsearch\helpers\Logger;
-use ghoststreet\craftsmartsearch\jobs\RebuildDictionaryJob;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDOException;
 use Throwable;
@@ -27,38 +26,46 @@ class DictionaryService extends Component
 
     private const REQUEST_CACHE_TTL_SECONDS = 60;
 
-    /** Coalesce window — repeated requests inside this window enqueue at most one rebuild. */
-    private const REBUILD_COALESCE_TTL_SECONDS = 600;
-
-    private const REBUILD_PENDING_CACHE_KEY = 'smart_search_dictionary_rebuild_pending';
-
     private ?bool $availabilityCache = null;
 
     /**
-     * Coalesced rebuild request — used from indexing/deletion hooks. Pushes at
-     * most one RebuildDictionaryJob per 10-minute window so a bulk reindex of
-     * thousands of entries produces a single rebuild job, not thousands.
-     *
-     * The job clears the marker on execute() so the next change can re-queue.
+     * Add this entry's lexemes to the terms table without scanning the whole corpus.
+     * df is incremented per term on conflict.
      */
-    public function requestRebuild(): void
+    public function syncEntry(int $elementId, int $siteId): void
     {
-        if (!SmartSearch::getInstance()->getSettings()->enableTypoTolerance) {
-            return;
+        try {
+            if (!SmartSearch::getInstance()->getSettings()->enableTypoTolerance) {
+                return;
+            }
+
+            $db = SmartSearch::getInstance()->databaseService->getConnection();
+            $vectors = SmartSearch::getInstance()->databaseService->getQualifiedTable();
+            $terms = $this->qualifiedTermsTable();
+            $elementId = (int)$elementId;
+            $siteId = (int)$siteId;
+
+            $innerSql = "SELECT tsv FROM {$vectors} WHERE \"elementId\" = {$elementId} AND \"siteId\" = {$siteId} AND tsv IS NOT NULL";
+            $sql = "
+                INSERT INTO {$terms} (term, df)
+                SELECT word, nentry
+                FROM ts_stat(\$\${$innerSql}\$\$)
+                WHERE char_length(word) >= 3
+                ON CONFLICT (term) DO UPDATE SET df = {$terms}.df + EXCLUDED.df
+            ";
+
+            $rows = (int)$db->exec($sql);
+
+            Logger::info('syncEntry', [
+                'entryId' => $elementId,
+                'siteId' => $siteId,
+                'lexemesUpserted' => $rows,
+            ]);
+
+            $this->clearAvailabilityCache();
+        } catch (Throwable $e) {
+            Logger::exception($e, 'DictionaryService::syncEntry');
         }
-
-        $cache = Craft::$app->getCache();
-        if ($cache->get(self::REBUILD_PENDING_CACHE_KEY) !== false) {
-            return;
-        }
-
-        $cache->set(self::REBUILD_PENDING_CACHE_KEY, 1, self::REBUILD_COALESCE_TTL_SECONDS);
-        Craft::$app->getQueue()->push(new RebuildDictionaryJob());
-    }
-
-    public function clearRebuildPendingMarker(): void
-    {
-        Craft::$app->getCache()->delete(self::REBUILD_PENDING_CACHE_KEY);
     }
 
     public function getTermCount(): int
@@ -190,12 +197,11 @@ class DictionaryService extends Component
      *
      * Returns the number of rows written, or null if the rebuild was skipped.
      */
-    public function rebuild(?string $tsConfig = 'simple'): ?int
+    public function rebuild(): ?int
     {
         $db = SmartSearch::getInstance()->databaseService->getConnection();
         $vectors = SmartSearch::getInstance()->databaseService->getQualifiedTable();
         $terms = $this->qualifiedTermsTable();
-        $config = $this->sanitizeTsConfig($tsConfig);
 
         try {
             $exists = $db->prepare(
@@ -215,27 +221,19 @@ class DictionaryService extends Component
             $db->beginTransaction();
             $db->exec("TRUNCATE {$terms}");
 
-            // ts_stat samples the lexemes already stored in the indexed content.
-            // The nword (frequency) column doubles as a tie-breaker when ranking
-            // similar candidates: prefer common words over rare ones.
-            $sql = "
+            $written = $db->exec("
                 INSERT INTO {$terms} (term, df)
                 SELECT word, nentry
-                FROM ts_stat(\$\$SELECT to_tsvector('{$config}', COALESCE(content, '')) FROM {$vectors}\$\$)
+                FROM ts_stat(\$\$SELECT tsv FROM {$vectors} WHERE tsv IS NOT NULL\$\$)
                 WHERE char_length(word) >= 3
-                ON CONFLICT (term) DO UPDATE SET df = EXCLUDED.df
-            ";
-            $written = $db->exec($sql);
+            ");
             $db->commit();
 
             $this->clearAvailabilityCache();
 
-            Logger::info('Dictionary rebuilt', [
-                'rows' => $written,
-                'tsConfig' => $config,
-            ]);
+            Logger::info('Dictionary rebuilt', ['rows' => (int)$written]);
 
-            return $written ?: 0;
+            return (int)$written;
         } catch (PDOException $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
@@ -263,21 +261,4 @@ class DictionaryService extends Component
         Craft::$app->getCache()->delete('smart_search_typo_available');
     }
 
-    /**
-     * Reuse KeywordSearchService's whitelist semantics — anything unknown collapses to
-     * 'simple', which never throws and avoids SQL injection via the inlined
-     * config name.
-     */
-    private function sanitizeTsConfig(?string $config): string
-    {
-        $supported = [
-            'simple', 'arabic', 'armenian', 'basque', 'catalan', 'danish', 'dutch',
-            'english', 'finnish', 'french', 'german', 'greek', 'hindi', 'hungarian',
-            'indonesian', 'irish', 'italian', 'lithuanian', 'nepali', 'norwegian',
-            'portuguese', 'romanian', 'russian', 'serbian', 'spanish', 'swedish',
-            'tamil', 'turkish', 'yiddish',
-        ];
-        $config = strtolower((string)$config);
-        return in_array($config, $supported, true) ? $config : 'simple';
-    }
 }

@@ -52,8 +52,7 @@ class Settings extends Model
 
     public int $embeddingCacheTtlDays = 7;
 
-    public float $minSemanticThreshold = 0.40;
-    public float $singleSignalPenalty = 0.5;
+    public float $minSemanticThreshold = 0.15;
     public int $maxSemanticResults = 100;
 
     public int $excerptLength = 200;
@@ -64,10 +63,10 @@ class Settings extends Model
 
     public ?string $allowedOrigins = null;
 
-    public int $rateLimitSearchPerMinute = 10;
-    public int $rateLimitSearchPerHour = 60;
-    public int $rateLimitAiAnswerPerMinute = 3;
-    public int $rateLimitAiAnswerPerHour = 20;
+    public int $rateLimitSearchPerMinute = 30;
+    public int $rateLimitSearchPerHour = 500;
+    public int $rateLimitAiAnswerPerMinute = 30;
+    public int $rateLimitAiAnswerPerHour = 500;
 
     public int $aiAnswerConcurrencyPerIp = 2;
     public int $aiAnswerConcurrencyGlobal = 10;
@@ -92,7 +91,7 @@ class Settings extends Model
         self::SCENARIO_SMART_SEARCH => [
             'embeddingModel',
             'rrfSemanticWeight', 'rrfKeywordWeight',
-            'minSemanticThreshold', 'singleSignalPenalty', 'maxSemanticResults',
+            'minSemanticThreshold', 'maxSemanticResults',
             'excerptLength',
             'enableTypoTolerance', 'termsTableName',
             'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
@@ -213,9 +212,7 @@ class Settings extends Model
             [['rrfKeywordWeight'], 'default', 'value' => 0.7],
             [['rrfSemanticWeight', 'rrfKeywordWeight'], 'validateRankingWeights', 'on' => $smartSearch],
             [['minSemanticThreshold'], 'number', 'min' => 0, 'max' => 1, 'on' => $smartSearch],
-            [['minSemanticThreshold'], 'default', 'value' => 0.40],
-            [['singleSignalPenalty'], 'number', 'min' => 0, 'max' => 1, 'on' => $smartSearch],
-            [['singleSignalPenalty'], 'default', 'value' => 0.5],
+            [['minSemanticThreshold'], 'default', 'value' => 0.15],
             [['maxSemanticResults'], 'integer', 'min' => 10, 'max' => 500, 'on' => $smartSearch],
             [['maxSemanticResults'], 'default', 'value' => 100],
 
@@ -452,11 +449,30 @@ class Settings extends Model
 
     public function getQualifiedVectorsTable(): string
     {
+        $qualified = $this->getQualifiedVectorsTableOrNull();
+        if ($qualified === null) {
+            throw new RuntimeException('Vectors table/schema name failed identifier validation.');
+        }
+        return $qualified;
+    }
+
+    /**
+     * Same as {@see getQualifiedVectorsTable()} but returns null instead of
+     * throwing when the schema/table name is empty or fails identifier
+     * validation. Use this in read-only contexts (settings UI, status panels,
+     * health checks) where an unconfigured plugin must not crash the page.
+     *
+     * SQL-executing callers should keep using the throwing variant — the throw
+     * is a defense against unvalidated identifiers being interpolated into raw
+     * SQL.
+     */
+    public function getQualifiedVectorsTableOrNull(): ?string
+    {
         $schema = $this->vectorsSchemaName;
         $table = $this->vectorsTableName;
 
         if (!preg_match(self::IDENTIFIER_REGEX, $schema) || !preg_match(self::IDENTIFIER_REGEX, $table)) {
-            throw new RuntimeException('Vectors table/schema name failed identifier validation.');
+            return null;
         }
 
         return "\"{$schema}\".\"{$table}\"";

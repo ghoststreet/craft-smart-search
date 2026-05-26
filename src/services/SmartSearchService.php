@@ -64,7 +64,6 @@ class SmartSearchService extends Component
             $keywordLookup,
             $settings->rrfSemanticWeight,
             $settings->rrfKeywordWeight,
-            $settings->singleSignalPenalty,
             $settings->minSemanticThreshold,
         );
 
@@ -73,7 +72,6 @@ class SmartSearchService extends Component
             'survived' => count($scoredResults),
             'dropped' => count($allIds) - count($scoredResults),
             'minSemanticThreshold' => $settings->minSemanticThreshold,
-            'singleSignalPenalty' => $settings->singleSignalPenalty,
             'rrfSemanticWeight' => $settings->rrfSemanticWeight,
             'rrfKeywordWeight' => $settings->rrfKeywordWeight,
         ]);

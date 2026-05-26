@@ -49,8 +49,6 @@ class IndexEntryJob extends BaseJob
 
         SmartSearch::getInstance()->embeddingService->indexElement($entry);
         Logger::info('Indexed entry via job', ['entryId' => $this->entryId]);
-
-        SmartSearch::getInstance()->dictionaryService->requestRebuild();
     }
 
     protected function defaultDescription(): ?string

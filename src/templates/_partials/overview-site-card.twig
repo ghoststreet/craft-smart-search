@@ -27,7 +27,7 @@
 
 {% set presets = {
     'synced':      { pillLabel: 'Healthy',    pillDot: 'on',     buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
-    'needs-sync':  { pillLabel: 'Needs sync', pillDot: 'orange', buttonClass: ' caution',                 buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
+    'needs-sync':  { pillLabel: 'Needs sync', pillDot: 'orange', buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
     'not-synced':  { pillLabel: 'Not synced', pillDot: 'off',    buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
     'indexing':    { pillLabel: jobRunning ? 'Indexing' : 'Queued',
                      pillDot: 'blue',

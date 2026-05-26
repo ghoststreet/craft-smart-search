@@ -96,7 +96,7 @@ class DashboardController extends Controller
             'health' => $health,
             'setupComplete' => $setupComplete,
             'requiredSteps' => $this->buildRequiredSteps($settings, $stats),
-            'recommendedSteps' => $this->buildRecommendedSteps($settings, $history),
+            'recommendedSteps' => $this->buildRecommendedSteps($settings, $history, $stats),
             'guideDismissed' => $guideDismissed,
             'selectedSubnavItem' => 'dashboard',
         ]);
@@ -279,17 +279,21 @@ class DashboardController extends Controller
         ];
     }
 
-    private function buildRecommendedSteps($settings, $history): array
+    private function buildRecommendedSteps($settings, $history, array $stats): array
     {
         $settingsBase = UrlHelper::cpUrl('smart-search/settings');
         $customPrompt = (string)($settings->aiAnswerCustomPrompt ?? '');
-        return [
-            [
+        $hasIndex = (bool)($stats['isConnected'] ?? false) && (int)($stats['entryCount'] ?? 0) > 0;
+        $steps = [];
+        if ($hasIndex) {
+            $steps[] = [
                 'done' => $history->count() > 0,
                 'label' => 'Try a search in the Preview',
                 'hint' => 'Run a few real queries against your index to see how results rank, what the AI Answer sounds like, and how the dashboard fills in. This is also the fastest way to spot content gaps before visitors do.',
                 'cta' => ['url' => UrlHelper::cpUrl('smart-search/preview'), 'label' => 'Open Preview'],
-            ],
+            ];
+        }
+        return array_merge($steps, [
             [
                 'done' => $customPrompt !== '',
                 'label' => 'Customise the AI Answer system prompt',
@@ -302,7 +306,7 @@ class DashboardController extends Controller
                 'hint' => 'Every AI Answer call costs a few cents on the OpenAI side. The daily cap pauses synthesis once spending hits your limit, so a traffic spike or a misbehaving bot can’t drain your account overnight. Default is $3/day.',
                 'cta' => ['url' => $settingsBase . '#tab-ai-answer', 'label' => 'Set budget'],
             ],
-        ];
+        ]);
     }
 
     private function relativeTime(DateTimeInterface $when): string

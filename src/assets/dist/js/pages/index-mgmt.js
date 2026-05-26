@@ -29,7 +29,7 @@
         },
         'needs-sync': {
             pillLabel: 'Needs sync', pillDot: 'orange',
-            buttonStyle: 'danger', buttonDisabled: false,
+            buttonStyle: 'plain', buttonDisabled: false,
             showProgress: false, hideGaps: false,
             heroPrefix: 'entries indexed · ',
         },
@@ -46,7 +46,7 @@
         },
         'error': {
             pillLabel: 'Failed', pillDot: 'red',
-            buttonStyle: 'danger', buttonDisabled: false,
+            buttonStyle: 'plain', buttonDisabled: false,
             showProgress: true, hideGaps: true,
             heroPrefix: 'sync failed · ',
         },

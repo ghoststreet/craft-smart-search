@@ -52,13 +52,6 @@
     }) }}
 
     {{ forms.textField({
-        label: 'One-sided match weight',
-        instructions: 'Some pages match only the words a visitor typed; others match only the meaning. This decides how much credit those one-sided matches get. <code>1</code> = full credit (treated like any other result), <code>0</code> = ignored, <code>0.5</code> (default) = half credit, so pages that match both the words and the meaning rank higher. <a href="' ~ wikiUrl ~ '/Tuning-Search-Results#solo-match-penalty" target="_blank" rel="noopener">Learn more →</a>',
-        id: 'singleSignalPenalty', name: 'singleSignalPenalty',
-        value: settings.singleSignalPenalty, type: 'number', step: '0.1', min: '0', max: '1',
-        required: true, errors: settings.getErrors('singleSignalPenalty'),
-    }) }}
-    {{ forms.textField({
         label: 'Candidate pool size',
         instructions: 'How many results Smart Search looks at per query before picking the best ones to show. Bigger numbers cast a wider net but slow searches down. Leave at <code>100</code> unless searches feel slow or you’re missing relevant results. <a href="' ~ wikiUrl ~ '/Tuning-Search-Results#candidate-pool-size" target="_blank" rel="noopener">Learn more →</a>',
         id: 'maxSemanticResults', name: 'maxSemanticResults',

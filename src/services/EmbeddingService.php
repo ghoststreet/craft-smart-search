@@ -704,6 +704,9 @@ class EmbeddingService extends Component
             return;
         }
 
+        $title = (string)($element->title ?? '');
+        $language = KeywordSearchService::resolveLanguage($element->siteId);
+
         foreach ($chunks as $index => $chunkText) {
             $embedding = $this->generateEmbedding($chunkText);
             $this->storeVector(
@@ -712,12 +715,16 @@ class EmbeddingService extends Component
                 $index,
                 $totalChunks,
                 $embedding,
+                $title,
                 $chunkText,
+                $language,
                 $hash,
             );
         }
 
         $this->deleteExcessChunks($element->id, $element->siteId, $totalChunks);
+
+        SmartSearch::getInstance()->dictionaryService->syncEntry($element->id, $element->siteId);
 
         Logger::info('Indexed entry', ['entryId' => $element->id, 'chunks' => $totalChunks]);
     }
@@ -736,7 +743,9 @@ class EmbeddingService extends Component
         int $chunkIndex,
         int $totalChunks,
         array $vector,
-        ?string $content = null,
+        ?string $title = null,
+        ?string $body = null,
+        string $language = 'simple',
         ?string $contentHash = null,
     ): void {
         $databaseService = SmartSearch::getInstance()->databaseService;
@@ -744,17 +753,19 @@ class EmbeddingService extends Component
         $vectorString = (string) new Vector($vector);
 
         $databaseService->executeStatement(
-            "INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, content, \"contentHash\", \"dateUpdated\")
-             VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :content, :contentHash, CURRENT_TIMESTAMP)
+            "INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, title, body, language, \"contentHash\", \"dateUpdated\")
+             VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :title, :body, :language::regconfig, :contentHash, CURRENT_TIMESTAMP)
              ON CONFLICT(\"elementId\", \"siteId\", \"chunkIndex\")
-             DO UPDATE SET vector = EXCLUDED.vector, content = EXCLUDED.content, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"contentHash\" = EXCLUDED.\"contentHash\", \"dateUpdated\" = CURRENT_TIMESTAMP",
+             DO UPDATE SET vector = EXCLUDED.vector, title = EXCLUDED.title, body = EXCLUDED.body, language = EXCLUDED.language, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"contentHash\" = EXCLUDED.\"contentHash\", \"dateUpdated\" = CURRENT_TIMESTAMP",
             [
                 ':elementId' => $elementId,
                 ':siteId' => $siteId,
                 ':chunkIndex' => $chunkIndex,
                 ':totalChunks' => $totalChunks,
                 ':vector' => $vectorString,
-                ':content' => $content,
+                ':title' => $title,
+                ':body' => $body,
+                ':language' => $language,
                 ':contentHash' => $contentHash,
             ],
             'storeVector'

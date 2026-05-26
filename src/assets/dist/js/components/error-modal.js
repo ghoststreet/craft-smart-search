@@ -4,49 +4,28 @@
     var DOM = ns.core.DOM;
     var craft = ns.core.craft;
 
-    var current = null;
-
-    function close() {
-        if (!current) return;
-        document.removeEventListener('keydown', onKey);
-        current.remove();
-        current = null;
-    }
-
-    function onKey(e) {
-        if (e.key === 'Escape') close();
-    }
-
     function open(message) {
-        close();
+        var $modal = $(
+            '<div class="modal ss-error-modal">' +
+                '<div class="body">' +
+                    '<h2 data-craftsearch-target="error-modal-title"></h2>' +
+                    '<pre class="ss-error-modal__message" data-craftsearch-target="error-modal-message"></pre>' +
+                '</div>' +
+                '<div class="footer">' +
+                    '<button type="button" class="btn submit" data-craftsearch-control="error-modal-close"></button>' +
+                '</div>' +
+            '</div>'
+        ).appendTo(Garnish.$bod);
 
-        var backdrop = document.createElement('div');
-        backdrop.className = 'modal-shade';
-        backdrop.setAttribute('data-craftsearch-target', 'error-modal-backdrop');
+        var modalEl = $modal[0];
+        DOM.find('error-modal-title', modalEl).textContent = craft.t('smart-search', 'Search error');
+        DOM.find('error-modal-message', modalEl).textContent = message || 'No error message recorded.';
+        var closeBtn = DOM.findControl('error-modal-close', modalEl);
+        closeBtn.textContent = craft.t('smart-search', 'Close');
 
-        var modal = document.createElement('div');
-        modal.className = 'modal ss-error-modal';
-        modal.setAttribute('data-craftsearch-target', 'error-modal');
-        modal.innerHTML =
-            '<div class="body">' +
-                '<h2></h2>' +
-                '<pre data-craftsearch-target="error-modal-message"></pre>' +
-            '</div>' +
-            '<div class="footer">' +
-                '<button type="button" class="btn submit" data-craftsearch-control="error-modal-close"></button>' +
-            '</div>';
-
-        DOM.find('error-modal-message', modal).textContent = message || 'No error message recorded.';
-        modal.querySelector('h2').textContent = craft.t('smart-search', 'Search error');
-        DOM.findControl('error-modal-close', modal).textContent = craft.t('smart-search', 'Close');
-
-        document.body.appendChild(backdrop);
-        document.body.appendChild(modal);
-        current = { remove: function () { modal.remove(); backdrop.remove(); } };
-
-        DOM.findControl('error-modal-close', modal).addEventListener('click', close);
-        backdrop.addEventListener('click', close);
-        document.addEventListener('keydown', onKey);
+        var modal = new Garnish.Modal($modal, { resizable: false });
+        closeBtn.addEventListener('click', function () { modal.hide(); });
+        modal.on('hide', function () { $modal.remove(); });
     }
 
     ns.components.ErrorModal = {

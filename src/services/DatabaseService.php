@@ -453,7 +453,7 @@ class DatabaseService extends Component
     {
         $table = $this->getQualifiedTable();
         return $this->executeStatement(
-            "SELECT \"chunkIndex\", \"totalChunks\", content, \"dateUpdated\"
+            "SELECT \"chunkIndex\", \"totalChunks\", body AS content, \"dateUpdated\"
              FROM {$table}
              WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId
              ORDER BY \"chunkIndex\" ASC",
@@ -538,7 +538,7 @@ class DatabaseService extends Component
     {
         try {
             return $this->getStats($useCache);
-        } catch (DatabaseException $e) {
+        } catch (\Throwable $e) {
             return [
                 'entryCount' => 0,
                 'chunkCount' => 0,

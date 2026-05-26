@@ -3,17 +3,10 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 /**
- * Pure Reciprocal Rank Fusion math.
+ * Reciprocal Rank Fusion over two ranked signal lookups (semantic, keyword).
  *
- * Takes two ranked signal lookups (semantic, keyword) keyed by elementId and
- * returns a single map of fused scores per element. No I/O, no Craft, no
- * settings object — every parameter is explicit.
- *
- * Per-signal score: weight / (k + rank).
- * Elements appearing in only one signal are multiplied by singleSignalPenalty.
- * Any element whose semantic score is below minSemanticThreshold is dropped,
- * regardless of whether the keyword signal also matched — a weak vector match
- * with a loose keyword hit is still likely a false positive.
+ * Per-signal contribution: weight / (k + rank). Entries below
+ * minSemanticThreshold that lack a keyword hit are dropped as semantic noise.
  *
  * @phpstan-type SignalEntry array{score: float, rank: int, content: string}
  * @phpstan-type ScoredEntry array{rrfScore: float, semanticScore: float, semanticRank: ?int, keywordScore: float, keywordRank: ?int, content: string}
@@ -32,7 +25,6 @@ final class RrfFuser
         array $keywordLookup,
         float $semanticWeight,
         float $keywordWeight,
-        float $singleSignalPenalty,
         float $minSemanticThreshold,
     ): array {
         $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($keywordLookup)]);
@@ -43,13 +35,11 @@ final class RrfFuser
             $hasKeyword = isset($keywordLookup[$id]);
             $semanticScore = $hasSemantic ? $semanticLookup[$id]['score'] : 0.0;
 
-            if ($hasSemantic && $semanticScore < $minSemanticThreshold) {
+            if ($hasSemantic && !$hasKeyword && $semanticScore < $minSemanticThreshold) {
                 continue;
             }
 
-            $isSingleSignal = !($hasSemantic && $hasKeyword);
             $rrfScore = 0.0;
-
             if ($hasSemantic) {
                 $rrfScore += $semanticWeight / (self::RANK_OFFSET + $semanticLookup[$id]['rank']);
             }
@@ -57,8 +47,8 @@ final class RrfFuser
                 $rrfScore += $keywordWeight / (self::RANK_OFFSET + $keywordLookup[$id]['rank']);
             }
 
-            if ($isSingleSignal) {
-                $rrfScore *= $singleSignalPenalty;
+            if ($hasKeyword && $keywordLookup[$id]['score'] >= 0.5) {
+                $rrfScore += $keywordWeight / self::RANK_OFFSET;
             }
 
             $scored[$id] = [

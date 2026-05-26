@@ -9,12 +9,14 @@ use PDOException;
 use yii\base\Component;
 
 /**
- * Builds a typo-tolerant tsquery expression by looking each query token up in
- * the corpus dictionary via trigram similarity (pg_trgm).
+ * Builds a typo-tolerant tsquery expression by stemming each query token to the
+ * same lexeme form Postgres stores in the GIN index, then looking that lexeme
+ * up in the corpus dictionary via trigram similarity (pg_trgm).
  *
- * Always returns null on any unavailability or failure — KeywordSearchService then uses
- * its existing websearch_to_tsquery path verbatim. The contract is "best-effort
- * enhancement, never a regression."
+ * The output is returned as a bare tsquery string (lexemes already stemmed) so
+ * the caller can cast it `::tsquery` without invoking `to_tsquery`, which would
+ * stem a second time. Returns null whenever correction is unavailable / not
+ * needed — KeywordSearchService then uses its websearch_to_tsquery path alone.
  */
 class QueryCorrectorService extends Component
 {
@@ -22,17 +24,18 @@ class QueryCorrectorService extends Component
     private const MIN_TOKEN_LENGTH = 4;
 
     /** Max corrections fetched per token. */
-    private const MAX_VARIANTS_PER_TOKEN = 3;
+    private const MAX_VARIANTS_PER_TOKEN = 1;
 
-    /** word_similarity threshold; pg_trgm default is 0.6, we relax to 0.4 for short typos. */
-    private const SIMILARITY_THRESHOLD = 0.4;
+    /** word_similarity threshold; pg_trgm default is 0.6. */
+    private const SIMILARITY_THRESHOLD = 0.5;
 
     /**
-     * Returns a tsquery expression suitable for `to_tsquery(:config, $expression)`,
-     * or null if correction is unavailable / not applicable.
+     * Returns a tsquery expression suitable for `(:expr)::tsquery`, or null if
+     * correction is unavailable / unnecessary.
      *
-     * The expression keeps original tokens AND OR's in dictionary-matched
-     * variants: e.g. `aple` → `(aple | apple) & pie`.
+     * Output is built from dictionary lexemes only, so casting it to tsquery
+     * does not re-stem. Example: typing `runnng` against an English corpus
+     * returns `(runnng | run)`.
      */
     public function rewrite(string $query, ?int $siteId = null): ?string
     {
@@ -56,8 +59,11 @@ class QueryCorrectorService extends Component
             return null;
         }
 
+        $language = KeywordSearchService::resolveLanguage($siteId);
+        $stemDict = $this->stemDictionaryFor($language);
+
         try {
-            $variants = $this->lookupVariants($tokens, $dictionary);
+            $perToken = $this->lookupVariants($tokens, $dictionary, $stemDict);
         } catch (PDOException $e) {
             Logger::warning('Typo correction lookup failed; falling back to exact keyword search', [
                 'error' => $e->getMessage(),
@@ -68,23 +74,32 @@ class QueryCorrectorService extends Component
         $anyCorrected = false;
         $parts = [];
         foreach ($tokens as $token) {
-            $candidates = [$token];
-            foreach ($variants[$token] ?? [] as $variant) {
-                if ($variant !== $token && !in_array($variant, $candidates, true)) {
-                    $candidates[] = $variant;
-                    $anyCorrected = true;
+            $info = $perToken[$token] ?? null;
+            $lex = $info === null ? self::cleanLexeme(mb_strtolower($token)) : self::cleanLexeme($info['lex']);
+            if ($lex === '') {
+                continue;
+            }
+
+            $candidates = [$lex];
+            if ($info !== null) {
+                foreach ($info['variants'] as $variant) {
+                    if ($variant !== $lex && !in_array($variant, $candidates, true)) {
+                        $candidates[] = $variant;
+                        $anyCorrected = true;
+                    }
                 }
             }
+
             $parts[] = count($candidates) === 1
                 ? $candidates[0]
                 : '(' . implode(' | ', $candidates) . ')';
         }
 
-        if (!$anyCorrected) {
+        if (!$anyCorrected || empty($parts)) {
             return null;
         }
 
-        return implode(' & ', $parts);
+        return implode(' | ', $parts);
     }
 
     /**
@@ -107,7 +122,7 @@ class QueryCorrectorService extends Component
     }
 
     /**
-     * Strip everything that to_tsquery would reject; lexemes are alnum + underscore.
+     * Strip everything that tsquery would reject; lexemes are alnum + underscore.
      */
     private static function cleanLexeme(string $word): string
     {
@@ -115,69 +130,101 @@ class QueryCorrectorService extends Component
     }
 
     /**
-     * Single round-trip lookup for all tokens. Each candidate is gated by
-     * word_similarity threshold and (when fuzzystrmatch is available) a
-     * length-based Levenshtein cap to reject distant-but-similar trigrams.
+     * Snowball stemmer dictionary name for a tsearch config. `simple` uses the
+     * `simple` dictionary (lowercase, no stemming). Anything else assumes the
+     * standard `<lang>_stem` Snowball dictionary that ships with Postgres.
+     */
+    private function stemDictionaryFor(string $language): string
+    {
+        return $language === 'simple' ? 'simple' : "{$language}_stem";
+    }
+
+    /**
+     * For each user token, stem it via `ts_lexize` (so the lookup key matches
+     * what the dictionary actually stores), then OR in any trigram-similar dict
+     * terms. Single round-trip per token; same number of queries as before but
+     * keyed on the stemmed form instead of the raw surface form.
      *
      * @param string[] $tokens
-     * @return array<string, string[]> Map of original token -> candidate variants (ordered best-first).
+     * @return array<string, array{lex: string, variants: string[]}>
      */
-    private function lookupVariants(array $tokens, DictionaryService $dictionary): array
+    private function lookupVariants(array $tokens, DictionaryService $dictionary, string $stemDict): array
     {
         $db = SmartSearch::getInstance()->databaseService->getConnection();
         $terms = $dictionary->qualifiedTermsTable();
         $hasFuzzy = $dictionary->hasFuzzyStrMatch();
 
-        $results = [];
+        $valuesParts = [];
+        $params = [':dict' => $stemDict];
+        foreach ($tokens as $i => $token) {
+            $valuesParts[] = "(:t{$i}, {$i})";
+            $params[":t{$i}"] = $token;
+        }
+        $valuesList = implode(',', $valuesParts);
 
+        $fuzzyExtra = $hasFuzzy
+            ? " AND levenshtein_less_equal(t.term, s.lex, CASE WHEN char_length(s.lex) >= 8 THEN 2 ELSE 1 END) <= CASE WHEN char_length(s.lex) >= 8 THEN 2 ELSE 1 END"
+            : '';
+
+        $threshold = self::SIMILARITY_THRESHOLD;
+        $minLen = self::MIN_TOKEN_LENGTH;
+        $maxPerToken = self::MAX_VARIANTS_PER_TOKEN;
+
+        $sql = "
+            WITH input(raw, idx) AS (VALUES {$valuesList}),
+            stem AS (
+                SELECT raw, idx,
+                       COALESCE((ts_lexize(:dict::regdictionary, raw))[1], lower(raw)) AS lex
+                FROM input
+            ),
+            exact AS (
+                SELECT s.raw, s.idx, s.lex, t.term, 1.0::float AS sim, t.df
+                FROM stem s
+                JOIN {$terms} t ON t.term = s.lex
+            ),
+            fuzzy AS (
+                SELECT s.raw, s.idx, s.lex, t.term, word_similarity(s.lex, t.term) AS sim, t.df
+                FROM stem s
+                JOIN {$terms} t ON t.term % s.lex
+                WHERE char_length(s.lex) >= {$minLen}
+                  AND NOT EXISTS (SELECT 1 FROM exact e WHERE e.raw = s.raw)
+                  AND word_similarity(s.lex, t.term) >= {$threshold}
+                  {$fuzzyExtra}
+            ),
+            ranked AS (
+                SELECT raw, idx, lex, term,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY raw
+                           ORDER BY sim DESC, df DESC
+                       ) AS rn
+                FROM (SELECT * FROM exact UNION ALL SELECT * FROM fuzzy) m
+            )
+            SELECT raw, lex, term FROM ranked WHERE rn <= {$maxPerToken}
+            ORDER BY idx, rn
+        ";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+
+        $results = [];
         foreach ($tokens as $token) {
-            if (mb_strlen($token) < self::MIN_TOKEN_LENGTH) {
-                $results[$token] = [];
+            $results[$token] = ['lex' => mb_strtolower($token), 'variants' => []];
+        }
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $raw = (string)$row['raw'];
+            if (!isset($results[$raw])) {
                 continue;
             }
-
-            $maxEdits = mb_strlen($token) >= 8 ? 2 : 1;
-
-            $sql = "
-                SELECT term
-                FROM {$terms}
-                WHERE term % :token
-                  AND word_similarity(:token, term) >= :threshold
-            ";
-            $params = [
-                ':token' => $token,
-                ':threshold' => self::SIMILARITY_THRESHOLD,
-            ];
-
-            if ($hasFuzzy) {
-                $sql .= " AND levenshtein_less_equal(term, :token2, :maxEdits) <= :maxEdits2";
-                $params[':token2'] = $token;
-                $params[':maxEdits'] = $maxEdits;
-                $params[':maxEdits2'] = $maxEdits;
+            if ($row['lex'] !== null) {
+                $results[$raw]['lex'] = (string)$row['lex'];
             }
-
-            $sql .= "
-                ORDER BY word_similarity(:tokenOrder, term) DESC, df DESC
-                LIMIT :limit
-            ";
-            $params[':tokenOrder'] = $token;
-
-            $stmt = $db->prepare($sql);
-            foreach ($params as $key => $value) {
-                $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
-                $stmt->bindValue($key, $value, $type);
-            }
-            $stmt->bindValue(':limit', self::MAX_VARIANTS_PER_TOKEN, PDO::PARAM_INT);
-            $stmt->execute();
-
-            $variants = [];
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['term'] !== null) {
                 $clean = self::cleanLexeme((string)$row['term']);
-                if ($clean !== '') {
-                    $variants[] = $clean;
+                if ($clean !== '' && !in_array($clean, $results[$raw]['variants'], true)) {
+                    $results[$raw]['variants'][] = $clean;
                 }
             }
-            $results[$token] = $variants;
         }
 
         return $results;

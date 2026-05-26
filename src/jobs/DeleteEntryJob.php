@@ -20,8 +20,6 @@ class DeleteEntryJob extends BaseJob
         SmartSearch::getInstance()->embeddingService->deleteVector($this->entryId, $this->siteId);
         ExcludedEntryRecord::deleteAll(['elementId' => $this->entryId, 'siteId' => $this->siteId]);
         Logger::info('Deleted vectors via job', ['entryId' => $this->entryId, 'siteId' => $this->siteId]);
-
-        SmartSearch::getInstance()->dictionaryService->requestRebuild();
     }
 
     protected function defaultDescription(): ?string

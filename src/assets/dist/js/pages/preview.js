@@ -200,7 +200,19 @@
 
         setLoading(resultsEl, errorEl);
         postSearch(opts.action, query, getSiteId())
-            .then(function (data) { renderCards(resultsEl, data[opts.dataField] || []); })
+            .then(function (data) {
+                var results = data[opts.dataField] || [];
+                if (results.length === 0) {
+                    resultsEl.innerHTML = '';
+                    var wrap = document.createElement('div');
+                    wrap.className = 'preview-col__summary';
+                    wrap.appendChild(formatSummary('No relevant results found for your query.', []));
+                    resultsEl.appendChild(wrap);
+                    resultsEl.hidden = false;
+                } else {
+                    renderCards(resultsEl, results);
+                }
+            })
             .catch(function (err) { showError(resultsEl, errorEl, err.message); });
     }
 

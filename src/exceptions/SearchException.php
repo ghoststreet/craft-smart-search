@@ -8,17 +8,27 @@ class SearchException extends SmartSearchException
 {
     public static function semanticSearchFailed(string $reason, Throwable $previous): self
     {
-        return self::build("Semantic search failed: {$reason}", ErrorCode::SEARCH_SEMANTIC_FAILED, $previous);
+        return self::build(self::compose("Semantic search failed", $reason, $previous), ErrorCode::SEARCH_SEMANTIC_FAILED, $previous);
     }
 
     public static function aiAnswerFailed(string $reason, Throwable $previous): self
     {
-        return self::build("AI Answer search failed: {$reason}", ErrorCode::SEARCH_RAG_FAILED, $previous);
+        return self::build(self::compose("AI Answer search failed", $reason, $previous), ErrorCode::SEARCH_RAG_FAILED, $previous);
     }
 
     public static function ragLlmFailed(string $reason, Throwable $previous): self
     {
-        return self::build("AI Answer LLM call failed: {$reason}", ErrorCode::SEARCH_RAG_LLM_ERROR, $previous);
+        return self::build(self::compose("AI Answer LLM call failed", $reason, $previous), ErrorCode::SEARCH_RAG_LLM_ERROR, $previous);
+    }
+
+    private static function compose(string $stage, string $reason, Throwable $previous): string
+    {
+        $detail = trim($previous->getMessage());
+        $base = "{$stage}: {$reason}";
+        if ($detail === '' || str_contains($base, $detail)) {
+            return $base;
+        }
+        return "{$base}\n\nUnderlying error: {$detail}";
     }
 
     public static function vectorQueryFailed(Throwable $previous): self

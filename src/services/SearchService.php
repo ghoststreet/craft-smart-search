@@ -65,7 +65,7 @@ class SearchService extends Component
                     \"elementId\",
                     \"siteId\",
                     1 - (vector <=> :queryVector::vector) AS similarity,
-                    content
+                    body AS content
                 FROM {$table}
             ";
 
