@@ -21,7 +21,6 @@ class DashboardController extends Controller
     private const DEFAULT_RANGE = 30;
 
     private const MIN_N_RATE = 30;
-    private const MIN_N_DELTA = 50;
     private const MIN_DAYS_BUDGET_ETA = 7;
 
     public function actionIndex(): Response
@@ -147,7 +146,6 @@ class DashboardController extends Controller
             'aggregates' => $aggregates,
             'daysWithData' => $daysWithData,
             'minNRate' => self::MIN_N_RATE,
-            'minNDelta' => self::MIN_N_DELTA,
             'minDaysBudgetEta' => self::MIN_DAYS_BUDGET_ETA,
             'coverage' => $coverage,
             'budget' => $budget,
@@ -210,7 +208,7 @@ class DashboardController extends Controller
             'priorWindowDays' => $half,
             'searches' => $searches,
             'searchesDelta' => $this->pctDelta($recentSearches, $priorSearches),
-            'cost' => round($sum($series, 'cost'), 2),
+            'cost' => round($sum($series, 'cost'), 6),
             'costDelta' => $this->pctDelta($recentCost, $priorCost),
             'errors' => $errors,
             'errorRate' => $searches > 0 ? round($errors / $searches, 4) : 0.0,

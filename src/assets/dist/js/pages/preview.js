@@ -233,7 +233,7 @@
         var root = getRoot();
         if (!root) return;
 
-        var handlers = { smart: runSmart, aiAnswer: runAiAnswer, craft: runCraft };
+        var handlers = { smart: runSmart, 'ai-answer': runAiAnswer, craft: runCraft };
 
         Object.keys(handlers).forEach(function (type) {
             var input = DOM.findControl(type + '-input', root);

@@ -262,7 +262,7 @@ class HistoryService extends Component
         }
 
         $series = [];
-        $cursor = new \DateTime("-{$days} days");
+        $cursor = (new \DateTime("-{$days} days"))->setTime(0, 0);
         $end = new \DateTime('today');
         while ($cursor <= $end) {
             $key = $cursor->format('Y-m-d');
