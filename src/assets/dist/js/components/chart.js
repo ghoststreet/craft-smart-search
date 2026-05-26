@@ -1,6 +1,26 @@
 (function () {
     'use strict';
-    var Theme = window.SmartSearch.core.ChartTheme;
+    var ns = window.SmartSearch;
+    var Theme = ns.core.ChartTheme;
+
+    var canvasCtx = document.createElement('canvas').getContext('2d');
+
+    function withAlpha(color, alpha) {
+        canvasCtx.fillStyle = '#000';
+        canvasCtx.fillStyle = color;
+        var resolved = canvasCtx.fillStyle;
+        if (resolved.charAt(0) === '#') {
+            var hex = resolved.slice(1);
+            var r = parseInt(hex.slice(0, 2), 16);
+            var g = parseInt(hex.slice(2, 4), 16);
+            var b = parseInt(hex.slice(4, 6), 16);
+            return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+        }
+        return resolved.replace(/^rgba?\(([^)]+)\)$/, function (_, inner) {
+            var nums = inner.split(',').slice(0, 3).map(function (n) { return n.trim(); });
+            return 'rgba(' + nums.join(', ') + ', ' + alpha + ')';
+        });
+    }
 
     function sparklineConfig(series, color) {
         var p = Theme.palette();
@@ -12,7 +32,7 @@
                 datasets: [{
                     data: series.map(function (r) { return r.value; }),
                     borderColor: c,
-                    backgroundColor: c.replace('rgb', 'rgba').replace(')', ', 0.15)'),
+                    backgroundColor: withAlpha(c, 0.15),
                     borderWidth: 1.5,
                     pointRadius: 0,
                     tension: 0.3,
@@ -102,22 +122,18 @@
         'horizontal-stacked-bar': horizontalStackedBarConfig
     };
 
-    window.SmartSearch.components.Chart = {
+    ns.components.Chart = {
         build: function (canvas) {
             if (typeof Chart === 'undefined') return null;
             var kind = canvas.getAttribute('data-craftsearch-chart');
             var builder = BUILDERS[kind];
             if (!builder) return null;
-            var series = window.SmartSearch.core.Utils.parseJSON(
-                canvas.getAttribute('data-craftsearch-series'),
-                null
-            );
+            var series = ns.core.Utils.parseJSON(canvas.getAttribute('data-craftsearch-series'), null);
             if (series == null) return null;
             return new Chart(canvas.getContext('2d'), builder(series));
         },
         buildAll: function (root) {
-            var canvases = (root || document).querySelectorAll('[data-craftsearch-target="chart-canvas"]');
-            return Array.prototype.map.call(canvases, this.build, this);
+            return ns.core.DOM.findAll('chart-canvas', root).map(this.build, this);
         }
     };
 })();

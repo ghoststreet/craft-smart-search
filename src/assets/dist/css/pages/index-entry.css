@@ -62,7 +62,7 @@
     gap: 6px;
     margin: 0 0 14px;
 }
-.field-card-filters .btn.is-active {
+.field-card-filters .btn[data-craftsearch-state="active"] {
     background: var(--gray-200, var(--hairline-color));
     color: var(--text-color);
     font-weight: 600;

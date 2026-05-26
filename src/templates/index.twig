@@ -130,7 +130,8 @@
                                 <td>
                                     {{ label|slice(0, 50) }}{% if label|length > 50 %}…{% endif %}
                                     <button type="button" class="badge badge--error ss-error-badge"
-                                            data-error-modal data-error-message="{{ e.errorMessage }}"
+                                            data-craftsearch-control="error-modal-trigger"
+                                            data-craftsearch-error-message="{{ e.errorMessage }}"
                                             title="{{ e.errorMessage }}"><span class="badge__dot"></span>Error</button>
                                 </td>
                                 <td class="rightalign"><span class="light smalltext">{{ e.dateCreated|date('M j') }}</span></td>

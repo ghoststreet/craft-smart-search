@@ -1,7 +1,6 @@
 (function () {
     'use strict';
-    var ns = window.SmartSearch = window.SmartSearch || {};
-    ns.core = ns.core || {};
+    var ns = window.SmartSearch;
 
     var MESSAGES = {
         SEARCH_SEMANTIC_FAILED:      'Semantic search failed. Please try again.',
@@ -26,16 +25,8 @@
 
     ns.core.errors = {
         messageFor: function (err) {
-            var msg;
-            if (err && typeof err.message === 'string' && err.message !== '') {
-                msg = err.message;
-            } else {
-                var code = (err && err.code) || 'UNKNOWN';
-                msg = MESSAGES[code] || MESSAGES.UNKNOWN;
-            }
-            if (err && err.requestId) {
-                msg += ' (id: ' + err.requestId + ')';
-            }
+            var msg = (err && err.message) || MESSAGES[(err && err.code) || 'UNKNOWN'];
+            if (err && err.requestId) msg += ' (id: ' + err.requestId + ')';
             return msg;
         }
     };

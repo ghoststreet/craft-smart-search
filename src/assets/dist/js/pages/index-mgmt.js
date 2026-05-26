@@ -3,23 +3,17 @@
 
     var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
-
-    // -----------------------------------------------------------------------
-    // Overview & Sync — per-site cards
-    // -----------------------------------------------------------------------
-    // One SiteBlock per `[data-craftsearch-target="site-card"]` card. Each block owns its
-    // DOM and its sync form. State (`synced` / `needs-sync` / `not-synced` /
-    // `indexing` / `error`) is derived from the polled payload via a single
-    // table-driven render path — see STATE_PRESETS below.
-    //
-    // The server's actionGetStats endpoint is the single source of truth; we
-    // poll it on a 1s cadence while any block is active, and stop otherwise.
-    // Clicking Sync optimistically flips the card to "Queued" synchronously,
-    // then POSTs and kicks the queue worker — no waiting on the next tick.
+    var Utils = ns.core.Utils;
+    var craft = ns.core.craft;
+    var escapeHtml = Utils.escapeHtml;
+    var setText = Utils.setText;
+    var setHidden = Utils.setHidden;
 
     var STATUS_RESERVED = 2;
     var STATUS_FAILED = 4;
     var POLL_ACTIVE_MS = 1000;
+    var ENTRY_POLL_INITIAL_MS = 1500;
+    var ENTRY_POLL_MS = 2000;
     var SYNC_ACTION = 'smart-search/index/sync';
     var CANCEL_ACTION = 'smart-search/index/cancel-sync';
     var STATS_ACTION = 'smart-search/index/get-stats';
@@ -57,15 +51,10 @@
             heroPrefix: 'sync failed · ',
         },
     };
-    var STATE_NAMES = Object.keys(STATE_PRESETS);
 
     var blocks = [];
     var pollTimer = null;
     var pollInFlight = false;
-
-    // -----------------------------------------------------------------------
-    // Tiny helpers
-    // -----------------------------------------------------------------------
 
     function parseSteps(label) {
         if (!label) return null;
@@ -77,35 +66,17 @@
         };
     }
 
-    function escapeHtml(s) {
-        return String(s).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
+    function showRegionError(slot, message) {
+        slot.innerHTML = '<blockquote class="note warning"><p>' + escapeHtml(message) + '</p></blockquote>';
     }
 
-    function setText(el, text) {
-        if (el && el.textContent !== text) el.textContent = text;
+    function findRegion(regionTarget, contentTarget) {
+        var region = DOM.find(regionTarget);
+        if (!region) return null;
+        var content = DOM.find(contentTarget, region);
+        if (!content) return null;
+        return { region: region, content: content };
     }
-
-    function setHidden(el, hidden) {
-        if (el) el.hidden = !!hidden;
-    }
-
-    function runQueue() {
-        if (Craft.cp && typeof Craft.cp.runQueue === 'function') Craft.cp.runQueue();
-    }
-
-    function notice(msg) {
-        if (Craft.cp && Craft.cp.displayNotice) Craft.cp.displayNotice(Craft.t('smart-search', msg));
-    }
-
-    function displayError(msg) {
-        if (Craft.cp && Craft.cp.displayError) Craft.cp.displayError(msg);
-    }
-
-    // -----------------------------------------------------------------------
-    // SiteBlock
-    // -----------------------------------------------------------------------
 
     function SiteBlock(card) {
         this.card = card;
@@ -129,7 +100,7 @@
             buttonLabel: DOM.find('button-label', card),
         };
         this.bar = barContainer
-            ? new Craft.ProgressBar(barContainer, /* displaySteps */ false, { announceProgress: false })
+            ? new Craft.ProgressBar(barContainer, false, { announceProgress: false })
             : null;
         if (this.bar) this.bar.showProgressBar();
 
@@ -161,8 +132,7 @@
         this._setButtonDisabled(true);
         setText(this.els.buttonLabel, 'Cancelling…');
         Craft.sendActionRequest('POST', CANCEL_ACTION, { data: { siteId: this.siteId } })
-            .then(function () { pollNow(); })
-            .catch(function () { pollNow(); });
+            .then(pollNow, pollNow);
     };
 
     SiteBlock.prototype.isActive = function () {
@@ -185,14 +155,12 @@
         });
     };
 
-    // Authoritative update from a poll response.
     SiteBlock.prototype.update = function (job, row) {
         var ctx = this._buildCtx(job, row);
         this.render(ctx.state, ctx);
-        if (ctx.fireSyncedNotice) notice('Synced.');
+        if (ctx.fireSyncedNotice) craft.notice('Synced.');
     };
 
-    // Build the rendering context: state + dynamic values per preset hook.
     SiteBlock.prototype._buildCtx = function (job, row) {
         var indexed = row ? (row.indexed || 0) : 0;
         var total = row ? (row.total || 0) : 0;
@@ -200,7 +168,6 @@
         var notIdx = row ? (row.notIndexed || 0) : 0;
         var pct = total > 0 ? Math.round((indexed / total) * 100) : 0;
 
-        // error
         if (job && job.status === STATUS_FAILED) {
             this.wasActive = false;
             return {
@@ -212,7 +179,6 @@
             };
         }
 
-        // indexing
         if (job) {
             var running = job.status === STATUS_RESERVED;
             var steps = parseSteps(job.progressLabel);
@@ -234,7 +200,6 @@
             };
         }
 
-        // idle (synced / needs-sync / not-synced)
         var state = 'synced';
         if (!row || !row.lastIndexed || indexed === 0) state = 'not-synced';
         else if (stale > 0 || notIdx > 0) state = 'needs-sync';
@@ -251,18 +216,15 @@
         };
     };
 
-    // Apply state preset + ctx to the DOM. Single render path for every state.
     SiteBlock.prototype.render = function (state, ctx) {
         var preset = STATE_PRESETS[state];
         if (!preset) return;
-        this._setStateClass(state);
+        this._setStateAttr(state);
         var els = this.els;
 
-        // Pill
         setText(els.pillLabel, ctx.pillLabel || preset.pillLabel || '');
         if (els.pillDot) els.pillDot.className = 'status ' + preset.pillDot;
 
-        // Hero numbers + label
         if ('heroIndexed' in ctx) setText(els.heroIndexed, String(ctx.heroIndexed));
         if ('heroTotal' in ctx) setText(els.heroTotal, String(ctx.heroTotal));
         if (els.heroLabel) {
@@ -271,7 +233,6 @@
                 + '<span data-craftsearch-target="hero-percent">' + (ctx.heroPercent || 0) + '</span>%';
         }
 
-        // Gaps
         setHidden(els.gaps, preset.hideGaps || !(ctx.stale > 0 || ctx.notIndexed > 0));
         if (!preset.hideGaps) {
             setHidden(els.gapStale, !(ctx.stale > 0));
@@ -280,18 +241,15 @@
             setText(els.gapNotIdxN, String(ctx.notIndexed || 0));
         }
 
-        // Progress pane (bar + error message)
         setHidden(els.progress, !preset.showProgress);
         setHidden(els.errorEl, !ctx.errorText);
         if (ctx.errorText) setText(els.errorEl, ctx.errorText);
         if (this.bar && 'barPercent' in ctx) this.bar.setProgressPercentage(ctx.barPercent);
 
-        // Sync button
         this._styleButton(preset.buttonStyle);
         this._setButtonDisabled(preset.buttonDisabled);
         setText(els.buttonLabel, ctx.buttonLabel || this.defaultButtonLabel);
 
-        // Footer
         if (els.lastSync && 'lastSyncLabel' in ctx) {
             els.lastSync.textContent = ctx.lastSyncLabel
                 ? 'Last sync ' + ctx.lastSyncLabel
@@ -299,11 +257,9 @@
         }
     };
 
-    SiteBlock.prototype._setStateClass = function (next) {
+    SiteBlock.prototype._setStateAttr = function (next) {
         if (this.state === next) return;
-        var card = this.card;
-        STATE_NAMES.forEach(function (s) { card.classList.remove('craftsearch-card--' + s); });
-        card.classList.add('craftsearch-card--' + next);
+        DOM.setState(this.card, next);
         this.state = next;
     };
 
@@ -327,24 +283,23 @@
         return parseInt((this.els.heroTotal && this.els.heroTotal.textContent) || '0', 10) || 0;
     };
 
-    // -----------------------------------------------------------------------
-    // Sync submission (shared between per-block and "sync all")
-    // -----------------------------------------------------------------------
-
     function submitSync(data, optimisticBlocks) {
+        function clearOptimistic() {
+            optimisticBlocks.forEach(function (b) { b.optimistic = false; });
+        }
         return Craft.sendActionRequest('POST', SYNC_ACTION, { data: data })
             .then(function (r) {
                 var payload = (r && r.data) || {};
                 if (!payload.success) {
-                    optimisticBlocks.forEach(function (b) { b.optimistic = false; });
-                    displayError(payload.error || Craft.t('smart-search', 'Failed to start sync.'));
+                    clearOptimistic();
+                    craft.error(payload.error || craft.t('smart-search', 'Failed to start sync.'));
                     return pollNow();
                 }
-                runQueue();
+                craft.runQueue();
                 return pollNow();
             })
             .catch(function () {
-                optimisticBlocks.forEach(function (b) { b.optimistic = false; });
+                clearOptimistic();
                 return pollNow();
             });
     }
@@ -360,14 +315,8 @@
         });
     }
 
-    // -----------------------------------------------------------------------
-    // Polling
-    // -----------------------------------------------------------------------
-
     function indexByKey(list, key) {
         var out = {};
-        // Tolerate both arrays and objects — PHP assoc arrays serialize as
-        // JSON objects, which is easy to regress.
         if (!list) return out;
         var items = Array.isArray(list) ? list : Object.keys(list).map(function (k) { return list[k]; });
         items.forEach(function (item) {
@@ -386,7 +335,7 @@
             var row = coverageBySite[block.siteId] || null;
 
             // Hold the optimistic "Queued" state until either the job appears
-            // in the queue or the queue empties (i.e. sync already finished).
+            // in the queue or the queue empties (sync already finished).
             if (!job && block.optimistic) {
                 if (data.queueRemaining > 0) { anyActive = true; return; }
                 block.optimistic = false;
@@ -422,10 +371,6 @@
         pollTimer = setTimeout(function () { pollTimer = null; pollNow(); }, delay);
     }
 
-    // -----------------------------------------------------------------------
-    // Per-entry reindex / exclude / include (entries tab)
-    // -----------------------------------------------------------------------
-
     function setButtonBusy(button, busy) {
         if (!button) return;
         button.classList.toggle('disabled', !!busy);
@@ -452,14 +397,9 @@
     }
 
     function setRowExcluded(row, excluded) {
-        var forms = {
-            reindex: DOM.findControl('reindex-form', row),
-            exclude: DOM.findControl('exclude-form', row),
-            include: DOM.findControl('include-form', row),
-        };
-        if (forms.reindex) forms.reindex.style.display = excluded ? 'none' : 'inline';
-        if (forms.exclude) forms.exclude.style.display = excluded ? 'none' : 'inline';
-        if (forms.include) forms.include.style.display = excluded ? 'inline' : 'none';
+        setHidden(DOM.findControl('reindex-form', row), excluded);
+        setHidden(DOM.findControl('exclude-form', row), excluded);
+        setHidden(DOM.findControl('include-form', row), !excluded);
     }
 
     function refreshRowIndexState(row) {
@@ -477,7 +417,6 @@
         }).catch(function () {});
     }
 
-    // Poll a per-entry job until done. Used after re-index / include actions.
     function pollEntryJob(jobId, opts) {
         function tick() {
             Craft.sendActionRequest('GET', 'smart-search/index/job-status', { params: { id: jobId } })
@@ -486,85 +425,87 @@
                     if (data.done) {
                         setButtonBusy(opts.button, false);
                         if (opts.row) {
-                            setRowStatus(opts.row, 'green', Craft.t('smart-search', 'Indexed'));
+                            setRowStatus(opts.row, 'green', craft.t('smart-search', 'Indexed'));
                             refreshRowIndexState(opts.row);
                         }
-                        if (opts.completionMsg) notice(opts.completionMsg);
+                        if (opts.completionMsg) craft.notice(opts.completionMsg);
                         return;
                     }
-                    runQueue();
-                    setTimeout(tick, 2000);
+                    craft.runQueue();
+                    setTimeout(tick, ENTRY_POLL_MS);
                 })
                 .catch(function (err) {
-                    if (window.console) console.error('Entry job poll failed', err);
+                    console.error('Entry job poll failed', err);
                     setButtonBusy(opts.button, false);
                 });
         }
-        setTimeout(tick, 1500);
+        setTimeout(tick, ENTRY_POLL_INITIAL_MS);
     }
 
-    function bindEntryForm(selector, action, onSuccess) {
-        document.querySelectorAll(selector).forEach(function (form) {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var button = form.querySelector('button[type="submit"]');
-                if (button && button.classList.contains('disabled')) return;
-                setButtonBusy(button, true);
+    function bindEntryForm(controlName, action, onSuccess) {
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!(form instanceof Element)) return;
+            if (form.getAttribute('data-craftsearch-control') !== controlName) return;
 
-                var row = form.closest('[data-craftsearch-entry-row]');
-                var payload = {
-                    elementId: parseInt(form.getAttribute('data-element-id'), 10),
-                    siteId: parseInt(form.getAttribute('data-site-id'), 10),
-                };
-                Craft.sendActionRequest('POST', action, { data: payload })
-                    .then(function (r) {
-                        var data = (r && r.data) || {};
-                        if (!data.success) {
-                            if (window.console) console.error(action + ' returned unexpected payload', data);
-                            setButtonBusy(button, false);
-                            return;
-                        }
-                        onSuccess(row, data, button);
-                    })
-                    .catch(function (err) {
-                        if (window.console) console.error(action + ' request failed', err);
+            e.preventDefault();
+            e.stopPropagation();
+            var button = form.querySelector('button[type="submit"]');
+            if (button && button.disabled) return;
+            setButtonBusy(button, true);
+
+            var row = form.closest('[data-craftsearch-entry-row]');
+            var payload = {
+                elementId: parseInt(form.getAttribute('data-element-id'), 10),
+                siteId: parseInt(form.getAttribute('data-site-id'), 10),
+            };
+            Craft.sendActionRequest('POST', action, { data: payload })
+                .then(function (r) {
+                    var data = (r && r.data) || {};
+                    if (!data.success) {
+                        console.error(action + ' returned unexpected payload', data);
                         setButtonBusy(button, false);
-                    });
-            });
+                        return;
+                    }
+                    onSuccess(row, data, button);
+                })
+                .catch(function (err) {
+                    console.error(action + ' request failed', err);
+                    setButtonBusy(button, false);
+                });
         });
     }
 
     function bindReindexForms() {
-        bindEntryForm('[data-craftsearch-control="reindex-form"]', 'smart-search/index/reindex-entry',
+        bindEntryForm('reindex-form', 'smart-search/index/reindex-entry',
             function (row, data, button) {
                 if (!data.jobId) { setButtonBusy(button, false); return; }
-                runQueue();
+                craft.runQueue();
                 pollEntryJob(data.jobId, { button: button, row: row, completionMsg: 'Re-index finished.' });
             });
     }
 
     function bindExcludeForms() {
-        bindEntryForm('[data-craftsearch-control="exclude-form"]', 'smart-search/index/exclude-entry',
+        bindEntryForm('exclude-form', 'smart-search/index/exclude-entry',
             function (row, data, button) {
                 setButtonBusy(button, false);
                 if (row) {
                     setRowExcluded(row, true);
-                    setRowStatus(row, 'grey', Craft.t('smart-search', 'Excluded'));
+                    setRowStatus(row, 'grey', craft.t('smart-search', 'Excluded'));
                     setRowChunks(row, 0);
                     setRowDate(row, null);
                 }
-                notice('Entry excluded from index.');
+                craft.notice('Entry excluded from index.');
             });
     }
 
     function bindIncludeForms() {
-        bindEntryForm('[data-craftsearch-control="include-form"]', 'smart-search/index/include-entry',
+        bindEntryForm('include-form', 'smart-search/index/include-entry',
             function (row, data, button) {
                 setButtonBusy(button, false);
                 if (row) {
                     setRowExcluded(row, false);
-                    setRowStatus(row, 'off', Craft.t('smart-search', 'Not indexed'));
+                    setRowStatus(row, 'off', craft.t('smart-search', 'Not indexed'));
                     setRowChunks(row, 0);
                     setRowDate(row, null);
                 }
@@ -572,24 +513,17 @@
                 var reindexButton = reindexForm && reindexForm.querySelector('button[type="submit"]');
                 if (reindexButton) setButtonBusy(reindexButton, true);
                 if (data.jobId) {
-                    runQueue();
+                    craft.runQueue();
                     pollEntryJob(data.jobId, { button: reindexButton, row: row });
                 }
             });
     }
 
-    // -----------------------------------------------------------------------
-    // Boot
-    // -----------------------------------------------------------------------
-
     function bootOverview() {
         var grid = DOM.find('overview-grid');
         if (!grid) return;
 
-        blocks = Array.prototype.map.call(
-            grid.querySelectorAll('[data-craftsearch-target="site-card"]'),
-            function (card) { return new SiteBlock(card); }
-        );
+        blocks = DOM.findAll('site-card', grid).map(function (card) { return new SiteBlock(card); });
         if (!blocks.length) return;
 
         bindSyncAllForm();
@@ -607,28 +541,26 @@
     DOM.ready(ns.pages.indexMgmt.init);
 
     DOM.ready(function () {
-        var region = document.querySelector('[data-craftsearch-target="overview-region"]');
-        if (!region) return;
-        var slot = region.querySelector('[data-craftsearch-target="overview-content"]');
-        if (!slot) return;
+        var found = findRegion('overview-region', 'overview-content');
+        if (!found) return;
 
         Craft.sendActionRequest('GET', 'smart-search/index/get-overview').then(function (r) {
             if (r && r.data && r.data.success && typeof r.data.html === 'string') {
-                slot.innerHTML = r.data.html;
+                found.content.innerHTML = r.data.html;
                 bootOverview();
             } else {
-                slot.innerHTML = '<blockquote class="note warning"><p>Failed to load overview.</p></blockquote>';
+                showRegionError(found.content, 'Failed to load overview.');
             }
         }).catch(function () {
-            slot.innerHTML = '<blockquote class="note warning"><p>Failed to load overview.</p></blockquote>';
+            showRegionError(found.content, 'Failed to load overview.');
         });
     });
 
     DOM.ready(function () {
-        var region = document.querySelector('[data-craftsearch-target="entries-region"]');
-        if (!region) return;
-        var contentSlot = region.querySelector('[data-craftsearch-target="entries-content"]');
-        if (!contentSlot) return;
+        var found = findRegion('entries-region', 'entries-content');
+        if (!found) return;
+        var region = found.region;
+        var contentSlot = found.content;
 
         var toolbar = DOM.find('filter-bar', region);
         var spinner = '<div class="craftsearch-entries__loading" data-craftsearch-target="entries-loading"><div class="spinner"></div></div>';
@@ -639,54 +571,27 @@
             contentSlot.insertAdjacentHTML('beforeend', spinner);
         }
 
-        function revealToolbar() {
+        function finishLoad(html, isError) {
+            contentSlot.classList.remove('is-loading');
+            if (isError) {
+                showRegionError(contentSlot, 'Failed to load entries.');
+            } else {
+                contentSlot.innerHTML = html;
+            }
             if (toolbar) toolbar.hidden = false;
         }
 
-        function finishLoad(html, isError) {
-            contentSlot.classList.remove('is-loading');
-            contentSlot.innerHTML = isError
-                ? '<blockquote class="note warning"><p>Failed to load entries.</p></blockquote>'
-                : html;
-            revealToolbar();
-        }
-
         function loadRows() {
-            var params = parseQuery(window.location.search.replace(/^\?/, ''));
-            Craft.sendActionRequest('GET', 'smart-search/index/get-entry-rows', {
-                params: params,
-            }).then(function (r) {
-                if (r && r.data && r.data.success && typeof r.data.html === 'string') {
-                    finishLoad(r.data.html, false);
-                } else {
-                    finishLoad('', true);
-                }
-            }).catch(function () {
-                finishLoad('', true);
-            });
-        }
-
-        function parseQuery(qs) {
-            var out = {};
-            if (!qs) return out;
-            qs.split('&').forEach(function (pair) {
-                if (!pair) return;
-                var idx = pair.indexOf('=');
-                var k = idx >= 0 ? pair.slice(0, idx) : pair;
-                var v = idx >= 0 ? pair.slice(idx + 1) : '';
-                out[decodeURIComponent(k)] = decodeURIComponent(v.replace(/\+/g, ' '));
-            });
-            return out;
-        }
-
-        function buildSearchFromForm(formEl) {
-            var fd = new FormData(formEl);
-            var pairs = [];
-            fd.forEach(function (value, key) {
-                if (value === '' || value === null) return;
-                pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
-            });
-            return pairs.join('&');
+            var params = Utils.parseQuery(window.location.search.replace(/^\?/, ''));
+            Craft.sendActionRequest('GET', 'smart-search/index/get-entry-rows', { params: params })
+                .then(function (r) {
+                    if (r && r.data && r.data.success && typeof r.data.html === 'string') {
+                        finishLoad(r.data.html, false);
+                    } else {
+                        finishLoad('', true);
+                    }
+                })
+                .catch(function () { finishLoad('', true); });
         }
 
         function navigateAjax(search) {
@@ -700,20 +605,39 @@
         if (form) {
             form.addEventListener('submit', function (e) {
                 e.preventDefault();
-                navigateAjax(buildSearchFromForm(form));
+                var fd = new FormData(form);
+                var pairs = [];
+                fd.forEach(function (value, key) {
+                    if (value === '' || value === null) return;
+                    pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+                });
+                navigateAjax(pairs.join('&'));
             });
         }
 
-        region.addEventListener('click', function (e) {
-            var target = e.target;
-            if (!(target instanceof Element)) return;
-            var link = target.closest('.pagination a.btn[href], [data-craftsearch-target="filter-bar-reset"][href]');
-            if (!link || link.classList.contains('disabled')) return;
-            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
-            e.preventDefault();
+        function hrefSearch(link) {
             var href = link.getAttribute('href') || '';
             var qIdx = href.indexOf('?');
-            navigateAjax(qIdx >= 0 ? href.slice(qIdx + 1) : '');
+            return qIdx >= 0 ? href.slice(qIdx + 1) : '';
+        }
+
+        function isPlainClick(e) {
+            return !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button !== 1;
+        }
+
+        DOM.onDelegate(region, 'pagination-link', 'click', function (e, link) {
+            if (link.getAttribute('aria-disabled') === 'true' || !link.getAttribute('href')) return;
+            if (!isPlainClick(e)) return;
+            e.preventDefault();
+            navigateAjax(hrefSearch(link));
+        });
+
+        region.addEventListener('click', function (e) {
+            if (!(e.target instanceof Element)) return;
+            var link = e.target.closest('[data-craftsearch-target="filter-bar-reset"][href]');
+            if (!link || !isPlainClick(e)) return;
+            e.preventDefault();
+            navigateAjax(hrefSearch(link));
         });
 
         window.addEventListener('popstate', function () {
@@ -725,19 +649,17 @@
     });
 
     DOM.ready(function () {
-        var region = document.querySelector('[data-craftsearch-target="coverage-region"]');
-        if (!region) return;
-        var contentSlot = region.querySelector('[data-craftsearch-target="coverage-content"]');
-        if (!contentSlot) return;
+        var found = findRegion('coverage-region', 'coverage-content');
+        if (!found) return;
 
         Craft.sendActionRequest('GET', 'smart-search/index/get-coverage').then(function (r) {
             if (r && r.data && r.data.success && typeof r.data.html === 'string') {
-                contentSlot.innerHTML = r.data.html;
+                found.content.innerHTML = r.data.html;
             } else {
-                contentSlot.innerHTML = '<blockquote class="note warning"><p>Failed to load coverage.</p></blockquote>';
+                showRegionError(found.content, 'Failed to load coverage.');
             }
         }).catch(function () {
-            contentSlot.innerHTML = '<blockquote class="note warning"><p>Failed to load coverage.</p></blockquote>';
+            showRegionError(found.content, 'Failed to load coverage.');
         });
     });
 })();

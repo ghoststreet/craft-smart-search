@@ -8,6 +8,7 @@
 {% set siteId = filters.siteId %}
 {% set tabParams = { days: days, siteId: siteId } %}
 {% set hasResults = (tab == 'queries' ? topQueries|default([])|length : page.items|default([])|length) > 0 %}
+{% set hasActiveFilters = days or siteId or filters.type or filters.errorsOnly %}
 
 {% set tabs = {
     history:        { label: 'Overview',     url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'history' })) },
@@ -68,7 +69,7 @@
         </div>
     {% endif %}
 
-    {% if hasResults %}
+    {% if hasResults or hasActiveFilters %}
         <div class="filter-bar" data-craftsearch-target="filter-bar">
             <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
                 <input type="hidden" name="tab" value="{{ tab }}">

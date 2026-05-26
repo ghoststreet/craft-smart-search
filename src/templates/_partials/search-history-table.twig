@@ -38,7 +38,8 @@
                         <td>
                             {% if item.hasError %}
                                 <button type="button" class="badge badge--error ss-error-badge"
-                                        data-error-modal data-error-message="{{ item.errorMessage }}"
+                                        data-craftsearch-control="error-modal-trigger"
+                                        data-craftsearch-error-message="{{ item.errorMessage }}"
                                         title="{{ item.errorMessage }}"><span class="badge__dot"></span>Error</button>
                             {% else %}
                                 {{ b.badge('Success', 'success') }}

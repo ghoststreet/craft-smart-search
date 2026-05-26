@@ -1,14 +1,14 @@
 (function () {
     'use strict';
     var ns = window.SmartSearch;
+    var DOM = ns.core.DOM;
 
     function bindDismissGuide() {
-        var btn = document.querySelector('[data-craftsearch-control="dismiss-guide"]');
+        var btn = DOM.findControl('dismiss-guide');
         if (!btn) return;
         btn.addEventListener('click', function () {
             var card = btn.closest('[data-craftsearch-guide]');
-            if (card) card.parentNode.removeChild(card);
-            if (!window.Craft || typeof Craft.postActionRequest !== 'function') return;
+            if (card) card.remove();
             Craft.postActionRequest('smart-search/dashboard/dismiss-guide');
         });
     }
@@ -22,5 +22,5 @@
         }
     };
 
-    ns.core.DOM.ready(ns.pages.dashboard.init);
+    DOM.ready(ns.pages.dashboard.init);
 })();

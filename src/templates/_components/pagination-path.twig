@@ -24,14 +24,14 @@
     <div class="pagination">
         <div class="btngroup">
             {% if currentPage > 1 %}
-                <a class="btn" href="{{ url(path, params|merge({ page: currentPage - 1 })) }}">
+                <a class="btn" data-craftsearch-control="pagination-link" href="{{ url(path, params|merge({ page: currentPage - 1 })) }}">
                     <span data-icon="leftangle"></span> {{ prevLabel }}
                 </a>
             {% else %}
                 <span class="btn disabled"><span data-icon="leftangle"></span> {{ prevLabel }}</span>
             {% endif %}
             {% if currentPage < totalPages %}
-                <a class="btn" href="{{ url(path, params|merge({ page: currentPage + 1 })) }}">
+                <a class="btn" data-craftsearch-control="pagination-link" href="{{ url(path, params|merge({ page: currentPage + 1 })) }}">
                     {{ nextLabel }} <span data-icon="rightangle"></span>
                 </a>
             {% else %}

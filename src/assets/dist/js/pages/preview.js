@@ -12,6 +12,10 @@
         if (!tpl) return null;
         var node = tpl.content.cloneNode(true);
         var a = DOM.find('field-url', node);
+        if (!a) {
+            console.error('cite-tpl is missing data-craftsearch-target="field-url"');
+            return null;
+        }
         a.href = src.url || '#';
         a.textContent = src.title || 'Source';
         return a;
@@ -22,12 +26,10 @@
         sources.forEach(function (s) { sourcesById[s.id] = s; });
 
         var fragment = document.createDocumentFragment();
-
         var lines = text.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
         lines.forEach(function (line) {
             var p = document.createElement('p');
-            var parts = line.split(/(\[\d+\])/);
-            parts.forEach(function (part) {
+            line.split(/(\[\d+\])/).forEach(function (part) {
                 var m = part.match(/^\[(\d+)\]$/);
                 if (m) {
                     var src = sourcesById[parseInt(m[1], 10)];
@@ -42,13 +44,10 @@
             });
             fragment.appendChild(p);
         });
-
         return fragment;
     }
 
-    function getRoot() {
-        return DOM.find('preview-page');
-    }
+    function getRoot() { return DOM.find('preview-page'); }
 
     function getSiteId() {
         var sel = DOM.findControl('site-select');
@@ -56,18 +55,16 @@
     }
 
     function csrfParam() {
-        var name = (window.Craft && Craft.csrfTokenName) || ns.config.csrfTokenName;
-        var value = (window.Craft && Craft.csrfTokenValue) || ns.config.csrfTokenValue;
+        var name = ns.config.csrfTokenName;
+        var value = ns.config.csrfTokenValue;
         if (!name || !value) return '';
         return encodeURIComponent(name) + '=' + encodeURIComponent(value);
     }
 
     function streamActionUrl(path, params) {
-        var base = (window.Craft && Craft.actionUrl) ? Craft.actionUrl : '/actions/';
-        var url = base.replace(/\/$/, '') + '/' + path;
-        if (params) {
-            url += (url.indexOf('?') === -1 ? '?' : '&') + params;
-        }
+        var base = (Craft.actionUrl || '/actions/').replace(/\/$/, '');
+        var url = base + '/' + path;
+        if (params) url += (url.indexOf('?') === -1 ? '?' : '&') + params;
         return url;
     }
 
@@ -80,24 +77,19 @@
         var excerptEl = DOM.find('field-excerpt', card);
         titleEl.href = r.url || '#';
         titleEl.textContent = r.title || 'Untitled';
-        if (r.excerpt) {
-            excerptEl.textContent = r.excerpt;
-        } else {
-            excerptEl.remove();
-        }
+        if (r.excerpt) excerptEl.textContent = r.excerpt;
+        else excerptEl.remove();
         return card;
     }
 
     function postSearch(action, query, siteId) {
         var data = { q: query };
         if (siteId) data.siteId = siteId;
-
         return Craft.sendActionRequest('POST', action, { data: data })
             .then(function (r) { return r.data; })
             .catch(function (err) {
-                var data = (err.response && err.response.data) || {};
-                var message = data.message || data.code || err.message || 'Search failed.';
-                throw new Error(message);
+                var body = (err.response && err.response.data) || {};
+                throw new Error(body.message || body.code || err.message || 'Search failed.');
             });
     }
 
@@ -137,39 +129,21 @@
         errorEl.textContent = '';
     }
 
-    function runSmart(query) {
-        var root = getRoot();
-        var resultsEl = DOM.find('smart-results', root);
-        var errorEl = DOM.find('smart-error', root);
-
-        if (!query) { reset(resultsEl, errorEl); return; }
-
-        setLoading(resultsEl, errorEl);
-        postSearch('smart-search/search/search', query, getSiteId())
-            .then(function (data) { renderCards(resultsEl, data.semanticResults || []); })
-            .catch(function (err) { showError(resultsEl, errorEl, err.message); });
+    function parseEventData(e) {
+        try { return JSON.parse(e.data); }
+        catch (err) { console.warn('Malformed stream payload', err); return null; }
     }
 
-    function runCraft(query) {
-        var root = getRoot();
-        var resultsEl = DOM.find('craft-results', root);
-        var errorEl = DOM.find('craft-error', root);
-
-        if (!query) { reset(resultsEl, errorEl); return; }
-
-        setLoading(resultsEl, errorEl);
-        postSearch('smart-search/search/index', query, getSiteId())
-            .then(function (data) { renderCards(resultsEl, data.results || []); })
-            .catch(function (err) { showError(resultsEl, errorEl, err.message); });
+    function closeRagStream() {
+        if (ragEventSource) { ragEventSource.close(); ragEventSource = null; }
     }
 
-    function runAiAnswer(query) {
-        var root = getRoot();
+    function runRagAnswer(query, root) {
         var resultsEl = DOM.find('ai-answer-results', root);
         var summaryEl = DOM.find('ai-answer-summary', root);
         var errorEl = DOM.find('ai-answer-error', root);
 
-        if (ragEventSource) { ragEventSource.close(); ragEventSource = null; }
+        closeRagStream();
 
         if (!query) {
             reset(resultsEl, errorEl);
@@ -190,60 +164,72 @@
         var csrf = csrfParam();
         if (csrf) params += '&' + csrf;
 
-        var url = streamActionUrl('smart-search/search/ai-answer-stream', params);
         var summaryText = '';
-
-        ragEventSource = new EventSource(url);
+        ragEventSource = new EventSource(streamActionUrl('smart-search/search/ai-answer-stream', params));
 
         ragEventSource.addEventListener('sources', function (e) {
-            try {
-                ragSources = JSON.parse(e.data).sources || [];
-                renderCards(resultsEl, ragSources);
-            } catch (_) {}
+            var data = parseEventData(e);
+            if (!data) return;
+            ragSources = data.sources || [];
+            renderCards(resultsEl, ragSources);
         });
 
         ragEventSource.addEventListener('token', function (e) {
-            try {
-                summaryText += JSON.parse(e.data).t || '';
-                summaryEl.innerHTML = '';
-                summaryEl.appendChild(formatSummary(summaryText, ragSources));
-                summaryEl.hidden = false;
-            } catch (_) {}
+            var data = parseEventData(e);
+            if (!data) return;
+            summaryText += data.t || '';
+            summaryEl.innerHTML = '';
+            summaryEl.appendChild(formatSummary(summaryText, ragSources));
+            summaryEl.hidden = false;
         });
 
-        ragEventSource.addEventListener('done', function () {
-            if (ragEventSource) { ragEventSource.close(); ragEventSource = null; }
-        });
+        ragEventSource.addEventListener('done', closeRagStream);
 
         ragEventSource.addEventListener('error', function (e) {
-            if (ragEventSource) { ragEventSource.close(); ragEventSource = null; }
-            var message = 'Streaming error.';
-            try { if (e.data) message = JSON.parse(e.data).message || message; } catch (_) {}
-            showError(resultsEl, errorEl, message);
+            closeRagStream();
+            var data = e.data ? parseEventData(e) : null;
+            showError(resultsEl, errorEl, (data && data.message) || 'Streaming error.');
         });
-
-        ragEventSource.onerror = function () {
-            if (ragEventSource && ragEventSource.readyState === EventSource.CLOSED) {
-                ragEventSource = null;
-            }
-        };
     }
+
+    function runStandardSearch(query, root, opts) {
+        var resultsEl = DOM.find(opts.resultsTarget, root);
+        var errorEl = DOM.find(opts.errorTarget, root);
+
+        if (!query) { reset(resultsEl, errorEl); return; }
+
+        setLoading(resultsEl, errorEl);
+        postSearch(opts.action, query, getSiteId())
+            .then(function (data) { renderCards(resultsEl, data[opts.dataField] || []); })
+            .catch(function (err) { showError(resultsEl, errorEl, err.message); });
+    }
+
+    var RUNNERS = {
+        smart: function (q, root) {
+            runStandardSearch(q, root, {
+                resultsTarget: 'smart-results', errorTarget: 'smart-error',
+                action: 'smart-search/search/search', dataField: 'semanticResults',
+            });
+        },
+        craft: function (q, root) {
+            runStandardSearch(q, root, {
+                resultsTarget: 'craft-results', errorTarget: 'craft-error',
+                action: 'smart-search/search/index', dataField: 'results',
+            });
+        },
+        'ai-answer': function (q, root) { runRagAnswer(q, root); },
+    };
 
     function bindInputs() {
         var root = getRoot();
         if (!root) return;
 
-        var handlers = { smart: runSmart, 'ai-answer': runAiAnswer, craft: runCraft };
-
-        Object.keys(handlers).forEach(function (type) {
+        Object.keys(RUNNERS).forEach(function (type) {
             var input = DOM.findControl(type + '-input', root);
             var btn = DOM.findControl(type + '-submit', root);
             if (!input) return;
 
-            function submit() {
-                var q = input.value.trim();
-                handlers[type](q);
-            }
+            function submit() { RUNNERS[type](input.value.trim(), root); }
 
             if (btn) btn.addEventListener('click', submit);
             input.addEventListener('keydown', function (e) {
@@ -254,15 +240,16 @@
         var siteSelect = DOM.findControl('site-select');
         if (siteSelect) {
             siteSelect.addEventListener('change', function () {
-                Object.keys(handlers).forEach(function (type) {
+                Object.keys(RUNNERS).forEach(function (type) {
                     var input = DOM.findControl(type + '-input', root);
-                    if (input && input.value.trim()) handlers[type](input.value.trim());
+                    var q = input && input.value.trim();
+                    if (q) RUNNERS[type](q, root);
                 });
             });
         }
     }
 
-    ns.pages.preview = { init: function () { bindInputs(); } };
+    ns.pages.preview = { init: bindInputs };
 
     DOM.ready(ns.pages.preview.init);
 })();

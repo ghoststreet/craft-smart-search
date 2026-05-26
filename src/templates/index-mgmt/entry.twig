@@ -179,7 +179,7 @@
 
         {% if inspection.fields|length %}
             <div class="field-card-filters" data-craftsearch-target="field-filters">
-                <button type="button" class="btn small is-active" data-craftsearch-control="field-filter-button" data-filter-value="all">{{ 'All'|t('smart-search') }} ({{ inspection.fields|length }})</button>
+                <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-craftsearch-state="active" data-filter-value="all">{{ 'All'|t('smart-search') }} ({{ inspection.fields|length }})</button>
                 <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-filter-value="indexed">{{ 'Indexed'|t('smart-search') }} ({{ fieldsIndexed }})</button>
                 <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-filter-value="skipped">{{ 'Skipped'|t('smart-search') }} ({{ inspection.fields|length - fieldsIndexed }})</button>
             </div>

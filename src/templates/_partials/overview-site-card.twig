@@ -38,7 +38,7 @@
 } %}
 {% set p = presets[state] %}
 
-<div class="craftsearch-card craftsearch-card--{{ state }}" data-craftsearch-target="site-card" data-craftsearch-site-id="{{ site.siteId }}">
+<div class="craftsearch-card" data-craftsearch-target="site-card" data-craftsearch-state="{{ state }}" data-craftsearch-site-id="{{ site.siteId }}">
     <div class="craftsearch-card__head">
         <h3 class="craftsearch-card__title">{{ site.name }}</h3>
         <span class="craftsearch-card__pill" data-craftsearch-target="pill">

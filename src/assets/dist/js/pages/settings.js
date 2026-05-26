@@ -3,6 +3,7 @@
 
     var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
+    var Utils = ns.core.Utils;
     var errors = ns.core.errors;
 
     var DB_FIELDS = ['db-host', 'db-port', 'db-database', 'db-user', 'db-password', 'db-ssl-mode'];
@@ -13,115 +14,53 @@
         return el ? String(el.value || '') : '';
     }
 
-    function wireTest(controlName, resultName, action, successMessage, getData) {
-        var btn = DOM.findControl(controlName);
+    function setResult(el, text, state) {
+        if (!el) return;
+        Utils.setText(el, text);
+        DOM.setState(el, state || '');
+    }
+
+    function runTest(action, getData, result, successMessage) {
+        setResult(result, 'Testing…', '');
+        var options = getData ? { data: getData() } : {};
+        Craft.sendActionRequest('POST', action, options)
+            .then(function (response) {
+                var data = response.data || {};
+                if (data.success) setResult(result, successMessage, 'ok');
+                else setResult(result, errors.messageFor(data), 'error');
+            })
+            .catch(function (error) {
+                var body = (error && error.response && error.response.data) || {};
+                setResult(result, errors.messageFor(body), 'error');
+            });
+    }
+
+    function setupTest(opts) {
+        var btn = DOM.findControl(opts.control);
         if (!btn) return;
+        var result = DOM.find(opts.resultTarget);
+
+        function isReady() {
+            return opts.requiredFields.every(function (name) {
+                return valueOf(name).trim() !== '';
+            });
+        }
+
+        function sync() { btn.disabled = !isReady(); }
+
         btn.addEventListener('click', function () {
             if (btn.disabled) return;
-            var result = DOM.find(resultName);
-            if (result) {
-                result.textContent = 'Testing…';
-                result.style.color = '';
-            }
-            var options = {};
-            if (typeof getData === 'function') {
-                options.data = getData();
-            }
-            Craft.sendActionRequest('POST', action, options)
-                .then(function (response) {
-                    var data = response.data || {};
-                    if (!result) return;
-                    if (data.success) {
-                        result.textContent = successMessage;
-                        result.style.color = 'green';
-                    } else {
-                        result.textContent = errors.messageFor(data);
-                        result.style.color = 'red';
-                    }
-                })
-                .catch(function (error) {
-                    if (!result) return;
-                    var body = (error && error.response && error.response.data) || {};
-                    result.textContent = errors.messageFor(body);
-                    result.style.color = 'red';
-                });
+            runTest(opts.action, opts.getData, result, opts.successMessage);
         });
-    }
-
-    function readDbFields() {
-        var out = {};
-        out.host = valueOf('db-host');
-        out.port = valueOf('db-port');
-        out.database = valueOf('db-database');
-        out.user = valueOf('db-user');
-        out.password = valueOf('db-password');
-        out.sslMode = valueOf('db-ssl-mode');
-        return out;
-    }
-
-    function setupDbTest() {
-        var btn = DOM.findControl('test-db');
-        if (!btn) return;
-        var result = DOM.find('test-db-result');
-
-        wireTest('test-db', 'test-db-result', 'smart-search/settings/test-database-connection', 'Connected successfully.', readDbFields);
-
-        function allFilled() {
-            for (var i = 0; i < DB_REQUIRED.length; i++) {
-                if (valueOf(DB_REQUIRED[i]).trim() === '') return false;
-            }
-            return true;
-        }
-
-        function sync() {
-            var ready = allFilled();
-            btn.disabled = !ready;
-            btn.classList.toggle('disabled', !ready);
-        }
 
         sync();
 
-        DB_FIELDS.forEach(function (name) {
+        opts.watchFields.forEach(function (name) {
             var el = DOM.find(name);
             if (!el) return;
-            el.addEventListener('input', function () {
-                sync();
-                if (result) {
-                    result.textContent = '';
-                    result.style.color = '';
-                }
-            });
+            el.addEventListener('input', function () { sync(); setResult(result, '', ''); });
             el.addEventListener('change', sync);
         });
-    }
-
-    function setupApiKeyTest() {
-        var btn = DOM.findControl('test-api-key');
-        if (!btn) return;
-        var input = DOM.find('openai-api-key');
-        var result = DOM.find('test-api-key-result');
-
-        wireTest('test-api-key', 'test-api-key-result', 'smart-search/settings/test-api-key', 'API key is valid.', function () {
-            return { apiKey: valueOf('openai-api-key') };
-        });
-
-        function sync() {
-            var empty = valueOf('openai-api-key').trim() === '';
-            btn.disabled = empty;
-            btn.classList.toggle('disabled', empty);
-        }
-
-        sync();
-
-        if (input) {
-            input.addEventListener('input', function () {
-                sync();
-                if (result) {
-                    result.textContent = '';
-                    result.style.color = '';
-                }
-            });
-        }
     }
 
     function setupSmartWarning() {
@@ -130,14 +69,41 @@
         if (!select || !warning) return;
         var original = select.value;
         select.addEventListener('change', function () {
-            warning.classList.toggle('hidden', select.value === original);
+            Utils.setHidden(warning, select.value === original);
         });
+    }
+
+    function readDbFields() {
+        return {
+            host: valueOf('db-host'),
+            port: valueOf('db-port'),
+            database: valueOf('db-database'),
+            user: valueOf('db-user'),
+            password: valueOf('db-password'),
+            sslMode: valueOf('db-ssl-mode'),
+        };
     }
 
     ns.pages.settings = {
         init: function () {
-            setupDbTest();
-            setupApiKeyTest();
+            setupTest({
+                control: 'test-db',
+                resultTarget: 'test-db-result',
+                action: 'smart-search/settings/test-database-connection',
+                successMessage: 'Connected successfully.',
+                requiredFields: DB_REQUIRED,
+                watchFields: DB_FIELDS,
+                getData: readDbFields,
+            });
+            setupTest({
+                control: 'test-api-key',
+                resultTarget: 'test-api-key-result',
+                action: 'smart-search/settings/test-api-key',
+                successMessage: 'API key is valid.',
+                requiredFields: ['openai-api-key'],
+                watchFields: ['openai-api-key'],
+                getData: function () { return { apiKey: valueOf('openai-api-key') }; },
+            });
             setupSmartWarning();
         }
     };

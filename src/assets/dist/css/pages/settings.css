@@ -1,3 +1,5 @@
 .settings__buttons { margin-bottom: 16px; }
 .settings__test-result { margin-left: 8px; }
+.settings__test-result[data-craftsearch-state="ok"] { color: green; }
+.settings__test-result[data-craftsearch-state="error"] { color: red; }
 .settings__db-test { margin-top: 8px; }

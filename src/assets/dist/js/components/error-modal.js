@@ -1,45 +1,63 @@
 (function () {
     'use strict';
     var ns = window.SmartSearch;
+    var DOM = ns.core.DOM;
+    var craft = ns.core.craft;
 
-    // Opens a Garnish modal showing the full error message for a search-log row.
-    // Triggered by clicking any [data-error-modal] element (the Error badge).
+    var current = null;
+
+    function close() {
+        if (!current) return;
+        document.removeEventListener('keydown', onKey);
+        current.remove();
+        current = null;
+    }
+
+    function onKey(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    function open(message) {
+        close();
+
+        var backdrop = document.createElement('div');
+        backdrop.className = 'modal-shade';
+        backdrop.setAttribute('data-craftsearch-target', 'error-modal-backdrop');
+
+        var modal = document.createElement('div');
+        modal.className = 'modal ss-error-modal';
+        modal.setAttribute('data-craftsearch-target', 'error-modal');
+        modal.innerHTML =
+            '<div class="body">' +
+                '<h2></h2>' +
+                '<pre data-craftsearch-target="error-modal-message"></pre>' +
+            '</div>' +
+            '<div class="footer">' +
+                '<button type="button" class="btn submit" data-craftsearch-control="error-modal-close"></button>' +
+            '</div>';
+
+        DOM.find('error-modal-message', modal).textContent = message || 'No error message recorded.';
+        modal.querySelector('h2').textContent = craft.t('smart-search', 'Search error');
+        DOM.findControl('error-modal-close', modal).textContent = craft.t('smart-search', 'Close');
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+        current = { remove: function () { modal.remove(); backdrop.remove(); } };
+
+        DOM.findControl('error-modal-close', modal).addEventListener('click', close);
+        backdrop.addEventListener('click', close);
+        document.addEventListener('keydown', onKey);
+    }
+
     ns.components.ErrorModal = {
         init: function () {
-            document.addEventListener('click', function (e) {
-                var trigger = e.target.closest('[data-error-modal]');
-                if (!trigger) {
-                    return;
-                }
+            DOM.onDelegate(document, 'error-modal-trigger', 'click', function (e, trigger) {
                 e.preventDefault();
-                ns.components.ErrorModal.show(trigger.getAttribute('data-error-message'));
+                open(trigger.getAttribute('data-craftsearch-error-message'));
             });
         },
-
-        show: function (message) {
-            var $modal = $(
-                '<div class="modal ss-error-modal">' +
-                    '<div class="body">' +
-                        '<h2>' + Craft.t('app', 'Search error') + '</h2>' +
-                        '<pre class="ss-error-modal__message"></pre>' +
-                    '</div>' +
-                    '<div class="footer">' +
-                        '<button type="button" class="btn submit">' + Craft.t('app', 'Close') + '</button>' +
-                    '</div>' +
-                '</div>'
-            ).appendTo(Garnish.$bod);
-
-            $modal.find('.ss-error-modal__message').text(message || 'No error message recorded.');
-
-            var modal = new Garnish.Modal($modal, { resizable: false });
-            $modal.find('.btn').on('click', function () {
-                modal.hide();
-            });
-            modal.on('hide', function () {
-                $modal.remove();
-            });
-        }
+        show: open
     };
 
-    ns.core.DOM.ready(ns.components.ErrorModal.init);
+    DOM.ready(ns.components.ErrorModal.init);
 })();

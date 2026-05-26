@@ -27,47 +27,47 @@
     transition: border-color 120ms ease;
 }
 
-.craftsearch-card--synced {
+.craftsearch-card[data-craftsearch-state="synced"] {
     border-color: #6cc070;
     background: #f1faf2;
 }
-.craftsearch-card--synced .craftsearch-card__pill {
+.craftsearch-card[data-craftsearch-state="synced"] .craftsearch-card__pill {
     background: #e0f3df;
     color: #2f6f33;
 }
 
-.craftsearch-card--needs-sync {
+.craftsearch-card[data-craftsearch-state="needs-sync"] {
     border-color: #f0b67a;
     background: #fff9f0;
 }
-.craftsearch-card--needs-sync .craftsearch-card__pill {
+.craftsearch-card[data-craftsearch-state="needs-sync"] .craftsearch-card__pill {
     background: #fbe7c8;
     color: #8a5a14;
 }
 
-.craftsearch-card--not-synced {
+.craftsearch-card[data-craftsearch-state="not-synced"] {
     border-color: var(--hairline-color, #cdd8e4);
     background: var(--gray-050, #f6f8fb);
 }
-.craftsearch-card--not-synced .craftsearch-card__pill {
+.craftsearch-card[data-craftsearch-state="not-synced"] .craftsearch-card__pill {
     background: var(--gray-100, #eef1f5);
     color: var(--medium-text-color, #606d7b);
 }
 
-.craftsearch-card--indexing {
+.craftsearch-card[data-craftsearch-state="indexing"] {
     border-color: #6aa6f5;
     background: #f5f9ff;
 }
-.craftsearch-card--indexing .craftsearch-card__pill {
+.craftsearch-card[data-craftsearch-state="indexing"] .craftsearch-card__pill {
     background: #dbeafe;
     color: #1e4a8a;
 }
 
-.craftsearch-card--error {
+.craftsearch-card[data-craftsearch-state="error"] {
     border-color: #cf3b3b;
     background: #fdf2f2;
 }
-.craftsearch-card--error .craftsearch-card__pill {
+.craftsearch-card[data-craftsearch-state="error"] .craftsearch-card__pill {
     background: #f5c2c2;
     color: #8a1f1f;
 }
@@ -180,7 +180,7 @@
 .craftsearch-card__progress .progressbar .progressbar-inner {
     background: var(--blue-500, #3b82f6);
 }
-.craftsearch-card--error .craftsearch-card__progress .progressbar .progressbar-inner {
+.craftsearch-card[data-craftsearch-state="error"] .craftsearch-card__progress .progressbar .progressbar-inner {
     background: #cf3b3b;
 }
 

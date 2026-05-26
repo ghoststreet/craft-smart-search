@@ -1,25 +1,19 @@
 (function () {
     'use strict';
+    var DOM = window.SmartSearch.core.DOM;
 
     function init() {
-        var DOM = window.SmartSearch.core.DOM;
         var filters = DOM.find('field-filters');
         var list = DOM.find('field-card-list');
         if (!filters || !list) return;
 
-        filters.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-craftsearch-control="field-filter-button"]');
-            if (!btn) return;
-            filters.querySelectorAll('[data-craftsearch-control="field-filter-button"]').forEach(function (b) {
-                b.classList.toggle('is-active', b === btn);
+        DOM.onDelegate(filters, 'field-filter-button', 'click', function (e, btn) {
+            DOM.findAllControls('field-filter-button', filters).forEach(function (b) {
+                DOM.setState(b, b === btn ? 'active' : '');
             });
             list.setAttribute('data-filter-mode', btn.getAttribute('data-filter-value'));
         });
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    DOM.ready(init);
 })();
