@@ -4,9 +4,9 @@ namespace ghoststreet\craftsmartsearch\helpers;
 
 use Craft;
 use craft\web\Controller;
-use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
 use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
+use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
 use Throwable;
 use yii\web\Response;
 
@@ -35,9 +35,10 @@ final class ApiResponseHelper
         $code = ErrorMapper::codeFor($e);
         Logger::exception($e, $operation, $context + ['code' => $code->value]);
 
+        $requestId = !empty($context['requestId']) ? (string)$context['requestId'] : null;
         $message = ErrorMapper::translatedMessage($e);
-        if (!empty($context['requestId'])) {
-            $message .= " (Reference: {$context['requestId']})";
+        if ($requestId !== null) {
+            $message .= " (Reference: {$requestId})";
         }
 
         $body = [
@@ -46,8 +47,8 @@ final class ApiResponseHelper
             'message' => $message,
         ];
 
-        if (!empty($context['requestId'])) {
-            $body['requestId'] = $context['requestId'];
+        if ($requestId !== null) {
+            $body['requestId'] = $requestId;
         }
 
         if ($e instanceof RateLimitException) {

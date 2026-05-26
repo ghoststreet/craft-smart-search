@@ -2,43 +2,33 @@
 
 namespace ghoststreet\craftsmartsearch\exceptions;
 
-use ghoststreet\craftsmartsearch\SmartSearch;
 use PDOException;
 use Throwable;
 
 class DatabaseException extends SmartSearchException
 {
-    public static function queryFailed(string $operation, Throwable $previous): self
+    public static function queryFailed(string $operation, Throwable $previous, ?string $table = null): self
     {
         if ($previous instanceof PDOException && ($previous->getCode() === '42P01' || str_contains($previous->getMessage(), 'SQLSTATE[42P01]'))) {
-            $settings = SmartSearch::getInstance()?->getSettings();
-            $table = $settings ? "{$settings->vectorsSchemaName}.{$settings->vectorsTableName}" : 'vector table';
-            $e = new self("The vector table \"{$table}\" does not exist.", 0, $previous);
-            $e->errorCode = ErrorCode::DATABASE_TABLE_MISSING;
-            return $e;
+            $label = $table !== null ? "\"{$table}\"" : 'vector table';
+            return self::build("The vector table {$label} does not exist.", ErrorCode::DATABASE_TABLE_MISSING, $previous);
         }
 
-        $e = new self(
+        return self::build(
             "Database query failed in {$operation}: {$previous->getMessage()}",
-            0,
+            ErrorCode::DATABASE_QUERY_FAILED,
             $previous
         );
-        $e->errorCode = ErrorCode::DATABASE_QUERY_FAILED;
-        return $e;
     }
 
     public static function configurationIncomplete(array $missingFields): self
     {
         $fieldList = implode(', ', $missingFields);
-        $e = new self("PostgreSQL configuration incomplete. Missing: {$fieldList}");
-        $e->errorCode = ErrorCode::DATABASE_CONFIG_INCOMPLETE;
-        return $e;
+        return self::build("PostgreSQL configuration incomplete. Missing: {$fieldList}", ErrorCode::DATABASE_CONFIG_INCOMPLETE);
     }
 
     public static function connectionError(string $message, ?Throwable $previous = null): self
     {
-        $e = new self("PostgreSQL connection error: {$message}", 0, $previous);
-        $e->errorCode = ErrorCode::DATABASE_CONNECTION_ERROR;
-        return $e;
+        return self::build("PostgreSQL connection error: {$message}", ErrorCode::DATABASE_CONNECTION_ERROR, $previous);
     }
 }

@@ -2,8 +2,8 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\ConfigurationException;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
 use OpenAI\Client;

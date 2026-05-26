@@ -3,9 +3,9 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\jobs\RebuildDictionaryJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use PDOException;
 use Throwable;
 use yii\base\Component;
@@ -74,13 +74,7 @@ class DictionaryService extends Component
 
     public function hasTrgmExtension(): bool
     {
-        try {
-            $db = SmartSearch::getInstance()->databaseService->getConnection();
-            $stmt = $db->query("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'");
-            return (bool)$stmt->fetchColumn();
-        } catch (Throwable) {
-            return false;
-        }
+        return $this->hasExtension('pg_trgm');
     }
 
     /**
@@ -107,29 +101,33 @@ class DictionaryService extends Component
 
     public function hasFuzzyStrMatch(): bool
     {
+        return $this->hasExtension('fuzzystrmatch');
+    }
+
+    private function hasExtension(string $name): bool
+    {
         try {
             $db = SmartSearch::getInstance()->databaseService->getConnection();
-            $stmt = $db->query("SELECT 1 FROM pg_extension WHERE extname = 'fuzzystrmatch'");
+            $stmt = $db->prepare("SELECT 1 FROM pg_extension WHERE extname = :name");
+            $stmt->execute([':name' => $name]);
             return (bool)$stmt->fetchColumn();
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             return false;
         }
     }
 
     private function checkAvailability(): bool
     {
+        if (!$this->hasExtension('pg_trgm')) {
+            return false;
+        }
+
         try {
             $db = SmartSearch::getInstance()->databaseService->getConnection();
-
-            $stmt = $db->query("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'");
-            if (!$stmt->fetchColumn()) {
-                return false;
-            }
-
             $table = $this->qualifiedTermsTable();
             $stmt = $db->query("SELECT EXISTS (SELECT 1 FROM {$table} LIMIT 1)");
             return (bool)$stmt->fetchColumn();
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -148,10 +146,10 @@ class DictionaryService extends Component
 
         $indexName = $this->configuredTermsTableName() . '_trgm_idx';
         $statements = [
-            'pg_trgm extension'       => 'CREATE EXTENSION IF NOT EXISTS pg_trgm',
+            'pg_trgm extension' => 'CREATE EXTENSION IF NOT EXISTS pg_trgm',
             'fuzzystrmatch extension' => 'CREATE EXTENSION IF NOT EXISTS fuzzystrmatch',
-            'terms table'             => "CREATE TABLE IF NOT EXISTS {$table} (term text PRIMARY KEY, df integer NOT NULL DEFAULT 0)",
-            'terms trgm index'        => "CREATE INDEX IF NOT EXISTS \"{$indexName}\" ON {$table} USING GIN (term gin_trgm_ops)",
+            'terms table' => "CREATE TABLE IF NOT EXISTS {$table} (term text PRIMARY KEY, df integer NOT NULL DEFAULT 0)",
+            'terms trgm index' => "CREATE INDEX IF NOT EXISTS \"{$indexName}\" ON {$table} USING GIN (term gin_trgm_ops)",
         ];
 
         $tableExists = false;

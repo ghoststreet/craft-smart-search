@@ -3,15 +3,21 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
-use ghoststreet\craftsmartsearch\SmartSearch;
-use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
+use DateTimeImmutable;
+use Exception;
+use Generator;
+use OpenAI\Exceptions\ErrorException;
+use DateTimeZone;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TextValidator;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use ghoststreet\craftsmartsearch\models\Settings;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use RuntimeException;
+use Throwable;
 use yii\base\Component;
 
 /**
@@ -29,10 +35,10 @@ class AiAnswerService extends Component
      * so the user-facing message reflects an upstream provider failure rather than the
      * generic "AI summary failed" bucket. Raw provider text stays in the log only.
      */
-    private static function wrapUpstream(\Throwable $e): SearchException
+    private static function wrapUpstream(Throwable $e): SearchException
     {
-        $cause = $e instanceof \Exception ? $e : new RuntimeException($e->getMessage(), 0);
-        $isOpenAiError = is_a($e, 'OpenAI\\Exceptions\\ErrorException')
+        $cause = $e instanceof Exception ? $e : new RuntimeException($e->getMessage(), 0);
+        $isOpenAiError = $e instanceof ErrorException
             || str_starts_with(get_class($e), 'OpenAI\\Exceptions\\');
 
         if ($isOpenAiError) {
@@ -91,7 +97,7 @@ class AiAnswerService extends Component
             } catch (SmartSearchException $e) {
                 Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
                 throw $e;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
                 throw self::wrapUpstream($e);
             }
@@ -139,7 +145,7 @@ class AiAnswerService extends Component
     {
         $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
 
-        $today = (new \DateTimeImmutable('now', new \DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
+        $today = (new DateTimeImmutable('now', new DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
         $systemPrompt = $this->buildSystemPrompt($settings, $today);
 
         $safeQuery = TextValidator::sanitizeQuery($query);
@@ -175,7 +181,7 @@ class AiAnswerService extends Component
      *   ['type' => 'token',   'text' => '...']    — per LLM delta
      *   ['type' => 'done']                         — terminal
      */
-    public function searchStream(string $query, int $limit = 5, ?int $siteId = null): \Generator
+    public function searchStream(string $query, int $limit = 5, ?int $siteId = null): Generator
     {
         try {
             $settings = SmartSearch::getInstance()->getSettings();
@@ -203,7 +209,7 @@ class AiAnswerService extends Component
         } catch (SmartSearchException $e) {
             Logger::exception($e, 'aiAnswerStream', ['query' => substr($query, 0, 50)]);
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Logger::exception($e, 'aiAnswerStream', ['query' => substr($query, 0, 50)]);
             throw self::wrapUpstream($e);
         }
@@ -212,11 +218,11 @@ class AiAnswerService extends Component
     /**
      * Stream the LLM completion token-by-token.
      */
-    private function streamSummary(string $query, string $context, Settings $settings): \Generator
+    private function streamSummary(string $query, string $context, Settings $settings): Generator
     {
         $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
 
-        $today = (new \DateTimeImmutable('now', new \DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
+        $today = (new DateTimeImmutable('now', new DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
         $systemPrompt = $this->buildSystemPrompt($settings, $today, true);
 
         $safeQuery = TextValidator::sanitizeQuery($query);
@@ -357,10 +363,19 @@ PROMPT;
         }
 
         $filteredSources = [];
+        $missing = [];
         foreach ($sourceIds as $id) {
             if (isset($resultsById[$id])) {
                 $filteredSources[] = $resultsById[$id];
+            } else {
+                $missing[] = $id;
             }
+        }
+        if ($missing !== []) {
+            Logger::warning('AI Answer cited source IDs not present in search results', [
+                'missing' => $missing,
+                'available' => array_keys($resultsById),
+            ]);
         }
 
         return [
@@ -372,13 +387,6 @@ PROMPT;
     }
 
     /**
-     * Build the source list for the AI Answer response, limited to the top N results.
-     *
-     * @param array $results Filtered search results containing elements
-     * @param int $limit Maximum number of sources to include
-     * @return array<int, array{element: mixed, id: int, ragRank: int}>
-     */
-    /**
      * Token budget for the packed source blocks. Settings::maxPromptTokens caps
      * the context only; the model's context window absorbs the system prompt,
      * query, and output on top.
@@ -388,6 +396,13 @@ PROMPT;
         return (new AiAnswerPromptBuilder())->computeContextBudget($settings->maxPromptTokens);
     }
 
+    /**
+     * Build the source list for the AI Answer response, limited to the top N results.
+     *
+     * @param array $results Filtered search results containing elements
+     * @param int $limit Maximum number of sources to include
+     * @return array<int, array{element: mixed, id: int, ragRank: int}>
+     */
     private function buildSourceList(array $results, int $limit): array
     {
         $sources = [];

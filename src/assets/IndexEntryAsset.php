@@ -11,6 +11,7 @@ class IndexEntryAsset extends AssetBundle
         $this->sourcePath = __DIR__ . '/dist';
         $this->depends = [SmartSearchAsset::class];
         $this->js = ['js/pages/index-entry.js'];
+        $this->css = ['css/pages/index-entry.css'];
 
         parent::init();
     }

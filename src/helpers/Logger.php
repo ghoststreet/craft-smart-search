@@ -15,37 +15,25 @@ final class Logger
 {
     private const CATEGORY = 'smart-search';
 
-    /**
-     * Log an informational message.
-     * Use for successful operations worth noting (indexing complete, schema initialized, etc.)
-     */
+    /** Successful operations worth a trace (sync complete, schema initialized). */
     public static function info(string $message, array $context = []): void
     {
         Craft::info(self::formatMessage($message, $context), self::CATEGORY);
     }
 
-    /**
-     * Log a warning message.
-     * Use for recoverable issues or skipped items (entry has no URL, cache miss, etc.)
-     */
+    /** Recoverable issues that don't fail the request (skipped entries, soft-dep missing). */
     public static function warning(string $message, array $context = []): void
     {
         Craft::warning(self::formatMessage($message, $context), self::CATEGORY);
     }
 
-    /**
-     * Log an error message.
-     * Use for failures that need attention (database errors, API failures, etc.)
-     */
+    /** Request-failing problems. For caught Throwables prefer exception(). */
     public static function error(string $message, array $context = []): void
     {
         Craft::error(self::formatMessage($message, $context), self::CATEGORY);
     }
 
-    /**
-     * Log a debug message.
-     * Only logs when devMode is enabled. Use for verbose tracing during development.
-     */
+    /** Verbose tracing. No-op outside devMode. */
     public static function debug(string $message, array $context = []): void
     {
         if (Craft::$app->getConfig()->getGeneral()->devMode) {
@@ -53,19 +41,14 @@ final class Logger
         }
     }
 
-    /**
-     * Log a timing/performance message.
-     * Use for performance monitoring and profiling.
-     */
+    /** Operation duration in ms, for profiling. */
     public static function timing(string $operation, float $durationMs, array $context = []): void
     {
-        $contextSuffix = !empty($context) ? ', ' . self::formatMessage('', $context) : '';
+        $contextSuffix = $context !== [] ? ', ' . self::formatMessage('', $context) : '';
         Craft::info("[TIMING] {$operation}: {$durationMs}ms{$contextSuffix}", self::CATEGORY);
     }
 
-    /**
-     * Log an exception with full context, including stack trace (always).
-     */
+    /** Like error(), but appends exception class and full stack trace to context. */
     public static function exception(Throwable $e, string $operation, array $context = []): void
     {
         $context['exceptionMessage'] = $e->getMessage();
@@ -75,27 +58,17 @@ final class Logger
         self::error("{$operation} failed: {$e->getMessage()}", $context);
     }
 
-    /**
-     * Format a message with context for consistent log output.
-     */
+    /** Renders a message plus its context array as `message [k=v, k=v]`. */
     private static function formatMessage(string $message, array $context): string
     {
-        if (empty($context)) {
+        if ($context === []) {
             return $message;
         }
 
-        $contextParts = [];
+        $parts = [];
         foreach ($context as $key => $value) {
-            if (is_array($value)) {
-                $value = json_encode($value);
-            } elseif (is_bool($value)) {
-                $value = $value ? 'true' : 'false';
-            } elseif ($value === null) {
-                $value = 'null';
-            }
-            $contextParts[] = "{$key}={$value}";
+            $parts[] = $key . '=' . json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
-
-        return $message . ' [' . implode(', ', $contextParts) . ']';
+        return $message . ' [' . implode(', ', $parts) . ']';
     }
 }

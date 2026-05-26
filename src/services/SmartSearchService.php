@@ -3,9 +3,9 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use craft\elements\Entry;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\base\Component;
 
 /**
@@ -190,5 +190,4 @@ class SmartSearchService extends Component
 
         return $results;
     }
-
 }

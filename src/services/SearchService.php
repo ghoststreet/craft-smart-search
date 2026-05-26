@@ -2,14 +2,14 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\SearchResultDeduplicator;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use PDO;
-use Pgvector\Vector;
 use PDOException;
+use Pgvector\Vector;
 use yii\base\Component;
 
 /**

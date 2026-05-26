@@ -7,8 +7,8 @@ use craft\base\Batchable;
 use craft\elements\Entry;
 use craft\i18n\Translation;
 use craft\queue\BaseBatchedJob;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Walks every enabled entry that has a URI and re-indexes those whose extracted
@@ -58,8 +58,7 @@ class SyncSearchIndexJob extends BaseBatchedJob
         if ($this->siteId !== null) {
             $site = Craft::$app->getSites()->getSiteById($this->siteId);
             $label = $site?->name ?: $site?->handle ?: ('site ' . $this->siteId);
-            return Translation::prep('smart-search', 'Syncing Smart Search index [site:{id}] — {name}', [
-                'id' => $this->siteId,
+            return Translation::prep('smart-search', 'Syncing Smart Search index: {name}', [
                 'name' => $label,
             ]);
         }

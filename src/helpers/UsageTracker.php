@@ -5,16 +5,17 @@ namespace ghoststreet\craftsmartsearch\helpers;
 /**
  * Per-request accumulator for OpenAI token usage.
  *
- * Reset at the start of a search request by the controller, then read after the search
- * completes. Lets us capture token usage without changing the return signatures of every
- * service method (generateEmbedding/etc. just call ::addEmbedding).
+ * Reset at the start of a search request by the controller, then read after
+ * the search completes. Lets us capture token usage without changing the
+ * return signatures of every service method (generateEmbedding/etc. just call
+ * ::addEmbedding or ::markEmbeddingCached).
  */
 final class UsageTracker
 {
     private static int $embeddingTokens = 0;
     private static int $aiAnswerInputTokens = 0;
     private static int $aiAnswerOutputTokens = 0;
-    private static bool $embeddingCached = true; // assume cached until a real API call happens
+    private static bool $embeddingApiCalled = false;
     private static bool $embeddingHit = false;
     private static ?string $embeddingModel = null;
     private static ?string $aiAnswerModel = null;
@@ -24,7 +25,7 @@ final class UsageTracker
         self::$embeddingTokens = 0;
         self::$aiAnswerInputTokens = 0;
         self::$aiAnswerOutputTokens = 0;
-        self::$embeddingCached = true;
+        self::$embeddingApiCalled = false;
         self::$embeddingHit = false;
         self::$embeddingModel = null;
         self::$aiAnswerModel = null;
@@ -34,7 +35,7 @@ final class UsageTracker
     {
         self::$embeddingTokens += $promptTokens;
         self::$embeddingModel = $model;
-        self::$embeddingCached = false;
+        self::$embeddingApiCalled = true;
         self::$embeddingHit = true;
     }
 
@@ -57,7 +58,7 @@ final class UsageTracker
             'embeddingTokens' => self::$embeddingTokens,
             'aiAnswerInputTokens' => self::$aiAnswerInputTokens,
             'aiAnswerOutputTokens' => self::$aiAnswerOutputTokens,
-            'embeddingCached' => self::$embeddingHit && self::$embeddingCached,
+            'embeddingCached' => self::$embeddingHit && !self::$embeddingApiCalled,
             'embeddingModel' => self::$embeddingModel,
             'aiAnswerModel' => self::$aiAnswerModel,
         ];

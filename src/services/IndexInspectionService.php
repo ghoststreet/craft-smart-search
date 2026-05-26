@@ -4,9 +4,10 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\elements\Entry;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use Throwable;
 use yii\base\Component;
 
 /**
@@ -138,7 +139,7 @@ class IndexInspectionService extends Component
 
             try {
                 $summary = SmartSearch::getInstance()->databaseService->getIndexedSummary($site->id);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Logger::exception($e, 'coverageBySite', ['siteId' => $site->id]);
                 $summary = [];
             }

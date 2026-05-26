@@ -2,8 +2,9 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use PDO;
 use PDOException;
 use yii\base\Component;
 
@@ -96,14 +97,21 @@ class QueryCorrectorService extends Component
 
         $tokens = [];
         foreach ($raw as $word) {
-            // Strip everything that to_tsquery would reject; lexemes are alnum + underscore.
-            $clean = preg_replace('/[^\p{L}\p{N}_]+/u', '', $word) ?? '';
+            $clean = self::cleanLexeme($word);
             if ($clean === '' || mb_strlen($clean) < 2) {
                 continue;
             }
             $tokens[] = $clean;
         }
         return array_values(array_unique($tokens));
+    }
+
+    /**
+     * Strip everything that to_tsquery would reject; lexemes are alnum + underscore.
+     */
+    private static function cleanLexeme(string $word): string
+    {
+        return preg_replace('/[^\p{L}\p{N}_]+/u', '', $word) ?? '';
     }
 
     /**
@@ -156,16 +164,15 @@ class QueryCorrectorService extends Component
 
             $stmt = $db->prepare($sql);
             foreach ($params as $key => $value) {
-                $type = is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR;
+                $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
                 $stmt->bindValue($key, $value, $type);
             }
-            $stmt->bindValue(':limit', self::MAX_VARIANTS_PER_TOKEN, \PDO::PARAM_INT);
+            $stmt->bindValue(':limit', self::MAX_VARIANTS_PER_TOKEN, PDO::PARAM_INT);
             $stmt->execute();
 
             $variants = [];
-            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                $term = (string)$row['term'];
-                $clean = preg_replace('/[^\p{L}\p{N}_]+/u', '', $term) ?? '';
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $clean = self::cleanLexeme((string)$row['term']);
                 if ($clean !== '') {
                     $variants[] = $clean;
                 }

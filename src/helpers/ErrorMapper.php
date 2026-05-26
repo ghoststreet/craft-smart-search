@@ -3,8 +3,8 @@
 namespace ghoststreet\craftsmartsearch\helpers;
 
 use Craft;
-use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
 use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
+use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
 use Throwable;
 
 /**

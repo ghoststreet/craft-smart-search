@@ -5,10 +5,10 @@ namespace ghoststreet\craftsmartsearch\console\controllers;
 use Craft;
 use craft\console\Controller;
 use craft\elements\Entry;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\console\ExitCode;
 use yii\helpers\Console;
 

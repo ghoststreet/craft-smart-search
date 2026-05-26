@@ -8,36 +8,26 @@ class EmbeddingException extends SmartSearchException
 {
     public static function emptyText(): self
     {
-        $e = new self('Cannot generate embedding: text cannot be empty');
-        $e->errorCode = ErrorCode::EMBEDDING_EMPTY_TEXT;
-        return $e;
+        return self::build('Cannot generate embedding: text cannot be empty', ErrorCode::EMBEDDING_EMPTY_TEXT);
     }
 
     public static function rateLimited(Throwable $previous): self
     {
-        $e = new self('OpenAI API rate limit exceeded.', 0, $previous);
-        $e->errorCode = ErrorCode::EMBEDDING_RATE_LIMITED;
-        return $e;
+        return self::build('OpenAI API rate limit exceeded.', ErrorCode::EMBEDDING_RATE_LIMITED, $previous);
     }
 
     public static function quotaExceeded(Throwable $previous): self
     {
-        $e = new self('OpenAI API quota exceeded.', 0, $previous);
-        $e->errorCode = ErrorCode::EMBEDDING_QUOTA_EXCEEDED;
-        return $e;
+        return self::build('OpenAI API quota exceeded.', ErrorCode::EMBEDDING_QUOTA_EXCEEDED, $previous);
     }
 
     public static function invalidApiKey(Throwable $previous): self
     {
-        $e = new self('Invalid OpenAI API key.', 0, $previous);
-        $e->errorCode = ErrorCode::EMBEDDING_INVALID_API_KEY;
-        return $e;
+        return self::build('Invalid OpenAI API key.', ErrorCode::EMBEDDING_INVALID_API_KEY, $previous);
     }
 
     public static function apiError(string $message, Throwable $previous): self
     {
-        $e = new self("Failed to generate embedding: {$message}", 0, $previous);
-        $e->errorCode = ErrorCode::EMBEDDING_API_ERROR;
-        return $e;
+        return self::build("Failed to generate embedding: {$message}", ErrorCode::EMBEDDING_API_ERROR, $previous);
     }
 }

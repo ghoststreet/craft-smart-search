@@ -4,9 +4,10 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\db\Query;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use Locale;
 use PDOException;
 use yii\base\Component;
 
@@ -38,7 +39,7 @@ class KeywordSearchService extends Component
     ];
 
     /**
-     * @return array<int, array{elementId: int, siteId: int, keywordScore: float, content: string}>
+     * @return list<array{elementId: int, siteId: int, keywordScore: float, content: string}>
      * @throws SearchException If the database query fails
      */
     public function calculateScores(string $query, ?int $siteId = null): array
@@ -178,7 +179,7 @@ class KeywordSearchService extends Component
      * here — Keyword body scoring already accounts for individual word presence.
      *
      * @param array<int, array{elementId: int, siteId: int, keywordScore: float, content: string}> $scores
-     * @return array<int, array{elementId: int, siteId: int, keywordScore: float, content: string}>
+     * @return list<array{elementId: int, siteId: int, keywordScore: float, content: string}>
      */
     private function applyTitleBoost(array $scores, string $query): array
     {
@@ -269,7 +270,7 @@ class KeywordSearchService extends Component
             : Craft::$app->getSites()->getPrimarySite();
 
         $locale = $site->language ?? 'en';
-        $name = strtolower(\Locale::getDisplayLanguage($locale, 'en'));
+        $name = strtolower(Locale::getDisplayLanguage($locale, 'en'));
 
         return in_array($name, self::SUPPORTED_TS_CONFIGS, true) ? $name : 'simple';
     }

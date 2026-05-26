@@ -18,7 +18,7 @@ final class PricingTable
 
         'gpt-5.4-nano' => ['input' => 0.20, 'output' => 1.25],
         'gpt-5.4-mini' => ['input' => 0.75, 'output' => 4.50],
-        'gpt-5.4'      => ['input' => 2.50, 'output' => 15.00],
+        'gpt-5.4' => ['input' => 2.50, 'output' => 15.00],
     ];
 
     /**

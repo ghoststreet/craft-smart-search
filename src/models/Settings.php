@@ -4,6 +4,7 @@ namespace ghoststreet\craftsmartsearch\models;
 
 use craft\base\Model;
 use craft\helpers\App;
+use RuntimeException;
 
 /**
  * smart-search settings
@@ -12,11 +13,11 @@ class Settings extends Model
 {
     public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/';
 
-    public const SCENARIO_CONNECTIONS   = 'connections';
-    public const SCENARIO_INDEXING      = 'indexing';
+    public const SCENARIO_CONNECTIONS = 'connections';
+    public const SCENARIO_INDEXING = 'indexing';
     public const SCENARIO_SMART_SEARCH = 'smartSearch';
-    public const SCENARIO_AI_ANSWER    = 'aiAnswer';
-    public const SCENARIO_ADVANCED      = 'advanced';
+    public const SCENARIO_AI_ANSWER = 'aiAnswer';
+    public const SCENARIO_ADVANCED = 'advanced';
 
     public ?string $openaiApiKey = null;
     public ?string $apiToken = null;
@@ -78,13 +79,13 @@ class Settings extends Model
      * (mass-assignment filtering) and the `on` tag on every rule below.
      */
     private const SCENARIO_ATTRIBUTES = [
-        self::SCENARIO_CONNECTIONS   => [
+        self::SCENARIO_CONNECTIONS => [
             'openaiApiKey',
             'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
             'postgresqlPassword', 'postgresqlSslMode',
             'vectorsSchemaName', 'vectorsTableName',
         ],
-        self::SCENARIO_INDEXING      => [
+        self::SCENARIO_INDEXING => [
             'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
             'embeddingCacheTtlDays',
         ],
@@ -96,13 +97,13 @@ class Settings extends Model
             'enableTypoTolerance', 'termsTableName',
             'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
         ],
-        self::SCENARIO_AI_ANSWER    => [
+        self::SCENARIO_AI_ANSWER => [
             'aiAnswerModel', 'maxPromptTokens', 'aiAnswerCustomPrompt',
             'costBudgetDailyGlobal',
             'rateLimitAiAnswerPerMinute', 'rateLimitAiAnswerPerHour',
             'aiAnswerConcurrencyPerIp', 'aiAnswerConcurrencyGlobal',
         ],
-        self::SCENARIO_ADVANCED      => [
+        self::SCENARIO_ADVANCED => [
             'apiToken', 'allowedOrigins',
         ],
     ];
@@ -113,11 +114,11 @@ class Settings extends Model
     }
 
     private const TAB_TO_SCENARIO = [
-        'tab-connections'   => self::SCENARIO_CONNECTIONS,
-        'tab-indexing'      => self::SCENARIO_INDEXING,
+        'tab-connections' => self::SCENARIO_CONNECTIONS,
+        'tab-indexing' => self::SCENARIO_INDEXING,
         'tab-smart-search' => self::SCENARIO_SMART_SEARCH,
-        'tab-ai-answer'    => self::SCENARIO_AI_ANSWER,
-        'tab-advanced'      => self::SCENARIO_ADVANCED,
+        'tab-ai-answer' => self::SCENARIO_AI_ANSWER,
+        'tab-advanced' => self::SCENARIO_ADVANCED,
     ];
 
     /**
@@ -152,11 +153,11 @@ class Settings extends Model
      */
     public function rules(): array
     {
-        $connections  = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS];
-        $indexing     = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
+        $connections = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS];
+        $indexing = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
         $smartSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_SMART_SEARCH];
-        $aiAnswer     = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWER];
-        $advanced     = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
+        $aiAnswer = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWER];
+        $advanced = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
 
         return [
             // OpenAI API key — Connections
@@ -166,7 +167,7 @@ class Settings extends Model
             // PostgreSQL connection — Connections
             [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlPort', 'postgresqlSslMode'], 'required', 'on' => $connections],
             [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode'], 'string', 'on' => $connections],
-            [['postgresqlPort'], function ($attribute) {
+            [['postgresqlPort'], function($attribute) {
                 $value = $this->$attribute;
                 if (!is_string($value) && !is_int($value)) {
                     $this->addError($attribute, 'Port must be a string or integer.');
@@ -182,7 +183,7 @@ class Settings extends Model
             [['vectorsTableName'], 'required', 'on' => $connections],
             [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
-                'on' => $connections],
+                'on' => $connections, ],
 
             // Content chunking — Indexing
             [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500, 'on' => $indexing],
@@ -229,7 +230,7 @@ class Settings extends Model
             [['termsTableName'], 'default', 'value' => 'smart_search_terms'],
             [['termsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
-                'on' => $smartSearch],
+                'on' => $smartSearch, ],
 
             // Smart Search — rate limits (0 disables the window)
             [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $smartSearch],
@@ -311,7 +312,7 @@ class Settings extends Model
 
         $resolved = App::parseEnv($value);
 
-        if ($resolved === null || $resolved === '' || $resolved === $value) {
+        if ($resolved === null || $resolved === '') {
             $this->addError($attribute, 'Environment variable ' . $value . ' is not set or is empty.');
         }
     }
@@ -455,7 +456,7 @@ class Settings extends Model
         $table = $this->vectorsTableName;
 
         if (!preg_match(self::IDENTIFIER_REGEX, $schema) || !preg_match(self::IDENTIFIER_REGEX, $table)) {
-            throw new \RuntimeException('Vectors table/schema name failed identifier validation.');
+            throw new RuntimeException('Vectors table/schema name failed identifier validation.');
         }
 
         return "\"{$schema}\".\"{$table}\"";

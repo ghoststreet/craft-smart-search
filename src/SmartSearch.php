@@ -14,30 +14,30 @@ use craft\services\Elements;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use craft\web\View;
-use ghoststreet\craftsmartsearch\assets\SmartSearchAsset;
 use ghoststreet\craftsmartsearch\assets\DashboardAsset;
 use ghoststreet\craftsmartsearch\assets\IndexEntryAsset;
 use ghoststreet\craftsmartsearch\assets\IndexMgmtAsset;
 use ghoststreet\craftsmartsearch\assets\InsightsAsset;
 use ghoststreet\craftsmartsearch\assets\PreviewAsset;
 use ghoststreet\craftsmartsearch\assets\SettingsAsset;
+use ghoststreet\craftsmartsearch\assets\SmartSearchAsset;
 use ghoststreet\craftsmartsearch\jobs\DeleteEntryJob;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use ghoststreet\craftsmartsearch\models\Settings;
-use ghoststreet\craftsmartsearch\services\KeywordSearchService;
+use ghoststreet\craftsmartsearch\services\AiAnswerService;
 use ghoststreet\craftsmartsearch\services\DatabaseService;
 use ghoststreet\craftsmartsearch\services\DictionaryService;
 use ghoststreet\craftsmartsearch\services\EmbeddingService;
 use ghoststreet\craftsmartsearch\services\ExclusionService;
 use ghoststreet\craftsmartsearch\services\HistoryService;
-use ghoststreet\craftsmartsearch\services\SmartSearchService;
 use ghoststreet\craftsmartsearch\services\IndexInspectionService;
+use ghoststreet\craftsmartsearch\services\KeywordSearchService;
 use ghoststreet\craftsmartsearch\services\OpenAIClientFactory;
 use ghoststreet\craftsmartsearch\services\QueryCorrectorService;
-use ghoststreet\craftsmartsearch\services\AiAnswerService;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
 use ghoststreet\craftsmartsearch\services\RecommendationsService;
 use ghoststreet\craftsmartsearch\services\SearchService;
+use ghoststreet\craftsmartsearch\services\SmartSearchService;
 use ghoststreet\craftsmartsearch\variables\SmartSearchVariable;
 use yii\base\Event;
 use yii\log\FileTarget;
@@ -84,10 +84,6 @@ class SmartSearch extends Plugin
         $this->attachEventHandlers();
     }
 
-    /**
-     * Register a custom log target for smart-search logs
-     * and exclude from default targets to prevent duplicate logging.
-     */
     private function registerLogTarget(): void
     {
         $dispatcher = Craft::getLogger()->dispatcher;
@@ -310,12 +306,12 @@ class SmartSearch extends Plugin
 
                 $view = Craft::$app->getView();
                 $map = [
-                    'smart-search/preview'           => PreviewAsset::class,
-                    'smart-search/index-mgmt/entry'  => IndexEntryAsset::class,
-                    'smart-search/index-mgmt'        => IndexMgmtAsset::class,
-                    'smart-search/insights'          => InsightsAsset::class,
-                    'smart-search/settings'          => SettingsAsset::class,
-                    'smart-search/index'             => DashboardAsset::class,
+                    'smart-search/preview' => PreviewAsset::class,
+                    'smart-search/index-mgmt/entry' => IndexEntryAsset::class,
+                    'smart-search/index-mgmt' => IndexMgmtAsset::class,
+                    'smart-search/insights' => InsightsAsset::class,
+                    'smart-search/settings' => SettingsAsset::class,
+                    'smart-search/index' => DashboardAsset::class,
                 ];
 
                 foreach ($map as $prefix => $bundle) {

@@ -51,7 +51,9 @@ final class AiAnswerPromptBuilder
 
         foreach ($sources as $i => $src) {
             $content = TextValidator::sanitizeQuery((string)$src['content']);
-            $block = "---\nOUR PAGE {$src['id']}\nTitle: {$src['title']}\nURL: {$src['url']}\nContent:\n{$content}\n---";
+            $title = str_replace(["\r", "\n"], ' ', (string)$src['title']);
+            $url = str_replace(["\r", "\n"], '', (string)$src['url']);
+            $block = "---\nOUR PAGE {$src['id']}\nTitle: {$title}\nURL: {$url}\nContent:\n{$content}\n---";
             $blockTokens = TokenEstimator::estimateTokens($block);
 
             if ($blocks !== [] && $used + $blockTokens > $tokenBudget) {

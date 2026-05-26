@@ -6,10 +6,8 @@ use craft\elements\Entry;
 use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
- * Helper for formatting search results consistently across different search types.
- *
- * Consolidates the duplicate formatting methods from SearchController into
- * a single, reusable class with type-specific field additions.
+ * Formats search-result entries into the API payload, with per-type field
+ * additions (excerpt for Craft, scores for semantic/smart, AI rank for AI Answer).
  */
 final class SearchResultFormatter
 {
@@ -79,30 +77,23 @@ final class SearchResultFormatter
         return $excerpt;
     }
 
-    /**
-     * Add Craft search-specific fields (excerpt).
-     */
+    /** Craft-search payload: just an excerpt (native search returns rank by position, no score). */
     private static function addCraftFields(array $result, array $metadata): array
     {
         $result['excerpt'] = $metadata['excerpt'] ?? '';
         return $result;
     }
 
-    /**
-     * Add semantic search-specific fields (scores).
-     */
+    /** Semantic-only payload: score + excerpt. semanticScore mirrors score when not separated. */
     private static function addSemanticFields(array $result, array $metadata): array
     {
         $result['score'] = round($metadata['score'], 4);
         $result['semanticScore'] = round($metadata['semanticScore'] ?? $metadata['score'], 4);
-        $result['meetsSemanticThreshold'] = true;
         $result['excerpt'] = $metadata['excerpt'];
         return $result;
     }
 
-    /**
-     * Add smart search-specific fields (multiple scores and ranks).
-     */
+    /** Hybrid payload: fused RRF score + component scores/ranks (each optional). */
     private static function addSmartFields(array $result, array $metadata): array
     {
         $result['score'] = round($metadata['score'], 4);
@@ -125,9 +116,7 @@ final class SearchResultFormatter
         return $result;
     }
 
-    /**
-     * Add AI Answer search-specific fields (rank from AI).
-     */
+    /** AI Answer payload: just the LLM-assigned rank (no numeric scores). */
     private static function addAiAnswerFields(array $result, array $metadata): array
     {
         $result['rank'] = $metadata['ragRank'] ?? null;

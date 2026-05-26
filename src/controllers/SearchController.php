@@ -4,7 +4,6 @@ namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\elements\Entry;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use ghoststreet\craftsmartsearch\filters\SmartSearchCors;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
@@ -16,6 +15,7 @@ use ghoststreet\craftsmartsearch\helpers\SearchResultFormatter;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use ghoststreet\craftsmartsearch\models\SearchHistoryEntry;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use Throwable;
 use yii\web\BadRequestHttpException;
 use yii\web\ForbiddenHttpException;
@@ -29,8 +29,10 @@ use yii\web\UnauthorizedHttpException;
  *   - Same-origin browser callers (CP Preview, Twig-rendered front-end pages)
  *     pass Craft's CSRF token.
  *   - Cross-origin and server-to-server callers present
- *     `Authorization: Bearer <apiToken>`; CSRF is skipped because bearer is a
- *     non-cookie credential and CSRF adds nothing on top of it.
+ *     `Authorization: Bearer <apiToken>`. CSRF validation is enabled by default
+ *     at the class level and bypassed manually in beforeAction() once a valid
+ *     bearer token is present — bearer is a non-cookie credential, so CSRF
+ *     adds nothing on top of it.
  *
  * Origin/Referer is constrained to the site host plus the `allowedOrigins`
  * setting. The SmartSearchCors behavior emits `Access-Control-*` response
@@ -114,7 +116,7 @@ class SearchController extends BaseApiController
             return false;
         }
 
-        register_shutdown_function(function (): void {
+        register_shutdown_function(function(): void {
             $this->releaseRateLimit();
         });
 
@@ -188,34 +190,21 @@ class SearchController extends BaseApiController
     {
         $origin = (string)$request->getHeaders()->get('Origin');
         $referer = (string)$request->getHeaders()->get('Referer');
+        $candidate = $origin !== '' ? $origin : $referer;
 
-        if ($origin === '' && $referer === '') {
+        if ($candidate === '') {
             $settings = SmartSearch::getInstance()->getSettings();
-
-            if (empty($settings->getAllowedOriginsList())) {
+            if (empty($settings->getAllowedOriginsList()) || !empty($settings->getApiToken())) {
                 return;
             }
-
-            if (!empty($settings->getApiToken())) {
-                return;
-            }
-
-            Logger::warning('origin rejected — no Origin/Referer header against configured allowlist', [
+            Logger::warning('origin rejected: no Origin/Referer header against configured allowlist', [
                 'requestId' => $this->requestId,
                 'ip' => $request->getUserIP(),
             ]);
-
             throw new ForbiddenHttpException('Origin or Referer header required.');
         }
 
-        $candidate = $origin !== '' ? $origin : $referer;
-        $candidateHost = parse_url($candidate, PHP_URL_SCHEME) . '://' . parse_url($candidate, PHP_URL_HOST);
-        $port = parse_url($candidate, PHP_URL_PORT);
-
-        if ($port) {
-            $candidateHost .= ":{$port}";
-        }
-
+        $candidateHost = self::normalizeOriginUrl($candidate);
         $siteHost = $request->getHostInfo();
 
         if ($candidateHost === $siteHost) {
@@ -223,7 +212,6 @@ class SearchController extends BaseApiController
         }
 
         $allowed = SmartSearch::getInstance()->getSettings()->getAllowedOriginsList();
-
         if (in_array($candidateHost, $allowed, true)) {
             return;
         }
@@ -233,8 +221,21 @@ class SearchController extends BaseApiController
             'origin' => $candidateHost,
             'expected' => $siteHost,
         ]);
-
         throw new ForbiddenHttpException('Origin not allowed.');
+    }
+
+    /**
+     * Reduce an Origin or Referer URL to the canonical "scheme://host[:port]"
+     * form used to compare against the configured allowlist.
+     */
+    private static function normalizeOriginUrl(string $url): string
+    {
+        $parts = parse_url($url);
+        $host = ($parts['scheme'] ?? '') . '://' . ($parts['host'] ?? '');
+        if (!empty($parts['port'])) {
+            $host .= ':' . $parts['port'];
+        }
+        return $host;
     }
 
     private function enforceBearerTokenIfConfigured($request): void
@@ -272,9 +273,7 @@ class SearchController extends BaseApiController
         $response->setStatusCode($e->httpStatus());
     }
 
-    /**
-     * Craft default search API endpoint.
-     */
+    /** Pass-through to Craft's native Entry::find()->search(). No embeddings, no AI. */
     public function actionIndex(): Response
     {
         $this->requireAcceptsJson();
@@ -311,9 +310,7 @@ class SearchController extends BaseApiController
         }
     }
 
-    /**
-     * Smart Search (semantic + keyword) API endpoint.
-     */
+    /** Hybrid semantic + keyword search fused with RRF. No LLM call. */
     public function actionSearch(): Response
     {
         $this->requireAcceptsJson();
@@ -334,6 +331,17 @@ class SearchController extends BaseApiController
 
             $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_SMART);
 
+            Logger::info('semanticSearch endpoint response', [
+                'requestId' => $this->requestId,
+                'rawResultsFromService' => count($results),
+                'afterFormatting' => count($formattedResults),
+                'firstResultElementId' => $results[0]['element']->id ?? null,
+                'firstResultScore' => $results[0]['score'] ?? null,
+                'firstFormattedKeys' => isset($formattedResults[0]) ? array_keys($formattedResults[0]) : null,
+                'firstFormattedSample' => $formattedResults[0] ?? null,
+                'payloadShape' => ['query', 'semanticResults', 'semanticCount'],
+            ]);
+
             $this->recordHistory('smart', $params, count($formattedResults));
 
             return $this->successResponse('semanticSearch', [
@@ -347,10 +355,7 @@ class SearchController extends BaseApiController
         }
     }
 
-    /**
-     * AI Answer search API endpoint with AI summary.
-     * Uses smart search + OpenAI for intelligent responses.
-     */
+    /** Synchronous AI Answer (full JSON in one shot). Streams via actionAiAnswerStream. */
     public function actionAiAnswer(): Response
     {
         $this->requirePostRequest();
@@ -381,6 +386,16 @@ class SearchController extends BaseApiController
                 SearchResultFormatter::TYPE_AI_ANSWER
             );
 
+            Logger::info('aiAnswer endpoint response', [
+                'requestId' => $this->requestId,
+                'rawSourcesFromService' => count($response['sources'] ?? []),
+                'afterFormatting' => count($formattedSources),
+                'summaryLength' => strlen($response['summary'] ?? ''),
+                'confidence' => $response['confidence'] ?? null,
+                'firstFormattedKeys' => isset($formattedSources[0]) ? array_keys($formattedSources[0]) : null,
+                'firstFormattedSample' => $formattedSources[0] ?? null,
+            ]);
+
             $this->recordHistory('aiAnswer', $params, count($formattedSources));
 
             return $this->successResponse('aiAnswer', [
@@ -410,13 +425,34 @@ class SearchController extends BaseApiController
     public function actionAiAnswerStream(): Response
     {
         $params = RequestParameterExtractor::extractSearchParams(20);
+        $response = $this->beginSseResponse();
 
+        if ($params['validationError'] !== null) {
+            $this->emitSse('error', $params['validationError']);
+        } elseif (RateLimitService::isFallbackToken($this->rateLimitToken)) {
+            $this->aiAnswerStreamFallback($params);
+            $this->releaseRateLimit();
+        } else {
+            $this->logRequest('ragStream', $params);
+            [$sourceCount, $errorMessage] = $this->runStreamLoop($params);
+            $this->recordHistory('aiAnswer', $params, $sourceCount, $errorMessage);
+            $this->releaseRateLimit();
+        }
+
+        Craft::$app->end();
+        return $response;
+    }
+
+    /** Switch the response to SSE: raw format, headers, drain buffers, emit `: connected`. */
+    private function beginSseResponse(): Response
+    {
         Craft::$app->getSession()->close();
 
         $response = Craft::$app->getResponse();
         $response->format = Response::FORMAT_RAW;
         $response->content = '';
 
+        // Suppressed: non-removable buffers (zlib, user-cache) raise notices we can't avoid.
         while (ob_get_level() > 0) {
             @ob_end_flush();
         }
@@ -430,23 +466,13 @@ class SearchController extends BaseApiController
         echo ": connected\n\n";
         @flush();
 
-        if ($params['validationError'] !== null) {
-            $this->emitSse('error', $params['validationError']);
-            Craft::$app->end();
-            return $response;
-        }
+        return $response;
+    }
 
-        if (RateLimitService::isFallbackToken($this->rateLimitToken)) {
-            $this->aiAnswerStreamFallback($params);
-            $this->releaseRateLimit();
-            Craft::$app->end();
-            return $response;
-        }
-
-        $this->logRequest('ragStream', $params);
-
-        $formattedSources = [];
-        $errorMessage = null;
+    /** Pump the AI Answer generator to SSE. Returns [sourceCount, errorMessage|null] for history. */
+    private function runStreamLoop(array $params): array
+    {
+        $sourceCount = 0;
 
         try {
             $generator = SmartSearch::getInstance()->aiAnswerService->searchStream(
@@ -458,12 +484,20 @@ class SearchController extends BaseApiController
             foreach ($generator as $event) {
                 switch ($event['type']) {
                     case 'sources':
-                        $formattedSources = $this->formatElementResults(
+                        $formatted = $this->formatElementResults(
                             array_column($event['sources'], 'element'),
                             $event['sources'],
                             SearchResultFormatter::TYPE_AI_ANSWER
                         );
-                        $this->emitSse('sources', ['sources' => $formattedSources, 'requestId' => $this->requestId]);
+                        $sourceCount = count($formatted);
+                        Logger::info('ragStream sources emit', [
+                            'requestId' => $this->requestId,
+                            'rawSourcesFromService' => count($event['sources'] ?? []),
+                            'afterFormatting' => $sourceCount,
+                            'firstFormattedKeys' => isset($formatted[0]) ? array_keys($formatted[0]) : null,
+                            'firstFormattedSample' => $formatted[0] ?? null,
+                        ]);
+                        $this->emitSse('sources', ['sources' => $formatted, 'requestId' => $this->requestId]);
                         break;
                     case 'token':
                         $this->emitSse('token', ['t' => $event['text']]);
@@ -477,8 +511,8 @@ class SearchController extends BaseApiController
                     break;
                 }
             }
+            return [$sourceCount, null];
         } catch (Throwable $e) {
-            $errorMessage = $e->getMessage();
             $code = ErrorMapper::codeFor($e);
             Logger::exception($e, 'ragStream', $this->errorContext($params) + ['code' => $code->value]);
             $payload = [
@@ -490,19 +524,14 @@ class SearchController extends BaseApiController
                 $payload['retryAfter'] = $e->retryAfterSeconds;
             }
             $this->emitSse('error', $payload);
+            return [$sourceCount, $e->getMessage()];
         }
-
-        $this->recordHistory('aiAnswer', $params, count($formattedSources), $errorMessage);
-
-        $this->releaseRateLimit();
-
-        Craft::$app->end();
-        return $response;
     }
 
     /**
-     * AI Answer JSON fallback when the daily cost cap is hit: return search results
-     * shaped like a AI Answer response, with no AI summary.
+     * Budget-exhausted JSON fallback. Returns the normal AI Answer shape with
+     * `summary: null, confidence: null, budgetExhausted: true`. Frontend
+     * branches on `response.budgetExhausted === true`.
      */
     private function aiAnswerFallback(array $params): Response
     {
@@ -534,8 +563,9 @@ class SearchController extends BaseApiController
     }
 
     /**
-     * SSE fallback when the daily cost cap is hit: emit sources from smart search
-     * search and a synthetic `done` event with no token stream.
+     * Budget-exhausted SSE fallback. Emits `sources` with `budgetExhausted: true`
+     * then `done`; no `token` events. Frontend should skip waiting for tokens
+     * when sources carries budgetExhausted=true.
      */
     private function aiAnswerStreamFallback(array $params): void
     {
@@ -578,47 +608,35 @@ class SearchController extends BaseApiController
         @flush();
     }
 
-    /**
-     * Format a list of elements with optional metadata.
-     */
+    /** Format pre-fetched Entry objects with parallel-array metadata (AI Answer flow). */
     private function formatElementResults(array $elements, array $metadataList, string $type): array
     {
         $formatted = [];
-
         foreach ($elements as $index => $element) {
-            $metadata = $metadataList[$index] ?? [];
-            $result = SearchResultFormatter::format($element, $metadata, $type);
-
+            $result = SearchResultFormatter::format($element, $metadataList[$index] ?? [], $type);
             if ($result !== null) {
                 $formatted[] = $result;
             }
         }
-
         return $formatted;
     }
 
-    /**
-     * Format search results with excerpt generation.
-     */
+    /** Format vector-query rows (`{element, content, ...}`). Generates excerpt from chunk content. */
     private function formatSearchResults(array $results, string $type): array
     {
         $formatted = [];
-
         foreach ($results as $result) {
-            $metadata = array_merge($result, [
+            $metadata = $result + [
                 'excerpt' => SearchResultFormatter::getExcerptFromContent(
                     $result['content'] ?? '',
                     $result['element']?->title
                 ),
-            ]);
-
+            ];
             $item = SearchResultFormatter::format($result['element'], $metadata, $type);
-
             if ($item !== null) {
                 $formatted[] = $item;
             }
         }
-
         return $formatted;
     }
 

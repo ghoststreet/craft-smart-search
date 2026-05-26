@@ -2,9 +2,9 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\records\ExcludedEntryRecord;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\base\Component;
 
 /**

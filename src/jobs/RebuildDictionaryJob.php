@@ -4,8 +4,8 @@ namespace ghoststreet\craftsmartsearch\jobs;
 
 use craft\i18n\Translation;
 use craft\queue\BaseJob;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Rebuilds the typo-tolerance dictionary from the indexed content.

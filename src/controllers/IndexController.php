@@ -3,18 +3,23 @@
 namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
+use craft\db\Query;
+use craft\db\Table;
 use craft\elements\Entry;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use ghoststreet\craftsmartsearch\jobs\SyncSearchIndexJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use Throwable;
+use yii\i18n\Formatter;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 /**
- * Index management page: tabs for overview/sync, entries, and coverage.
+ * Index management page. Three tabs: overview (with the sync trigger button),
+ * entries, and coverage.
  */
 class IndexController extends BaseApiController
 {
@@ -286,7 +291,7 @@ class IndexController extends BaseApiController
                 'queueRemaining' => Craft::$app->getQueue()->getTotalWaiting(),
                 'sync' => $jobs['global'],
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return $this->jsonError($e, 'getStats');
         }
     }
@@ -334,7 +339,7 @@ class IndexController extends BaseApiController
             $row['lastIndexed'] = $lastIso;
             if ($formatter !== null) {
                 $row['lastIndexedLabel'] = $lastIso
-                    ? $formatter->asDatetime($lastIso, \yii\i18n\Formatter::FORMAT_WIDTH_SHORT)
+                    ? $formatter->asDatetime($lastIso, Formatter::FORMAT_WIDTH_SHORT)
                     : null;
             }
             $row['chunkCount'] = $statsBySite[$sid]['chunkCount'] ?? 0;
@@ -354,29 +359,36 @@ class IndexController extends BaseApiController
     {
         $out = ['perSite' => [], 'global' => null, 'all' => []];
         try {
-            $idRows = (new \craft\db\Query())
-                ->select(['id'])
-                ->from(\craft\db\Table::QUEUE)
+            $rows = (new Query())
+                ->select(['id', 'job'])
+                ->from(Table::QUEUE)
                 ->where(['like', 'job', SyncSearchIndexJob::class])
-                ->column();
-            if (empty($idRows)) {
+                ->all();
+            if (empty($rows)) {
                 return $out;
             }
-            $ids = array_fill_keys($idRows, true);
 
-            foreach (Craft::$app->getQueue()->getJobInfo(100) as $info) {
-                if (!isset($ids[$info['id']])) {
+            $queue = Craft::$app->getQueue();
+            $siteIdsById = [];
+            foreach ($rows as $row) {
+                try {
+                    $payload = is_resource($row['job']) ? stream_get_contents($row['job']) : (string)$row['job'];
+                    $job = $queue->serializer->unserialize($payload);
+                    $siteIdsById[$row['id']] = ($job instanceof SyncSearchIndexJob) ? $job->siteId : null;
+                } catch (Throwable) {
+                    $siteIdsById[$row['id']] = null;
+                }
+            }
+
+            foreach ($queue->getJobInfo(100) as $info) {
+                if (!array_key_exists($info['id'], $siteIdsById)) {
                     continue;
                 }
-                $description = (string)$info['description'];
-                $siteId = null;
-                if (preg_match('/\[site:(\d+)\]/', $description, $m)) {
-                    $siteId = (int)$m[1];
-                }
+                $siteId = $siteIdsById[$info['id']];
                 $entry = [
                     'id' => $info['id'],
                     'siteId' => $siteId,
-                    'description' => $description,
+                    'description' => (string)$info['description'],
                     'progress' => (int)$info['progress'],
                     'progressLabel' => $info['progressLabel'] ?? null,
                     'status' => (int)$info['status'],
@@ -389,7 +401,7 @@ class IndexController extends BaseApiController
                     $out['global'] = $entry;
                 }
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Queue inspection failures shouldn't block rendering.
         }
         return $out;
@@ -473,7 +485,7 @@ class IndexController extends BaseApiController
             try {
                 $queue->release((string)$job['id']);
                 $released++;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Logger::exception($e, 'cancelSync', ['jobId' => $job['id']]);
             }
         }

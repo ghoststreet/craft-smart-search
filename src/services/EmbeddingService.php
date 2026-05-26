@@ -14,20 +14,20 @@ use craft\elements\Entry;
 use craft\fields\Link;
 use craft\fields\Time;
 use DateTime;
-use ghoststreet\craftsmartsearch\SmartSearch;
-use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\exceptions\EmbeddingException;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\ContentPatterns;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TextValidator;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
-use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
+use ghoststreet\craftsmartsearch\models\Settings;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
-use PDOException;
 use Pgvector\Vector;
+use ReflectionClass;
+use verbb\supertable\elements\SuperTableBlockElement;
 use yii\base\Component;
 
 /**
@@ -131,7 +131,9 @@ class EmbeddingService extends Component
                 'input' => $normalizedText,
             ];
 
-            $params['dimensions'] = Settings::VECTOR_DIMENSIONS;
+            if (str_starts_with($model, 'text-embedding-3')) {
+                $params['dimensions'] = Settings::VECTOR_DIMENSIONS;
+            }
 
             $response = $client->embeddings()->create($params);
 
@@ -318,8 +320,8 @@ class EmbeddingService extends Component
     private function isSuperTableBlock(mixed $item): bool
     {
         return is_object($item)
-            && class_exists('verbb\\supertable\\elements\\SuperTableBlockElement')
-            && $item instanceof \verbb\supertable\elements\SuperTableBlockElement;
+            && class_exists(SuperTableBlockElement::class)
+            && $item instanceof SuperTableBlockElement;
     }
 
     /**
@@ -373,7 +375,7 @@ class EmbeddingService extends Component
         foreach ($fieldLayout->getCustomFieldElements() as $layoutElement) {
             $field = $layoutElement->getField();
             $searchable = (bool)($layoutElement->searchable ?? true);
-            $type = (new \ReflectionClass($field))->getShortName();
+            $type = (new ReflectionClass($field))->getShortName();
 
             if (!$searchable) {
                 $rows[] = [
@@ -738,19 +740,15 @@ class EmbeddingService extends Component
         ?string $contentHash = null,
     ): void {
         $databaseService = SmartSearch::getInstance()->databaseService;
-        $db = $databaseService->getConnection();
         $table = $databaseService->getQualifiedTable();
-
         $vectorString = (string) new Vector($vector);
 
-        try {
-            $stmt = $db->prepare("
-                INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, content, \"contentHash\", \"dateUpdated\")
-                VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :content, :contentHash, CURRENT_TIMESTAMP)
-                ON CONFLICT(\"elementId\", \"siteId\", \"chunkIndex\")
-                DO UPDATE SET vector = EXCLUDED.vector, content = EXCLUDED.content, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"contentHash\" = EXCLUDED.\"contentHash\", \"dateUpdated\" = CURRENT_TIMESTAMP
-            ");
-            $stmt->execute([
+        $databaseService->executeStatement(
+            "INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, content, \"contentHash\", \"dateUpdated\")
+             VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :content, :contentHash, CURRENT_TIMESTAMP)
+             ON CONFLICT(\"elementId\", \"siteId\", \"chunkIndex\")
+             DO UPDATE SET vector = EXCLUDED.vector, content = EXCLUDED.content, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"contentHash\" = EXCLUDED.\"contentHash\", \"dateUpdated\" = CURRENT_TIMESTAMP",
+            [
                 ':elementId' => $elementId,
                 ':siteId' => $siteId,
                 ':chunkIndex' => $chunkIndex,
@@ -758,18 +756,11 @@ class EmbeddingService extends Component
                 ':vector' => $vectorString,
                 ':content' => $content,
                 ':contentHash' => $contentHash,
-            ]);
-        } catch (PDOException $e) {
-            Logger::exception($e, 'storeVector', ['elementId' => $elementId, 'chunkIndex' => $chunkIndex]);
-            throw DatabaseException::queryFailed('storeVector', $e);
-        }
+            ],
+            'storeVector'
+        );
     }
 
-    /**
-     * Delete all vectors for an element, optionally scoped to a specific site.
-     *
-     * @throws \ghoststreet\craftsmartsearch\exceptions\DatabaseException If database connection fails or query fails
-     */
     /**
      * Delete chunk rows whose chunkIndex is at or above the current total.
      *
@@ -782,20 +773,13 @@ class EmbeddingService extends Component
      */
     private function deleteExcessChunks(int $elementId, int $siteId, int $totalChunks): void
     {
-        $db = SmartSearch::getInstance()->databaseService->getConnection();
-        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
-
-        try {
-            $stmt = $db->prepare("DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId AND \"chunkIndex\" >= :totalChunks");
-            $stmt->execute([
-                ':elementId' => $elementId,
-                ':siteId' => $siteId,
-                ':totalChunks' => $totalChunks,
-            ]);
-        } catch (PDOException $e) {
-            Logger::exception($e, 'deleteExcessChunks', ['elementId' => $elementId, 'siteId' => $siteId, 'totalChunks' => $totalChunks]);
-            throw DatabaseException::queryFailed('deleteExcessChunks', $e);
-        }
+        $databaseService = SmartSearch::getInstance()->databaseService;
+        $table = $databaseService->getQualifiedTable();
+        $databaseService->executeStatement(
+            "DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId AND \"chunkIndex\" >= :totalChunks",
+            [':elementId' => $elementId, ':siteId' => $siteId, ':totalChunks' => $totalChunks],
+            'deleteExcessChunks'
+        );
     }
 
     /**
@@ -809,37 +793,32 @@ class EmbeddingService extends Component
      */
     private function touchVectors(int $elementId, int $siteId): void
     {
-        $db = SmartSearch::getInstance()->databaseService->getConnection();
-        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
-
-        try {
-            $stmt = $db->prepare("UPDATE {$table} SET \"dateUpdated\" = CURRENT_TIMESTAMP WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId");
-            $stmt->execute([
-                ':elementId' => $elementId,
-                ':siteId' => $siteId,
-            ]);
-        } catch (PDOException $e) {
-            Logger::exception($e, 'touchVectors', ['elementId' => $elementId, 'siteId' => $siteId]);
-            throw DatabaseException::queryFailed('touchVectors', $e);
-        }
+        $databaseService = SmartSearch::getInstance()->databaseService;
+        $table = $databaseService->getQualifiedTable();
+        $databaseService->executeStatement(
+            "UPDATE {$table} SET \"dateUpdated\" = CURRENT_TIMESTAMP WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId",
+            [':elementId' => $elementId, ':siteId' => $siteId],
+            'touchVectors'
+        );
     }
 
     public function deleteVector(int $elementId, ?int $siteId = null): void
     {
-        $db = SmartSearch::getInstance()->databaseService->getConnection();
-        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
+        $databaseService = SmartSearch::getInstance()->databaseService;
+        $table = $databaseService->getQualifiedTable();
 
-        try {
-            if ($siteId !== null) {
-                $stmt = $db->prepare("DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId");
-                $stmt->execute([':elementId' => $elementId, ':siteId' => $siteId]);
-            } else {
-                $stmt = $db->prepare("DELETE FROM {$table} WHERE \"elementId\" = :elementId");
-                $stmt->execute([':elementId' => $elementId]);
-            }
-        } catch (PDOException $e) {
-            Logger::exception($e, 'deleteVector', ['elementId' => $elementId, 'siteId' => $siteId]);
-            throw DatabaseException::queryFailed('deleteVector', $e);
+        if ($siteId !== null) {
+            $databaseService->executeStatement(
+                "DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId",
+                [':elementId' => $elementId, ':siteId' => $siteId],
+                'deleteVector'
+            );
+        } else {
+            $databaseService->executeStatement(
+                "DELETE FROM {$table} WHERE \"elementId\" = :elementId",
+                [':elementId' => $elementId],
+                'deleteVector'
+            );
         }
     }
 }

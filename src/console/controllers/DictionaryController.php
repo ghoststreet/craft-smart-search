@@ -4,8 +4,8 @@ namespace ghoststreet\craftsmartsearch\console\controllers;
 
 use Craft;
 use craft\console\Controller;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\jobs\RebuildDictionaryJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\console\ExitCode;
 use yii\helpers\Console;
 

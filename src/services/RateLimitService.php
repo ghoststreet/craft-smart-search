@@ -3,8 +3,8 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\base\Component;
 
 /**

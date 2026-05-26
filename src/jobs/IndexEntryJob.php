@@ -5,9 +5,9 @@ namespace ghoststreet\craftsmartsearch\jobs;
 use craft\elements\Entry;
 use craft\i18n\Translation;
 use craft\queue\BaseJob;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Queue job to index a single entry for Smart Search.

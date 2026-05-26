@@ -4,9 +4,10 @@ namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\helpers\App;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
+use ghoststreet\craftsmartsearch\SmartSearch;
+use Throwable;
 use yii\web\Response;
 
 class SettingsController extends BaseApiController
@@ -61,12 +62,12 @@ class SettingsController extends BaseApiController
         $settings = SmartSearch::getInstance()->getSettings();
 
         $config = [
-            'host'     => App::parseEnv((string) $request->getBodyParam('host', '')) ?: null,
-            'port'     => (int) (App::parseEnv((string) $request->getBodyParam('port', '')) ?: 0),
+            'host' => App::parseEnv((string) $request->getBodyParam('host', '')) ?: null,
+            'port' => (int) (App::parseEnv((string) $request->getBodyParam('port', '')) ?: 0),
             'database' => App::parseEnv((string) $request->getBodyParam('database', '')) ?: null,
-            'user'     => App::parseEnv((string) $request->getBodyParam('user', '')) ?: null,
+            'user' => App::parseEnv((string) $request->getBodyParam('user', '')) ?: null,
             'password' => App::parseEnv((string) $request->getBodyParam('password', '')) ?: null,
-            'sslMode'  => App::parseEnv((string) $request->getBodyParam('sslMode', '')) ?: 'require',
+            'sslMode' => App::parseEnv((string) $request->getBodyParam('sslMode', '')) ?: 'require',
         ];
 
         try {
@@ -76,7 +77,7 @@ class SettingsController extends BaseApiController
             $stmt = $pdo->prepare('SELECT 1 FROM pg_tables WHERE schemaname = :schema AND tablename = :table');
             $stmt->execute([
                 ':schema' => $settings->vectorsSchemaName,
-                ':table'  => $settings->vectorsTableName,
+                ':table' => $settings->vectorsTableName,
             ]);
 
             if ($stmt->fetch() === false) {
@@ -88,7 +89,7 @@ class SettingsController extends BaseApiController
             }
 
             return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return ApiResponseHelper::jsonError($this, $e, 'testDatabaseConnection', $this->errorContext());
         }
     }
@@ -130,7 +131,7 @@ class SettingsController extends BaseApiController
             $client = SmartSearch::getInstance()->openAIClientFactory->buildClient($resolved);
             $client->models()->list();
             return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return ApiResponseHelper::jsonError($this, $e, 'testApiKey', $this->errorContext());
         }
     }

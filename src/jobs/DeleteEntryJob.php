@@ -3,9 +3,9 @@
 namespace ghoststreet\craftsmartsearch\jobs;
 
 use craft\queue\BaseJob;
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\records\ExcludedEntryRecord;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Job to delete vectors for a removed entry

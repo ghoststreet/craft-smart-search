@@ -21,7 +21,7 @@ abstract class BaseApiController extends Controller
             return false;
         }
 
-        $this->requestId = bin2hex(random_bytes(4));
+        $this->requestId = bin2hex(random_bytes(8));
 
         return true;
     }

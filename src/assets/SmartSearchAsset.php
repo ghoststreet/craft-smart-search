@@ -6,7 +6,7 @@ use craft\web\AssetBundle;
 use craft\web\assets\cp\CpAsset;
 
 /**
- * Base CP asset bundle for the Craft Search plugin.
+ * Base CP asset bundle for the Smart Search plugin.
  * Bootstraps the window.SmartSearch namespace and shared core modules.
  * Page-specific bundles depend on this and add their own components/pages.
  */
@@ -46,11 +46,6 @@ class SmartSearchAsset extends AssetBundle
             'css/components/overview-cards.css',
             'css/components/pagination.css',
             'css/components/recommendation-list.css',
-
-            // Pages (alphabetical)
-            'css/pages/dashboard.css',
-            'css/pages/index-entry.css',
-            'css/pages/settings.css',
         ];
 
         parent::init();

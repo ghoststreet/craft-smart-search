@@ -2,11 +2,12 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftsmartsearch\SmartSearch;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\SmartSearch;
 use PDO;
 use PDOException;
+use PDOStatement;
 use yii\base\Component;
 
 /**
@@ -302,25 +303,39 @@ class DatabaseService extends Component
      */
     public function getStoredEntryFingerprint(int $elementId, int $siteId): array
     {
-        $db = $this->getConnection();
         $table = $this->getQualifiedTable();
+        $stmt = $this->executeStatement(
+            "SELECT MAX(\"contentHash\") AS \"contentHash\", COUNT(*) AS \"chunkCount\"
+             FROM {$table}
+             WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId",
+            [':elementId' => $elementId, ':siteId' => $siteId],
+            'getStoredEntryFingerprint'
+        );
+        $row = $stmt->fetch();
 
+        return [
+            'hash' => $row['contentHash'] ?? null,
+            'chunkCount' => (int)($row['chunkCount'] ?? 0),
+        ];
+    }
+
+    /**
+     * Prepare + execute with consistent error handling. PDOException is logged
+     * and rethrown as DatabaseException::queryFailed (with the qualified vector
+     * table for the missing-table case). Use this for every query in this
+     * service except multi-step transactions.
+     *
+     * @throws DatabaseException
+     */
+    public function executeStatement(string $sql, array $params, string $operation): PDOStatement
+    {
         try {
-            $stmt = $db->prepare("
-                SELECT MAX(\"contentHash\") AS \"contentHash\", COUNT(*) AS \"chunkCount\"
-                FROM {$table}
-                WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId
-            ");
-            $stmt->execute([':elementId' => $elementId, ':siteId' => $siteId]);
-            $row = $stmt->fetch();
-
-            return [
-                'hash' => $row['contentHash'] ?? null,
-                'chunkCount' => (int)($row['chunkCount'] ?? 0),
-            ];
+            $stmt = $this->getConnection()->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
         } catch (PDOException $e) {
-            Logger::exception($e, 'getStoredEntryFingerprint');
-            throw DatabaseException::queryFailed('getStoredEntryFingerprint', $e);
+            Logger::exception($e, $operation);
+            throw DatabaseException::queryFailed($operation, $e, $this->getQualifiedTable());
         }
     }
 
@@ -394,21 +409,10 @@ class DatabaseService extends Component
      */
     public function clearAllVectors(): int
     {
-        $db = $this->getConnection();
-        $table = $this->getQualifiedTable();
-
-        try {
-            $stmt = $db->prepare("DELETE FROM {$table}");
-            $stmt->execute();
-            $count = $stmt->rowCount();
-
-            Logger::info('Cleared all vectors', ['count' => $count]);
-
-            return $count;
-        } catch (PDOException $e) {
-            Logger::exception($e, 'clearAllVectors');
-            throw DatabaseException::queryFailed('clearAllVectors', $e);
-        }
+        $stmt = $this->executeStatement("DELETE FROM {$this->getQualifiedTable()}", [], 'clearAllVectors');
+        $count = $stmt->rowCount();
+        Logger::info('Cleared all vectors', ['count' => $count]);
+        return $count;
     }
 
     /**
@@ -419,36 +423,27 @@ class DatabaseService extends Component
      */
     public function getIndexedSummary(?int $siteId = null): array
     {
-        $db = $this->getConnection();
         $table = $this->getQualifiedTable();
-
-        try {
-            $sql = "
-                SELECT \"elementId\", \"siteId\", COUNT(*) AS \"chunkCount\", MAX(\"dateUpdated\") AS \"lastIndexed\"
+        $sql = "SELECT \"elementId\", \"siteId\", COUNT(*) AS \"chunkCount\", MAX(\"dateUpdated\") AS \"lastIndexed\"
                 FROM {$table}";
-            $params = [];
-            if ($siteId !== null) {
-                $sql .= ' WHERE "siteId" = :siteId';
-                $params[':siteId'] = $siteId;
-            }
-            $sql .= ' GROUP BY "elementId", "siteId"';
-
-            $stmt = $db->prepare($sql);
-            $stmt->execute($params);
-
-            $map = [];
-            while ($row = $stmt->fetch()) {
-                $key = $row['elementId'] . '-' . $row['siteId'];
-                $map[$key] = [
-                    'chunkCount' => (int)$row['chunkCount'],
-                    'lastIndexed' => $row['lastIndexed'],
-                ];
-            }
-            return $map;
-        } catch (PDOException $e) {
-            Logger::exception($e, 'getIndexedSummary');
-            throw DatabaseException::queryFailed('getIndexedSummary', $e);
+        $params = [];
+        if ($siteId !== null) {
+            $sql .= ' WHERE "siteId" = :siteId';
+            $params[':siteId'] = $siteId;
         }
+        $sql .= ' GROUP BY "elementId", "siteId"';
+
+        $stmt = $this->executeStatement($sql, $params, 'getIndexedSummary');
+
+        $map = [];
+        while ($row = $stmt->fetch()) {
+            $key = $row['elementId'] . '-' . $row['siteId'];
+            $map[$key] = [
+                'chunkCount' => (int)$row['chunkCount'],
+                'lastIndexed' => $row['lastIndexed'],
+            ];
+        }
+        return $map;
     }
 
     /**
@@ -456,22 +451,15 @@ class DatabaseService extends Component
      */
     public function getVectorsForElement(int $elementId, int $siteId): array
     {
-        $db = $this->getConnection();
         $table = $this->getQualifiedTable();
-
-        try {
-            $stmt = $db->prepare("
-                SELECT \"chunkIndex\", \"totalChunks\", content, \"dateUpdated\"
-                FROM {$table}
-                WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId
-                ORDER BY \"chunkIndex\" ASC
-            ");
-            $stmt->execute([':elementId' => $elementId, ':siteId' => $siteId]);
-            return $stmt->fetchAll();
-        } catch (PDOException $e) {
-            Logger::exception($e, 'getVectorsForElement');
-            throw DatabaseException::queryFailed('getVectorsForElement', $e);
-        }
+        return $this->executeStatement(
+            "SELECT \"chunkIndex\", \"totalChunks\", content, \"dateUpdated\"
+             FROM {$table}
+             WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId
+             ORDER BY \"chunkIndex\" ASC",
+            [':elementId' => $elementId, ':siteId' => $siteId],
+            'getVectorsForElement'
+        )->fetchAll();
     }
 
     public function getStats(bool $useCache = true): array
@@ -486,30 +474,23 @@ class DatabaseService extends Component
             }
         }
 
-        $db = $this->getConnection();
         $table = $this->getQualifiedTable();
-
-        try {
-            $stmt = $db->query("
-                SELECT
-                    COUNT(DISTINCT \"elementId\") AS \"entryCount\",
+        $row = $this->executeStatement(
+            "SELECT COUNT(DISTINCT \"elementId\") AS \"entryCount\",
                     COUNT(*) AS \"chunkCount\",
                     MAX(\"dateUpdated\") AS \"lastIndexed\"
-                FROM {$table}
-            ");
-            $row = $stmt->fetch();
+             FROM {$table}",
+            [],
+            'getStats'
+        )->fetch();
 
-            $stats = [
-                'entryCount' => (int)($row['entryCount'] ?? 0),
-                'chunkCount' => (int)($row['chunkCount'] ?? 0),
-                'lastIndexed' => $row['lastIndexed'] ?? null,
-                'isConnected' => true,
-                'error' => null,
-            ];
-        } catch (PDOException $e) {
-            Logger::exception($e, 'getStats');
-            throw DatabaseException::queryFailed('getStats', $e);
-        }
+        $stats = [
+            'entryCount' => (int)($row['entryCount'] ?? 0),
+            'chunkCount' => (int)($row['chunkCount'] ?? 0),
+            'lastIndexed' => $row['lastIndexed'] ?? null,
+            'isConnected' => true,
+            'error' => null,
+        ];
 
         $cache->set($cacheKey, $stats, 60);
 
@@ -524,34 +505,28 @@ class DatabaseService extends Component
      */
     public function getStatsPerSite(): array
     {
-        $db = $this->getConnection();
         $table = $this->getQualifiedTable();
-
-        try {
-            $stmt = $db->query("
-                SELECT
-                    \"siteId\",
+        $stmt = $this->executeStatement(
+            "SELECT \"siteId\",
                     COUNT(DISTINCT \"elementId\") AS \"entryCount\",
                     COUNT(*) AS \"chunkCount\",
                     MAX(\"dateUpdated\") AS \"lastIndexed\"
-                FROM {$table}
-                GROUP BY \"siteId\"
-            ");
+             FROM {$table}
+             GROUP BY \"siteId\"",
+            [],
+            'getStatsPerSite'
+        );
 
-            $rows = [];
-            while ($row = $stmt->fetch()) {
-                $rows[] = [
-                    'siteId' => (int)$row['siteId'],
-                    'entryCount' => (int)$row['entryCount'],
-                    'chunkCount' => (int)$row['chunkCount'],
-                    'lastIndexed' => $row['lastIndexed'] ?? null,
-                ];
-            }
-            return $rows;
-        } catch (PDOException $e) {
-            Logger::exception($e, 'getStatsPerSite');
-            throw DatabaseException::queryFailed('getStatsPerSite', $e);
+        $rows = [];
+        while ($row = $stmt->fetch()) {
+            $rows[] = [
+                'siteId' => (int)$row['siteId'],
+                'entryCount' => (int)$row['entryCount'],
+                'chunkCount' => (int)$row['chunkCount'],
+                'lastIndexed' => $row['lastIndexed'] ?? null,
+            ];
         }
+        return $rows;
     }
 
     /**

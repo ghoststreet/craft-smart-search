@@ -5,6 +5,7 @@ namespace ghoststreet\craftsmartsearch\services;
 use Craft;
 use craft\db\Query;
 use craft\helpers\Db;
+use DateTime;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\PricingTable;
 use ghoststreet\craftsmartsearch\models\SearchHistoryEntry;
@@ -262,8 +263,8 @@ class HistoryService extends Component
         }
 
         $series = [];
-        $cursor = (new \DateTime("-{$days} days"))->setTime(0, 0);
-        $end = new \DateTime('today');
+        $cursor = (new DateTime("-{$days} days"))->setTime(0, 0);
+        $end = new DateTime('today');
         while ($cursor <= $end) {
             $key = $cursor->format('Y-m-d');
             $b = $buckets[$key] ?? null;
@@ -431,7 +432,7 @@ class HistoryService extends Component
         bool $zeroOnly,
         bool $minimal = false,
         ?int $limit = null,
-        int $offset = 0
+        int $offset = 0,
     ): array {
         $select = [
             'k' => 'LOWER(TRIM([[query]]))',
@@ -512,7 +513,7 @@ class HistoryService extends Component
     private function cutoff(?int $days): ?string
     {
         return ($days !== null && $days > 0)
-            ? Db::prepareDateForDb(new \DateTime("-{$days} days"))
+            ? Db::prepareDateForDb(new DateTime("-{$days} days"))
             : null;
     }
 
