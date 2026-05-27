@@ -58,13 +58,13 @@ class SettingsController extends BaseApiController
     public function actionIndex(): Response
     {
         $this->requireAdmin();
-        return $this->redirect(self::SCENARIO_PAGES[Settings::SCENARIO_CONNECTIONS_OPENAI]['url']);
+        return $this->redirect(self::SCENARIO_PAGES[Settings::SCENARIO_CONNECTIONS_POSTGRES]['url']);
     }
 
     public function actionConnections(): Response
     {
         $this->requireAdmin();
-        return $this->redirect(self::SCENARIO_PAGES[Settings::SCENARIO_CONNECTIONS_OPENAI]['url']);
+        return $this->redirect(self::SCENARIO_PAGES[Settings::SCENARIO_CONNECTIONS_POSTGRES]['url']);
     }
 
     public function actionConnectionsOpenai(): Response
