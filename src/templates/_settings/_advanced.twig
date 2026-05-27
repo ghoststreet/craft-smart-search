@@ -1,12 +1,12 @@
 {% import '_includes/forms.twig' as forms %}
 
 <h2>API access</h2>
-<p class="light">Controls who can call Smart Search’s HTTP endpoints from outside your Craft site (e.g. a headless front-end or mobile app).</p>
+<p class="light">Controls who can call Smart Search’s HTTP endpoints from outside your Craft site. <a href="{{ wikiUrl }}/Security" target="_blank" rel="noopener">Learn more</a>.</p>
 
 {% namespace 'settings' %}
     {{ forms.autosuggestField({
         label: 'API bearer token',
-        instructions: 'Required on every external API request as <code>Authorization: Bearer &lt;token&gt;</code>. Leave empty to only allow calls from your own Craft site (CSRF and origin checks still apply).<br><a href="' ~ wikiUrl ~ '/Security#api-bearer-token" target="_blank" rel="noopener">Learn more →</a>',
+        instructions: 'Required on every external API request as <code>Authorization: Bearer &lt;token&gt;</code>. Leave empty to only allow calls from your own Craft site.',
         id: 'apiToken', name: 'apiToken',
         value: settings.apiToken, suggestEnvVars: true,
         errors: settings.getErrors('apiToken'),
@@ -15,14 +15,14 @@
 
 {% if settings.getApiToken() and not settings.allowedOrigins %}
     <p class="light settings__cors-tip">
-        Heads up: headless front-ends calling from another origin will be blocked by CORS until you add their origin below.
+        Heads up: headless front ends calling from another origin will be blocked by CORS until you add their origin below.
     </p>
 {% endif %}
 
 {% namespace 'settings' %}
     {{ forms.autosuggestField({
         label: 'Allowed origins (CORS)',
-        instructions: 'Comma-separated list of extra origins allowed to call the API from a browser (e.g. <code>https://app.example.com</code>). Calls from the same origin as your Craft site are always allowed; only add others.<br><a href="' ~ wikiUrl ~ '/Security#allowed-origins-cors" target="_blank" rel="noopener">Learn more →</a>',
+        instructions: 'Comma-separated origins allowed to call the API from a browser (e.g. <code>https://app.example.com</code>). Same-origin calls are always allowed.',
         id: 'allowedOrigins', name: 'allowedOrigins',
         value: settings.allowedOrigins, suggestEnvVars: true,
         placeholder: 'https://app.example.com',

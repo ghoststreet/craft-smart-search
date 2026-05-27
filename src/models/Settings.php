@@ -65,10 +65,10 @@ class Settings extends Model
 
     public ?string $allowedOrigins = null;
 
-    public int $rateLimitSearchPerMinute = 30;
-    public int $rateLimitSearchPerHour = 500;
+    public int $rateLimitSearchPerMinute = 10;
+    public int $rateLimitSearchPerHour = 30;
     public int $rateLimitAiAnswerPerMinute = 30;
-    public int $rateLimitAiAnswerPerHour = 500;
+    public int $rateLimitAiAnswerPerHour = 30;
 
     public int $aiAnswerConcurrencyPerIp = 2;
     public int $aiAnswerConcurrencyGlobal = 10;

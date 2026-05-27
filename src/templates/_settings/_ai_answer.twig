@@ -1,13 +1,12 @@
 {% import '_includes/forms.twig' as forms %}
 
 <h2>Behaviour</h2>
-<p class="light">AI Answer reads the top search results and writes a short summary with citations, shown above the result list. It runs only when you explicitly call it from your front-end, app, or a Twig template; otherwise plain search results are returned on their own. You can fetch the full answer at once or stream it token-by-token. <a href="{{ wikiUrl }}/Using-the-API#ai-answer-endpoint" target="_blank" rel="noopener">Learn more →</a></p>
+<p class="light">AI Answer reads the top search results and writes a short summary with citations. It runs only when you call it from your front end or a Twig template. <a href="{{ wikiUrl }}/Using-the-API#ai-answer-endpoint" target="_blank" rel="noopener">Learn more</a>.</p>
 
 {% namespace 'settings' %}
     {{ forms.textField({
         label: 'AI answer context size (tokens)',
-        instructions: 'Token budget for search content packed into each AI Answer. One token ≈ 4 characters. <a href="' ~ wikiUrl ~ '/AI-Answer-Setup#ai-answer-context-size-tokens" target="_blank" rel="noopener">Learn more →</a>',
-        tip: 'More tokens = richer answers but slower and more expensive per request; fewer tokens = faster and cheaper but the AI has less to work with. Range 500–100,000.',
+        instructions: 'How much search content is packed into each AI Answer. More tokens give richer answers but cost more and run slower. Default <code>12000</code>.',
         id: 'maxPromptTokens', name: 'maxPromptTokens',
         value: settings.maxPromptTokens, type: 'number', min: '500', max: '100000',
         required: true, errors: settings.getErrors('maxPromptTokens'),
@@ -15,7 +14,7 @@
 
     {{ forms.textareaField({
         label: 'Extra system instructions',
-        instructions: 'Optional. Appended to Smart Search’s built-in system prompt as Site Context. Use it to set tone, persona, or domain vocabulary (e.g. “Always answer in British English”). Cannot override grounding, citation, or scope rules; those stay locked for safety. Leave empty for default behaviour. <a href="' ~ wikiUrl ~ '/AI-Answer-Setup#extra-system-instructions" target="_blank" rel="noopener">Learn more →</a>',
+        instructions: 'Optional. Appended to the built-in prompt as Site Context. Use it for tone, persona, or domain vocabulary. Cannot override grounding, citation, or scope rules.',
         id: 'aiAnswerCustomPrompt', name: 'aiAnswerCustomPrompt', value: settings.aiAnswerCustomPrompt, rows: 5,
         errors: settings.getErrors('aiAnswerCustomPrompt'),
     }) }}
@@ -24,13 +23,11 @@
 <hr>
 
 <h2>Limits</h2>
-<p class="light">Budget and throttle controls so AI Answer can’t run away with cost or capacity.</p>
 
 {% namespace 'settings' %}
     {{ forms.textField({
         label: 'Daily spend cap (USD)',
-        instructions: 'Maximum total dollars Smart Search will spend on AI Answer per day, across all visitors. Resets every 24 hours. <a href="' ~ wikiUrl ~ '/Costs-and-Limits#daily-spend-cap-usd" target="_blank" rel="noopener">Learn more →</a>',
-        tip: 'When the cap is reached, AI Answer falls back to plain smart search. Visitors still get results, just without a summary. Live spend is shown on the Insights page.',
+        instructions: 'Maximum dollars spent on AI Answer per day across all visitors. Resets every 24 hours. When reached, AI Answer falls back to plain search. Default <code>3</code>.',
         id: 'costBudgetDailyGlobal', name: 'costBudgetDailyGlobal',
         value: settings.costBudgetDailyGlobal, type: 'number', step: '0.01', min: '0',
         errors: settings.getErrors('costBudgetDailyGlobal'),
@@ -41,28 +38,28 @@
 
     {{ forms.textField({
         label: 'AI Answer per minute (per visitor)',
-        instructions: 'Maximum AI Answer one IP address can request in a 60-second window. Set to <code>0</code> to disable.',
+        instructions: 'Set to <code>0</code> to turn off. Default <code>30</code>.',
         id: 'rateLimitAiAnswerPerMinute', name: 'rateLimitAiAnswerPerMinute',
         value: settings.rateLimitAiAnswerPerMinute, type: 'number', min: '0', max: '100000',
         required: true, errors: settings.getErrors('rateLimitAiAnswerPerMinute'),
     }) }}
     {{ forms.textField({
         label: 'AI Answer per hour (per visitor)',
-        instructions: 'Maximum AI Answer one IP address can request in a rolling 60-minute window. Set to <code>0</code> to disable.',
+        instructions: 'Set to <code>0</code> to turn off. Default <code>30</code>.',
         id: 'rateLimitAiAnswerPerHour', name: 'rateLimitAiAnswerPerHour',
         value: settings.rateLimitAiAnswerPerHour, type: 'number', min: '0', max: '100000',
         required: true, errors: settings.getErrors('rateLimitAiAnswerPerHour'),
     }) }}
     {{ forms.textField({
         label: 'Concurrent AI Answer per visitor',
-        instructions: 'How many AI Answer one IP address can have generating at the same time. Default <code>2</code>. <a href="' ~ wikiUrl ~ '/Costs-and-Limits#concurrent-ai-answer-per-visitor" target="_blank" rel="noopener">Learn more →</a>',
+        instructions: 'How many AI Answer requests one IP can run at the same time. Default <code>2</code>.',
         id: 'aiAnswerConcurrencyPerIp', name: 'aiAnswerConcurrencyPerIp',
         value: settings.aiAnswerConcurrencyPerIp, type: 'number', min: '1', max: '100000',
         required: true, errors: settings.getErrors('aiAnswerConcurrencyPerIp'),
     }) }}
     {{ forms.textField({
         label: 'Concurrent AI Answer (whole site)',
-        instructions: 'How many AI Answer your entire site can have generating at the same time. Acts as a safety valve against traffic spikes. <a href="' ~ wikiUrl ~ '/Costs-and-Limits#concurrent-ai-answer-per-visitor" target="_blank" rel="noopener">Learn more →</a>',
+        instructions: 'Safety valve against traffic spikes across all visitors. Default <code>10</code>.',
         id: 'aiAnswerConcurrencyGlobal', name: 'aiAnswerConcurrencyGlobal',
         value: settings.aiAnswerConcurrencyGlobal, type: 'number', min: '1', max: '100000',
         required: true, errors: settings.getErrors('aiAnswerConcurrencyGlobal'),

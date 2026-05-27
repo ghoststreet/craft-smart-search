@@ -1,28 +1,28 @@
 {% import '_includes/forms.twig' as forms %}
 
 <h2>Chunking</h2>
-<p class="light">Long entries are split into smaller pieces (“chunks”) before indexing, so ranking can score sections of a page individually instead of the whole entry. Sizes below are in tokens (~4 characters each). The defaults work well for most sites. <a href="{{ wikiUrl }}/Indexing-Your-Content#chunking" target="_blank" rel="noopener">Learn more →</a></p>
+<p class="light">Long entries are split into smaller pieces so ranking can score sections instead of the whole entry. Sizes are in tokens (about 4 characters each). <a href="{{ wikiUrl }}/Indexing-Your-Content#chunking" target="_blank" rel="noopener">Learn more</a>.</p>
 
 {% namespace 'settings' %}
     {{ forms.textField({
         label: 'Smallest chunk size (tokens)',
-        instructions: 'Pieces shorter than this are merged into the next one. Raise this if search returns short, fragmentary snippets. Range 10–500.',
+        instructions: 'Pieces shorter than this are merged into the next one. Raise it if results show short fragments. Default <code>100</code>.',
         id: 'minChunkTokens', name: 'minChunkTokens', value: settings.minChunkTokens, type: 'number', min: '10', max: '500', required: true, errors: settings.getErrors('minChunkTokens') }) }}
     {{ forms.textField({
         label: 'Target chunk size (tokens)',
-        instructions: 'Smart Search aims to split content into pieces around this size. This is the sweet spot for most prose. Bigger chunks give more context per result but match less precisely. Range 100–1000.',
+        instructions: 'Smart Search aims for this size when splitting. Bigger chunks give more context per result but match less precisely. Default <code>400</code>.',
         id: 'targetChunkTokens', name: 'targetChunkTokens', value: settings.targetChunkTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('targetChunkTokens') }) }}
     {{ forms.textField({
         label: 'Largest chunk size (tokens)',
-        instructions: 'Hard upper limit. No chunk will exceed this length, even mid-sentence. Keep this above the target size. Range 200–2000.',
+        instructions: 'Hard upper limit. Keep it above the target size. Default <code>600</code>.',
         id: 'maxChunkTokens', name: 'maxChunkTokens', value: settings.maxChunkTokens, type: 'number', min: '200', max: '2000', required: true, errors: settings.getErrors('maxChunkTokens') }) }}
     {{ forms.textField({
         label: 'Chunk overlap (tokens)',
-        instructions: 'How many tokens neighbouring chunks share, so a sentence split across a boundary still gets matched. Set to <code>0</code> to disable overlap. Range 0–200.',
+        instructions: 'How many tokens neighbouring chunks share, so a sentence split across a boundary still matches. Set to <code>0</code> to turn off. Default <code>40</code>.',
         id: 'overlapTokens', name: 'overlapTokens', value: settings.overlapTokens, type: 'number', min: '0', max: '200', required: true, errors: settings.getErrors('overlapTokens') }) }}
     {{ forms.textField({
         label: 'Skip chunking below (tokens)',
-        instructions: 'Entries shorter than this are indexed whole instead of being split. Useful for short posts or product blurbs. Range 100–1000.',
+        instructions: 'Entries shorter than this are indexed whole. Default <code>500</code>.',
         id: 'chunkThresholdTokens', name: 'chunkThresholdTokens', value: settings.chunkThresholdTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('chunkThresholdTokens') }) }}
 {% endnamespace %}
 
@@ -33,7 +33,7 @@
 {% namespace 'settings' %}
     {{ forms.textField({
         label: 'Embedding cache lifetime (days)',
-        instructions: 'How long Smart Search remembers each piece of content’s vector before re-asking OpenAI. Longer = lower OpenAI costs; shorter = edits appear in search sooner. Set to <code>0</code> to disable caching. Range 0–30.<br><a href="' ~ wikiUrl ~ '/Costs-and-Limits#embedding-cache" target="_blank" rel="noopener">Learn more →</a>',
+        instructions: 'How long Smart Search reuses each vector before asking OpenAI again. Longer saves cost; shorter makes edits appear in search sooner. Set to <code>0</code> to turn off. Default <code>7</code>.',
         id: 'embeddingCacheTtlDays', name: 'embeddingCacheTtlDays',
         value: settings.embeddingCacheTtlDays, type: 'number', min: '0', max: '30',
         required: true, errors: settings.getErrors('embeddingCacheTtlDays'),
