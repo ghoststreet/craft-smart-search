@@ -36,8 +36,8 @@
     { label: L.excluded, value: 'excluded' },
 ] %}
 
-<div class="filter-bar" hidden data-craftsearch-target="filter-bar">
-    <form method="get" action="" class="filter-bar__form{% if formClass is defined and formClass %} {{ formClass }}{% endif %}" data-craftsearch-target="filter-bar-form">
+<div class="filter-bar" data-craftsearch-target="filter-bar">
+    <form method="get" action="{{ cpUrl('smart-search/index/entries') }}" class="filter-bar__form{% if formClass is defined and formClass %} {{ formClass }}{% endif %}" data-craftsearch-target="filter-bar-form">
         {% for name, value in hiddenFields ?? {} %}
             <input type="hidden" name="{{ name }}" value="{{ value }}">
         {% endfor %}
@@ -60,7 +60,7 @@
 
             <button type="submit" class="btn submit">{{ L.filter }}</button>
             {{ f.resetButton(
-                cpUrl('smart-search/index', hiddenFields ?? {}),
+                cpUrl('smart-search/index/entries'),
                 hasActiveFilters ?? (filters.section or filters.status)
             ) }}
         </div>

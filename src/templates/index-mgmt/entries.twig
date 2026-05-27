@@ -1,0 +1,22 @@
+{% set pageKey = 'entries' %}
+
+{% extends 'smart-search/index-mgmt/_layout' %}
+
+{% block indexContent %}
+    <div class="craftsearch-entries" data-craftsearch-target="entries-region">
+        {% include 'smart-search/_partials/entries-toolbar' with {
+            filters: filters,
+            sites: sites,
+            sections: sections,
+            hasActiveFilters: hasActiveFilters,
+        } only %}
+
+        <div class="craftsearch-entries__content" data-craftsearch-target="entries-content">
+            {% include 'smart-search/_partials/entries-content' with {
+                result: result,
+                filters: filters,
+                error: error,
+            } only %}
+        </div>
+    </div>
+{% endblock %}

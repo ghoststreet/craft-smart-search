@@ -1,50 +1,15 @@
-{% extends "_layouts/cp" %}
+{% set pageKey = 'overview' %}
 
-{% set title = 'Index' %}
-{% set selectedSubnavItem = 'index' %}
+{% extends 'smart-search/index-mgmt/_layout' %}
 
-{% set tabs = {
-    overview: { label: 'Overview & sync',   url: cpUrl('smart-search/index', { tab: 'overview' }) },
-    entries:  { label: 'Entries',           url: cpUrl('smart-search/index', { tab: 'entries' }) },
-} %}
-{% if isMultiSite %}
-    {% set tabs = tabs|merge({
-        coverage: { label: 'Per-site coverage', url: cpUrl('smart-search/index', { tab: 'coverage' }) },
-    }) %}
-{% endif %}
-{% set selectedTab = tab %}
-
-{% block content %}
-    {% if tab == 'overview' %}
-        <div class="craftsearch-overview" data-craftsearch-target="overview-region">
-            <div class="craftsearch-overview__content" data-craftsearch-target="overview-content">
-                <div class="craftsearch-entries__loading"><div class="spinner"></div></div>
-            </div>
-        </div>
-
-    {% elseif tab == 'entries' %}
-        <div class="craftsearch-entries" data-craftsearch-target="entries-region">
-            {% include 'smart-search/_partials/entries-toolbar' with {
-                filters: filters,
-                sites: sites,
-                sections: sections,
-                hiddenFields: { tab: 'entries' },
-                hasActiveFilters: hasActiveFilters,
+{% block indexContent %}
+    <div class="craftsearch-overview" data-craftsearch-target="overview-region">
+        <div class="craftsearch-overview__content" data-craftsearch-target="overview-content">
+            {% include 'smart-search/_partials/overview-content' with {
+                setup: setup,
+                overview: overview,
+                syncStarted: syncStarted,
             } only %}
-
-            <div class="craftsearch-entries__content" data-craftsearch-target="entries-content">
-                <div class="craftsearch-entries__loading" data-craftsearch-target="entries-loading">
-                    <div class="spinner"></div>
-                </div>
-            </div>
         </div>
-
-    {% elseif tab == 'coverage' %}
-        <div class="craftsearch-coverage" data-craftsearch-target="coverage-region">
-            <div class="craftsearch-coverage__content" data-craftsearch-target="coverage-content">
-                <div class="craftsearch-entries__loading"><div class="spinner"></div></div>
-            </div>
-        </div>
-    {% endif %}
+    </div>
 {% endblock %}
-

@@ -255,10 +255,9 @@ class SmartSearch extends Plugin
 
                 // Index management
                 $event->rules['smart-search/index'] = 'smart-search/index/index';
+                $event->rules['smart-search/index/entries'] = 'smart-search/index/entries';
+                $event->rules['smart-search/index/coverage'] = 'smart-search/index/coverage';
                 $event->rules['smart-search/index/entry'] = 'smart-search/index/entry';
-                $event->rules['smart-search/index/get-entry-rows'] = 'smart-search/index/get-entry-rows';
-                $event->rules['smart-search/index/get-coverage'] = 'smart-search/index/get-coverage';
-                $event->rules['smart-search/index/get-overview'] = 'smart-search/index/get-overview';
                 $event->rules['POST smart-search/index/sync'] = 'smart-search/index/sync';
                 $event->rules['POST smart-search/index/cancel-sync'] = 'smart-search/index/cancel-sync';
                 $event->rules['POST smart-search/index/get-stats'] = 'smart-search/index/get-stats';

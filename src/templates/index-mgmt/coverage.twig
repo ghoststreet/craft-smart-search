@@ -1,0 +1,14 @@
+{% set pageKey = 'coverage' %}
+
+{% extends 'smart-search/index-mgmt/_layout' %}
+
+{% block indexContent %}
+    <div class="craftsearch-coverage" data-craftsearch-target="coverage-region">
+        <div class="craftsearch-coverage__content" data-craftsearch-target="coverage-content">
+            {% include 'smart-search/_partials/coverage-content' with {
+                coverage: coverage,
+                error: error,
+            } only %}
+        </div>
+    </div>
+{% endblock %}

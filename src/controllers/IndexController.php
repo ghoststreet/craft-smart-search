@@ -28,88 +28,9 @@ class IndexController extends BaseApiController
     public function actionIndex(): Response
     {
         $this->requireAdmin();
-
-        $plugin = SmartSearch::getInstance();
-        $settings = $plugin->getSettings();
-
-        if (empty($settings->getOpenaiApiKey())
-            || empty($settings->getPostgresqlHost())
-            || empty($settings->getPostgresqlDatabase())) {
-            return $this->redirect('smart-search');
+        if (($redirect = $this->redirectIfNotConfigured()) !== null) {
+            return $redirect;
         }
-
-        $request = Craft::$app->getRequest();
-        $tab = $request->getQueryParam('tab') ?: 'overview';
-        $isMultiSite = count(Craft::$app->getSites()->getAllSites()) > 1;
-        if ($tab === 'coverage' && !$isMultiSite) {
-            $tab = 'overview';
-        }
-
-        $data = [
-            'tab' => $tab,
-            'plugin' => $plugin,
-            'settings' => $settings,
-            'selectedSubnavItem' => 'index',
-            'isMultiSite' => $isMultiSite,
-        ];
-
-        if ($tab === 'entries') {
-            $currentSiteId = Craft::$app->getSites()->getCurrentSite()->id;
-            $sectionParam = $request->getQueryParam('section') ?: null;
-            $statusParam = $request->getQueryParam('status') ?: null;
-            $siteIdParam = (int)($request->getQueryParam('siteId') ?: $currentSiteId);
-            $data['filters'] = [
-                'section' => $sectionParam,
-                'siteId' => $siteIdParam,
-                'status' => $statusParam,
-                'page' => (int)($request->getQueryParam('page') ?: 1),
-            ];
-            $data['hasActiveFilters'] = (bool)($sectionParam || $statusParam || $siteIdParam !== $currentSiteId);
-            $data['sections'] = Craft::$app->getEntries()->getAllSections();
-            $data['sites'] = Craft::$app->getSites()->getAllSites();
-        } elseif ($tab === 'coverage') {
-            // coverage data is loaded via AJAX (actionGetCoverage)
-        }
-
-        return $this->renderTemplate('smart-search/index-mgmt/index', $data);
-    }
-
-    public function actionGetEntryRows(): Response
-    {
-        $this->requireAdmin();
-        $this->requireAcceptsJson();
-
-        $request = Craft::$app->getRequest();
-        $filters = [
-            'section' => $request->getQueryParam('section') ?: null,
-            'siteId' => (int)($request->getQueryParam('siteId') ?: Craft::$app->getSites()->getCurrentSite()->id),
-            'status' => $request->getQueryParam('status') ?: null,
-            'page' => (int)($request->getQueryParam('page') ?: 1),
-        ];
-
-        $plugin = SmartSearch::getInstance();
-
-        try {
-            $result = $plugin->indexInspectionService->getEntryRows($filters);
-            $error = null;
-        } catch (DatabaseException $e) {
-            $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 25, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
-            $error = ErrorMapper::present($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
-        }
-
-        $html = Craft::$app->getView()->renderTemplate('smart-search/_partials/entries-content', [
-            'result' => $result,
-            'filters' => $filters,
-            'error' => $error,
-        ]);
-
-        return $this->asJson(['success' => true, 'html' => $html]);
-    }
-
-    public function actionGetOverview(): Response
-    {
-        $this->requireAdmin();
-        $this->requireAcceptsJson();
 
         $plugin = SmartSearch::getInstance();
         $settings = $plugin->getSettings();
@@ -133,22 +54,64 @@ class IndexController extends BaseApiController
         $syncStarted = Craft::$app->getSession()->getFlash('smart-search-sync-started', false)
             || $this->hasActiveSyncJob();
 
-        $html = Craft::$app->getView()->renderTemplate('smart-search/_partials/overview-content', [
+        return $this->renderTemplate('smart-search/index-mgmt/index', array_merge($this->commonViewData(), [
             'setup' => $setup,
             'overview' => $overview,
             'syncStarted' => $syncStarted,
-        ]);
-
-        return $this->asJson(['success' => true, 'html' => $html]);
+        ]));
     }
 
-    public function actionGetCoverage(): Response
+    public function actionEntries(): Response
     {
         $this->requireAdmin();
-        $this->requireAcceptsJson();
+        if (($redirect = $this->redirectIfNotConfigured()) !== null) {
+            return $redirect;
+        }
+
+        $request = Craft::$app->getRequest();
+        $currentSiteId = Craft::$app->getSites()->getCurrentSite()->id;
+        $sectionParam = $request->getQueryParam('section') ?: null;
+        $statusParam = $request->getQueryParam('status') ?: null;
+        $siteIdParam = (int)($request->getQueryParam('siteId') ?: $currentSiteId);
+        $filters = [
+            'section' => $sectionParam,
+            'siteId' => $siteIdParam,
+            'status' => $statusParam,
+            'page' => (int)($request->getQueryParam('page') ?: 1),
+        ];
 
         $plugin = SmartSearch::getInstance();
+        try {
+            $result = $plugin->indexInspectionService->getEntryRows($filters);
+            $error = null;
+        } catch (DatabaseException $e) {
+            $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 25, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
+            $error = ErrorMapper::present($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
+        }
 
+        return $this->renderTemplate('smart-search/index-mgmt/entries', array_merge($this->commonViewData(), [
+            'filters' => $filters,
+            'hasActiveFilters' => (bool)($sectionParam || $statusParam || $siteIdParam !== $currentSiteId),
+            'sections' => Craft::$app->getEntries()->getAllSections(),
+            'sites' => Craft::$app->getSites()->getAllSites(),
+            'result' => $result,
+            'error' => $error,
+        ]));
+    }
+
+    public function actionCoverage(): Response
+    {
+        $this->requireAdmin();
+        if (($redirect = $this->redirectIfNotConfigured()) !== null) {
+            return $redirect;
+        }
+
+        $common = $this->commonViewData();
+        if (!$common['isMultiSite']) {
+            return $this->redirect('smart-search/index');
+        }
+
+        $plugin = SmartSearch::getInstance();
         try {
             $coverage = $plugin->indexInspectionService->getCoverageBySite();
             $error = null;
@@ -157,12 +120,32 @@ class IndexController extends BaseApiController
             $error = ErrorMapper::present($e, 'getCoverageBySite', []);
         }
 
-        $html = Craft::$app->getView()->renderTemplate('smart-search/_partials/coverage-content', [
+        return $this->renderTemplate('smart-search/index-mgmt/coverage', array_merge($common, [
             'coverage' => $coverage,
             'error' => $error,
-        ]);
+        ]));
+    }
 
-        return $this->asJson(['success' => true, 'html' => $html]);
+    private function commonViewData(): array
+    {
+        $plugin = SmartSearch::getInstance();
+        return [
+            'plugin' => $plugin,
+            'settings' => $plugin->getSettings(),
+            'selectedSubnavItem' => 'index',
+            'isMultiSite' => count(Craft::$app->getSites()->getAllSites()) > 1,
+        ];
+    }
+
+    private function redirectIfNotConfigured(): ?Response
+    {
+        $settings = SmartSearch::getInstance()->getSettings();
+        if (empty($settings->getOpenaiApiKey())
+            || empty($settings->getPostgresqlHost())
+            || empty($settings->getPostgresqlDatabase())) {
+            return $this->redirect('smart-search');
+        }
+        return null;
     }
 
     public function actionEntry(): Response
@@ -457,6 +440,12 @@ class IndexController extends BaseApiController
                 'activeJob' => $activeJobs[$sid] ?? null,
             ];
         }
+
+        usort($rows, static function (array $a, array $b): int {
+            $pctA = $a['total'] > 0 ? $a['indexed'] / $a['total'] : 0;
+            $pctB = $b['total'] > 0 ? $b['indexed'] / $b['total'] : 0;
+            return $pctB <=> $pctA ?: $b['indexed'] <=> $a['indexed'] ?: strcasecmp($a['name'], $b['name']);
+        });
 
         return [
             'state' => 'ready',
