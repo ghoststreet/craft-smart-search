@@ -31,7 +31,7 @@
     </p>
     <ol class="onboarding-list">
         {% for s in requiredSteps %}
-            <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}">
+            <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}{% if s.disabled ?? false %} onboarding-list__item--disabled{% endif %}">
                 <span class="onboarding-list__icon">
                     {% if s.done %}<span data-icon="check"></span>{% else %}{{ loop.index }}{% endif %}
                 </span>
@@ -40,7 +40,11 @@
                     <div class="light">{{ s.hint }}</div>
                 </div>
                 {% if not s.done %}
-                    <a class="btn submit" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
+                    {% if s.disabled ?? false %}
+                        <span class="btn submit disabled" aria-disabled="true">{{ s.cta.label }}</span>
+                    {% else %}
+                        <a class="btn submit" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
+                    {% endif %}
                 {% endif %}
             </li>
         {% endfor %}

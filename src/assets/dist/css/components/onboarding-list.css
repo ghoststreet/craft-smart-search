@@ -64,6 +64,11 @@
     background: var(--smart-search-success);
     color: #fff;
 }
+.onboarding-list__item--disabled { opacity: .5; }
+.onboarding-list__item--disabled .btn.disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+}
 
 /* Body wrapper inside an item — replaces the flex:1 on > div */
 .onboarding-list__body { flex: 1; min-width: 0; }

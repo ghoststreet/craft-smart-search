@@ -193,7 +193,9 @@ class SmartSearch extends Plugin
     {
         parent::afterUninstall();
 
-        Craft::$app->getCache()->delete(DatabaseService::SCHEMA_CACHE_KEY);
+        $cache = Craft::$app->getCache();
+        $cache->delete(DatabaseService::SCHEMA_CACHE_KEY);
+        $cache->delete('smart_search_dashboard_stats');
     }
 
     private function attachEventHandlers(): void

@@ -26,7 +26,8 @@
         Craft.sendActionRequest('POST', action, options)
             .then(function (response) {
                 var data = response.data || {};
-                if (data.success) setResult(result, successMessage, 'ok');
+                if (data.success && data.warning) setResult(result, data.warning, 'warn');
+                else if (data.success) setResult(result, successMessage, 'ok');
                 else setResult(result, errors.messageFor(data), 'error');
             })
             .catch(function (error) {

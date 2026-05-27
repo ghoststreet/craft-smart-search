@@ -180,15 +180,17 @@ class SettingsController extends BaseApiController
                 ':table' => $table,
             ]);
 
+            $response = ['success' => true, 'requestId' => $this->requestId];
+
             if ($stmt->fetch() === false) {
-                return $this->asJson([
-                    'success' => false,
-                    'code' => ErrorCode::DATABASE_TABLE_MISSING->value,
-                    'requestId' => $this->requestId,
-                ]);
+                $response['warning'] = sprintf(
+                    'Connected, but the vectors table "%s"."%s" does not exist yet. Set up the pgvector schema before indexing.',
+                    $schema,
+                    $table,
+                );
             }
 
-            return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
+            return $this->asJson($response);
         } catch (Throwable $e) {
             return ApiResponseHelper::jsonError($this, $e, 'testDatabaseConnection', $this->errorContext());
         }

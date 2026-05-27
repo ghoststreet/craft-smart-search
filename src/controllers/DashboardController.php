@@ -256,21 +256,25 @@ class DashboardController extends Controller
 
     private function buildRequiredSteps($settings, array $stats): array
     {
+        $postgresConnected = (bool)($stats['isConnected'] ?? false);
+        $hasOpenaiKey = !empty($settings->getOpenaiApiKey());
+
         return [
             [
-                'done' => (bool)($stats['isConnected'] ?? false),
+                'done' => $postgresConnected,
                 'label' => 'Connect a Postgres database with pgvector',
                 'hint' => 'Smart Search keeps a vector embedding for every entry so it can compare meaning, not just words. We use Postgres with the pgvector extension because it scales to millions of rows and keeps the data on infrastructure you control.',
                 'cta' => ['url' => UrlHelper::cpUrl('smart-search/settings/connections/postgres'), 'label' => 'Setup Postgres'],
             ],
             [
-                'done' => !empty($settings->getOpenaiApiKey()),
+                'done' => $hasOpenaiKey,
                 'label' => 'Add your OpenAI API key',
                 'hint' => 'Your entries are sent to OpenAI’s embedding model to turn each one into a vector, and to the chat model when AI Answer synthesises a reply. The key is read from your Craft config and never stored in the plugin database.',
                 'cta' => ['url' => UrlHelper::cpUrl('smart-search/settings/connections/openai'), 'label' => 'Setup Api Key'],
             ],
             [
-                'done' => (bool)($stats['isConnected'] ?? false) && (int)($stats['entryCount'] ?? 0) > 0,
+                'done' => $postgresConnected && $hasOpenaiKey && (int)($stats['entryCount'] ?? 0) > 0,
+                'disabled' => !($postgresConnected && $hasOpenaiKey),
                 'label' => 'Run your first index',
                 'hint' => 'This reads every published entry, generates an embedding, and writes it to Postgres. Once it finishes, semantic search and AI Answer are live on your front-end. New and updated entries are indexed automatically from then on.',
                 'cta' => ['url' => UrlHelper::cpUrl('smart-search/index'), 'label' => 'Open indexer'],
