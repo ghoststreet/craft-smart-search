@@ -58,6 +58,22 @@ class DatabaseService extends Component
         return $this->buildConnection($config, cache: false);
     }
 
+    /**
+     * Apply the same host-as-connection-URI expansion that resolveConnectionConfig() does,
+     * so the settings "Test connection" action behaves identically to the saved path.
+     */
+    public function expandPostedConfig(array $config): array
+    {
+        $host = (string)($config['host'] ?? '');
+        if ($host !== '' && $this->isConnectionUri($host)) {
+            $parsed = $this->parseConnectionUri($host);
+            if ($parsed) {
+                return [...$parsed, 'sslMode' => $config['sslMode'] ?? 'require'];
+            }
+        }
+        return $config;
+    }
+
     private function buildConnection(array $config, bool $cache = true): PDO
     {
         $missingFields = $this->getMissingConfigFields($config);

@@ -33,8 +33,8 @@
 </div>
 
 {% namespace 'settings' %}
-    {{ forms.textField({ label: 'Schema', instructions: 'Postgres schema where the vectors table lives. Leave as <code>public</code> unless your DBA has set up a different schema.', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, placeholder: 'public', errors: settings.getErrors('vectorsSchemaName') }) }}
-    {{ forms.textField({ label: 'Vectors table', instructions: 'Name of the table that already holds your search vectors (you create it once via the install SQL; the plugin will not create it for you).<br><a href="' ~ wikiUrl ~ '/Installation#vectors-table" target="_blank" rel="noopener">Learn more →</a>', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, placeholder: 'smart_search_vectors', errors: settings.getErrors('vectorsTableName') }) }}
+    {{ forms.textField({ label: 'Schema', instructions: 'Postgres schema where the vectors table lives. Leave as <code>public</code> unless your DBA has set up a different schema.', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, placeholder: 'public', errors: settings.getErrors('vectorsSchemaName'), inputAttributes: { 'data-craftsearch-target': 'db-vectors-schema' } }) }}
+    {{ forms.textField({ label: 'Vectors table', instructions: 'Name of the table that already holds your search vectors (you create it once via the install SQL; the plugin will not create it for you).<br><a href="' ~ wikiUrl ~ '/Installation#vectors-table" target="_blank" rel="noopener">Learn more →</a>', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, placeholder: 'smart_search_vectors', errors: settings.getErrors('vectorsTableName'), inputAttributes: { 'data-craftsearch-target': 'db-vectors-table' } }) }}
     {% set trgmInstalled = craft.app.plugins.getPlugin('smart-search').dictionaryService.hasTrgmExtension() %}
     {{ forms.textField({
         label: 'Dictionary table',

@@ -165,14 +165,19 @@ class SettingsController extends BaseApiController
             'sslMode' => App::parseEnv((string) $request->getBodyParam('sslMode', '')) ?: 'require',
         ];
 
+        $db = SmartSearch::getInstance()->databaseService;
+        $config = $db->expandPostedConfig($config);
+
+        $schema = trim((string) $request->getBodyParam('vectorsSchemaName', '')) ?: $settings->vectorsSchemaName;
+        $table = trim((string) $request->getBodyParam('vectorsTableName', '')) ?: $settings->vectorsTableName;
+
         try {
-            $db = SmartSearch::getInstance()->databaseService;
             $pdo = $db->connectWithConfig($config);
 
             $stmt = $pdo->prepare('SELECT 1 FROM pg_tables WHERE schemaname = :schema AND tablename = :table');
             $stmt->execute([
-                ':schema' => $settings->vectorsSchemaName,
-                ':table' => $settings->vectorsTableName,
+                ':schema' => $schema,
+                ':table' => $table,
             ]);
 
             if ($stmt->fetch() === false) {

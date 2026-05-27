@@ -46,7 +46,11 @@
             });
         }
 
-        function sync() { btn.disabled = !isReady(); }
+        function sync() {
+            var ready = isReady();
+            btn.disabled = !ready;
+            btn.classList.toggle('disabled', !ready);
+        }
 
         btn.addEventListener('click', function () {
             if (btn.disabled) return;
@@ -81,6 +85,8 @@
             user: valueOf('db-user'),
             password: valueOf('db-password'),
             sslMode: valueOf('db-ssl-mode'),
+            vectorsSchemaName: valueOf('db-vectors-schema'),
+            vectorsTableName: valueOf('db-vectors-table'),
         };
     }
 
