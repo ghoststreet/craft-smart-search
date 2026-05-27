@@ -233,16 +233,6 @@ class SmartSearch extends Plugin
 
         Event::on(
             UrlManager::class,
-            UrlManager::EVENT_REGISTER_SITE_URL_RULES,
-            function(RegisterUrlRulesEvent $event) {
-                $event->rules['api/smart-search/search'] = 'smart-search/search/search';
-                $event->rules['api/smart-search/ai-answer'] = 'smart-search/search/ai-answer';
-                $event->rules['api/smart-search/ai-answer/stream'] = 'smart-search/search/ai-answer-stream';
-            }
-        );
-
-        Event::on(
-            UrlManager::class,
             UrlManager::EVENT_REGISTER_CP_URL_RULES,
             function(RegisterUrlRulesEvent $event) {
                 $event->rules['smart-search'] = 'smart-search/dashboard/index';

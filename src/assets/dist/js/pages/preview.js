@@ -82,8 +82,8 @@
         return card;
     }
 
-    function postSearch(action, query, siteId) {
-        var data = { q: query };
+    function postSearch(action, query, siteId, type) {
+        var data = { q: query, type: type || 'search' };
         if (siteId) data.siteId = siteId;
         return Craft.sendActionRequest('POST', action, { data: data })
             .then(function (r) { return r.data; })
@@ -159,13 +159,13 @@
         ragSources = [];
 
         var siteId = getSiteId();
-        var params = 'q=' + encodeURIComponent(query);
+        var params = 'q=' + encodeURIComponent(query) + '&type=ai-answer-stream';
         if (siteId) params += '&siteId=' + siteId;
         var csrf = csrfParam();
         if (csrf) params += '&' + csrf;
 
         var summaryText = '';
-        ragEventSource = new EventSource(streamActionUrl('smart-search/search/ai-answer-stream', params));
+        ragEventSource = new EventSource(streamActionUrl('smart-search/search', params));
 
         ragEventSource.addEventListener('sources', function (e) {
             var data = parseEventData(e);
@@ -199,7 +199,7 @@
         if (!query) { reset(resultsEl, errorEl); return; }
 
         setLoading(resultsEl, errorEl);
-        postSearch(opts.action, query, getSiteId())
+        postSearch(opts.action, query, getSiteId(), opts.type)
             .then(function (data) {
                 var results = data[opts.dataField] || [];
                 if (results.length === 0) {
@@ -220,7 +220,7 @@
         smart: function (q, root) {
             runStandardSearch(q, root, {
                 resultsTarget: 'smart-results', errorTarget: 'smart-error',
-                action: 'smart-search/search/search', dataField: 'semanticResults',
+                action: 'smart-search/search', type: 'search', dataField: 'semanticResults',
             });
         },
         'ai-answer': function (q, root) { runRagAnswer(q, root); },

@@ -12,6 +12,7 @@ use ghoststreet\craftsmartsearch\helpers\PricingTable;
 use ghoststreet\craftsmartsearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftsmartsearch\helpers\SearchResultFormatter;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
+use ghoststreet\craftsmartsearch\enums\SearchType;
 use ghoststreet\craftsmartsearch\models\SearchHistoryEntry;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -41,7 +42,7 @@ use yii\web\UnauthorizedHttpException;
  */
 class SearchController extends BaseApiController
 {
-    public $defaultAction = 'semantic-search';
+    public $defaultAction = 'search';
 
     protected array|int|bool $allowAnonymous = self::ALLOW_ANONYMOUS_LIVE;
 
@@ -101,10 +102,10 @@ class SearchController extends BaseApiController
 
         $this->enforceOriginAllowlist($request);
 
-        $kind = match ($action->id) {
-            'ai-answer', 'ai-answer-stream' => RateLimitService::KIND_AI_ANSWER,
-            default => RateLimitService::KIND_SEARCH,
-        };
+        $type = SearchType::tryFromParam($request->getParam('type')) ?? SearchType::Search;
+        $kind = $type->isAiAnswer()
+            ? RateLimitService::KIND_AI_ANSWER
+            : RateLimitService::KIND_SEARCH;
 
         $ip = (string)($request->getUserIP() ?? '0.0.0.0');
 
@@ -272,8 +273,31 @@ class SearchController extends BaseApiController
         $response->setStatusCode($e->httpStatus());
     }
 
-    /** Hybrid semantic + keyword search fused with RRF. No LLM call. */
+    /**
+     * Unified search endpoint. Dispatches to the right handler based on the
+     * `type` request parameter:
+     *   - `search` (default) → hybrid semantic + keyword (no LLM)
+     *   - `ai-answer`        → AI Answer with citations (JSON, POST)
+     *   - `ai-answer-stream` → AI Answer over SSE (GET)
+     */
     public function actionSearch(): Response
+    {
+        $type = SearchType::tryFromParam(Craft::$app->getRequest()->getParam('type'));
+        if ($type === null) {
+            return $this->asJson($this->withRequestId([
+                'success' => false,
+                'message' => 'Unknown search type.',
+            ]))->setStatusCode(400);
+        }
+        return match ($type) {
+            SearchType::Search => $this->runHybridSearch(),
+            SearchType::AiAnswer => $this->runAiAnswer(),
+            SearchType::AiAnswerStream => $this->runAiAnswerStream(),
+        };
+    }
+
+    /** Hybrid semantic + keyword search fused with RRF. No LLM call. */
+    private function runHybridSearch(): Response
     {
         $this->requireAcceptsJson();
         $params = RequestParameterExtractor::extractSearchParams();
@@ -317,8 +341,8 @@ class SearchController extends BaseApiController
         }
     }
 
-    /** Synchronous AI Answer (full JSON in one shot). Streams via actionAiAnswerStream. */
-    public function actionAiAnswer(): Response
+    /** Synchronous AI Answer (full JSON in one shot). Streams via runAiAnswerStream. */
+    private function runAiAnswer(): Response
     {
         $this->requirePostRequest();
         $this->requireAcceptsJson();
@@ -384,7 +408,7 @@ class SearchController extends BaseApiController
      * requireCsrfToken() in beforeAction — the widget passes the token in the
      * query string, which an <img src> or cross-origin attacker cannot forge.
      */
-    public function actionAiAnswerStream(): Response
+    private function runAiAnswerStream(): Response
     {
         $params = RequestParameterExtractor::extractSearchParams(20);
         $response = $this->beginSseResponse();

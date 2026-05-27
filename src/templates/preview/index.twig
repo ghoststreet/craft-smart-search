@@ -38,23 +38,27 @@
                 <tr>
                     <th>Endpoint</th>
                     <th>Method</th>
+                    <th><code>type</code></th>
                     <th>Description</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><code>/api/smart-search/search</code></td>
+                    <td><code>/actions/smart-search/search</code></td>
                     <td>POST</td>
+                    <td><code>search</code></td>
                     <td>Semantic vector + keyword</td>
                 </tr>
                 <tr>
-                    <td><code>/api/smart-search/ai-answer</code></td>
+                    <td><code>/actions/smart-search/search</code></td>
                     <td>POST</td>
+                    <td><code>ai-answer</code></td>
                     <td>AI Answer with citations</td>
                 </tr>
                 <tr>
-                    <td><code>/api/smart-search/ai-answer/stream</code></td>
+                    <td><code>/actions/smart-search/search</code></td>
                     <td>GET (SSE)</td>
+                    <td><code>ai-answer-stream</code></td>
                     <td>Streaming version of AI Answer</td>
                 </tr>
             </tbody>
