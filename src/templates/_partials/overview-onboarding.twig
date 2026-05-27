@@ -10,10 +10,10 @@
 <table class="data fullwidth collapsible">
     <tbody>
         {% set steps = [
-            { done: setup.credentials, label: 'Configure PostgreSQL credentials', hint: setup.credentials ? null : 'Host, database, user, and password are all required.' },
-            { done: setup.connection, label: 'Connect to the vector database', hint: (setup.credentials and not setup.connection) ? setup.error : null },
-            { done: setup.schema, label: 'Initialize the vector schema', hint: (setup.connection and not setup.schema) ? 'The vectors table was not found. Run the setup SQL from the README.' : null },
-            { done: setup.openaiKey, label: 'Add the OpenAI API key', hint: setup.openaiKey ? null : 'Required to generate embeddings during indexing.' },
+            { done: setup.credentials, label: 'Configure PostgreSQL credentials', hint: setup.credentials ? null : 'Host, database, user, and password are all required.', url: cpUrl('smart-search/settings/connections/postgres') },
+            { done: setup.connection, label: 'Connect to the vector database', hint: (setup.credentials and not setup.connection) ? setup.error : null, url: cpUrl('smart-search/settings/connections/postgres') },
+            { done: setup.schema, label: 'Initialize the vector schema', hint: (setup.connection and not setup.schema) ? 'The vectors table was not found. Run the setup SQL from the README.' : null, url: cpUrl('smart-search/settings/connections/postgres') },
+            { done: setup.openaiKey, label: 'Add the OpenAI API key', hint: setup.openaiKey ? null : 'Required to generate embeddings during indexing.', url: cpUrl('smart-search/settings/connections/openai') },
         ] %}
         {% for step in steps %}
             <tr>
@@ -22,7 +22,7 @@
                     {% else %}<span class="error" data-icon="error"></span>{% endif %}
                 </td>
                 <td>
-                    <a href="{{ cpUrl('smart-search/settings') }}">{{ step.label }}</a>
+                    <a href="{{ step.url }}">{{ step.label }}</a>
                     {% if step.hint %}<div class="light smalltext">{{ step.hint }}</div>{% endif %}
                 </td>
             </tr>

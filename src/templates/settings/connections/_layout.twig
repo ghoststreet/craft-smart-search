@@ -1,0 +1,21 @@
+{% extends 'smart-search/settings/_layout' %}
+
+{% block settingsContent %}
+    <div class="settings-connections">
+        <nav class="settings-connections__nav">
+            <ul>
+                <li>
+                    <a href="{{ cpUrl('smart-search/settings/connections/openai') }}"
+                       class="{{ connectionsSubPage == 'openai' ? 'is-active' : '' }}">OpenAI</a>
+                </li>
+                <li>
+                    <a href="{{ cpUrl('smart-search/settings/connections/postgres') }}"
+                       class="{{ connectionsSubPage == 'postgres' ? 'is-active' : '' }}">PostgreSQL</a>
+                </li>
+            </ul>
+        </nav>
+        <div class="settings-connections__body">
+            {% block connectionsContent %}{% endblock %}
+        </div>
+    </div>
+{% endblock %}

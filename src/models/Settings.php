@@ -14,6 +14,8 @@ class Settings extends Model
     public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/';
 
     public const SCENARIO_CONNECTIONS = 'connections';
+    public const SCENARIO_CONNECTIONS_OPENAI = 'connections.openai';
+    public const SCENARIO_CONNECTIONS_POSTGRES = 'connections.postgres';
     public const SCENARIO_INDEXING = 'indexing';
     public const SCENARIO_SMART_SEARCH = 'smartSearch';
     public const SCENARIO_AI_ANSWER = 'aiAnswer';
@@ -77,27 +79,37 @@ class Settings extends Model
      * Maps each CP settings tab to the attributes it owns. Drives both `scenarios()`
      * (mass-assignment filtering) and the `on` tag on every rule below.
      */
-    private const SCENARIO_ATTRIBUTES = [
+    public const SCENARIO_ATTRIBUTES = [
         self::SCENARIO_CONNECTIONS => [
             'openaiApiKey',
             'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
             'postgresqlPassword', 'postgresqlSslMode',
             'vectorsSchemaName', 'vectorsTableName',
         ],
+        self::SCENARIO_CONNECTIONS_OPENAI => [
+            'openaiApiKey',
+            'embeddingModel',
+            'aiAnswerModel',
+        ],
+        self::SCENARIO_CONNECTIONS_POSTGRES => [
+            'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
+            'postgresqlPassword', 'postgresqlSslMode',
+            'vectorsSchemaName', 'vectorsTableName',
+            'termsTableName',
+        ],
         self::SCENARIO_INDEXING => [
             'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
             'embeddingCacheTtlDays',
         ],
         self::SCENARIO_SMART_SEARCH => [
-            'embeddingModel',
             'rrfSemanticWeight', 'rrfKeywordWeight',
             'minSemanticThreshold', 'maxSemanticResults',
             'excerptLength',
-            'enableTypoTolerance', 'termsTableName',
+            'enableTypoTolerance',
             'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
         ],
         self::SCENARIO_AI_ANSWER => [
-            'aiAnswerModel', 'maxPromptTokens', 'aiAnswerCustomPrompt',
+            'maxPromptTokens', 'aiAnswerCustomPrompt',
             'costBudgetDailyGlobal',
             'rateLimitAiAnswerPerMinute', 'rateLimitAiAnswerPerHour',
             'aiAnswerConcurrencyPerIp', 'aiAnswerConcurrencyGlobal',
@@ -129,12 +141,24 @@ class Settings extends Model
     public function errorsForTab(string $tabId): array
     {
         $scenario = self::TAB_TO_SCENARIO[$tabId] ?? null;
-        if ($scenario === null) {
+        return $scenario === null ? [] : $this->errorsForScenario($scenario);
+    }
+
+    /**
+     * Flat list of validation errors for every attribute owned by the given
+     * scenario. Used by the per-page settings templates to surface errors.
+     *
+     * @return string[]
+     */
+    public function errorsForScenario(string $scenario): array
+    {
+        $attributes = self::SCENARIO_ATTRIBUTES[$scenario] ?? null;
+        if ($attributes === null) {
             return [];
         }
 
         $errors = [];
-        foreach (self::SCENARIO_ATTRIBUTES[$scenario] as $attribute) {
+        foreach ($attributes as $attribute) {
             foreach ($this->getErrors($attribute) as $message) {
                 $errors[] = $message;
             }
@@ -152,37 +176,38 @@ class Settings extends Model
      */
     public function rules(): array
     {
-        $connections = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS];
+        $openai = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS, self::SCENARIO_CONNECTIONS_OPENAI];
+        $postgres = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS, self::SCENARIO_CONNECTIONS_POSTGRES];
         $indexing = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
         $smartSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_SMART_SEARCH];
         $aiAnswer = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWER];
         $advanced = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
 
         return [
-            // OpenAI API key — Connections
-            [['openaiApiKey'], 'required', 'on' => $connections],
-            [['openaiApiKey'], 'validateEnvSecret', 'on' => $connections],
+            // OpenAI API key — Connections / OpenAI
+            [['openaiApiKey'], 'required', 'on' => $openai],
+            [['openaiApiKey'], 'validateEnvSecret', 'on' => $openai],
 
-            // PostgreSQL connection — Connections
-            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlPort', 'postgresqlSslMode'], 'required', 'on' => $connections],
-            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode'], 'string', 'on' => $connections],
+            // PostgreSQL connection — Connections / PostgreSQL
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlPort', 'postgresqlSslMode'], 'required', 'on' => $postgres],
+            [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode'], 'string', 'on' => $postgres],
             [['postgresqlPort'], function($attribute) {
                 $value = $this->$attribute;
                 if (!is_string($value) && !is_int($value)) {
                     $this->addError($attribute, 'Port must be a string or integer.');
                 }
-            }, 'on' => $connections],
-            [['postgresqlPassword'], 'string', 'on' => $connections],
-            [['postgresqlPassword'], 'validateEnvSecret', 'on' => $connections],
+            }, 'on' => $postgres],
+            [['postgresqlPassword'], 'string', 'on' => $postgres],
+            [['postgresqlPassword'], 'validateEnvSecret', 'on' => $postgres],
             [['postgresqlPort'], 'default', 'value' => 5432],
-            [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $connections],
+            [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $postgres],
 
-            // Vector storage identifiers — Connections
+            // Vector storage identifiers — Connections / PostgreSQL
             [['vectorsSchemaName'], 'default', 'value' => 'public'],
-            [['vectorsTableName'], 'required', 'on' => $connections],
+            [['vectorsTableName'], 'required', 'on' => $postgres],
             [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
-                'on' => $connections, ],
+                'on' => $postgres, ],
 
             // Content chunking — Indexing
             [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500, 'on' => $indexing],
@@ -201,10 +226,10 @@ class Settings extends Model
             [['embeddingCacheTtlDays'], 'integer', 'min' => 0, 'max' => 30, 'on' => $indexing],
             [['embeddingCacheTtlDays'], 'default', 'value' => 7],
 
-            // Smart Search — corpus embedding model
-            [['embeddingModel'], 'required', 'on' => $smartSearch],
-            [['embeddingModel'], 'string', 'on' => $smartSearch],
-            [['embeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $smartSearch],
+            // Embedding model lives with the OpenAI key — both are OpenAI account choices.
+            [['embeddingModel'], 'required', 'on' => $openai],
+            [['embeddingModel'], 'string', 'on' => $openai],
+            [['embeddingModel'], 'in', 'range' => ['text-embedding-3-small', 'text-embedding-3-large'], 'on' => $openai],
 
             // Smart Search — ranking
             [['rrfSemanticWeight', 'rrfKeywordWeight'], 'number', 'min' => 0, 'max' => 1, 'on' => $smartSearch],
@@ -223,19 +248,21 @@ class Settings extends Model
             [['enableTypoTolerance'], 'boolean', 'on' => $smartSearch],
             [['enableTypoTolerance'], 'default', 'value' => true],
 
-            [['termsTableName'], 'required', 'on' => $smartSearch],
+            [['termsTableName'], 'required', 'on' => $postgres],
             [['termsTableName'], 'default', 'value' => 'smart_search_terms'],
             [['termsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
-                'on' => $smartSearch, ],
+                'on' => $postgres, ],
 
             // Smart Search — rate limits (0 disables the window)
             [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $smartSearch],
 
-            // AI Answer — models and prompt
-            [['aiAnswerModel'], 'required', 'on' => $aiAnswer],
-            [['aiAnswerModel'], 'string', 'on' => $aiAnswer],
-            [['aiAnswerModel'], 'in', 'range' => ['gpt-5.4-nano', 'gpt-5.4-mini', 'gpt-5.4'], 'on' => $aiAnswer],
+            // Answer model lives with the OpenAI key — both are OpenAI account choices.
+            [['aiAnswerModel'], 'required', 'on' => $openai],
+            [['aiAnswerModel'], 'string', 'on' => $openai],
+            [['aiAnswerModel'], 'in', 'range' => ['gpt-5.4-nano', 'gpt-5.4-mini', 'gpt-5.4'], 'on' => $openai],
+
+            // AI Answer — prompt + token budget
             [['aiAnswerCustomPrompt'], 'string', 'on' => $aiAnswer],
             [['maxPromptTokens'], 'integer', 'min' => 500, 'max' => 100000, 'on' => $aiAnswer],
 

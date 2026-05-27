@@ -238,6 +238,13 @@ class SmartSearch extends Plugin
                 $event->rules['smart-search'] = 'smart-search/dashboard/index';
 
                 $event->rules['smart-search/settings'] = 'smart-search/settings/index';
+                $event->rules['smart-search/settings/connections'] = 'smart-search/settings/connections';
+                $event->rules['smart-search/settings/connections/openai'] = 'smart-search/settings/connections-openai';
+                $event->rules['smart-search/settings/connections/postgres'] = 'smart-search/settings/connections-postgres';
+                $event->rules['smart-search/settings/indexing'] = 'smart-search/settings/indexing';
+                $event->rules['smart-search/settings/smart-search'] = 'smart-search/settings/smart-search';
+                $event->rules['smart-search/settings/ai-answer'] = 'smart-search/settings/ai-answer';
+                $event->rules['smart-search/settings/advanced'] = 'smart-search/settings/advanced';
 
                 $event->rules['POST smart-search/settings/save'] = 'smart-search/settings/save';
                 $event->rules['POST smart-search/settings/test-database-connection'] = 'smart-search/settings/test-database-connection';

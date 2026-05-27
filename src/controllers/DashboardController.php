@@ -256,19 +256,18 @@ class DashboardController extends Controller
 
     private function buildRequiredSteps($settings, array $stats): array
     {
-        $settingsBase = UrlHelper::cpUrl('smart-search/settings');
         return [
             [
                 'done' => (bool)($stats['isConnected'] ?? false),
                 'label' => 'Connect a Postgres database with pgvector',
                 'hint' => 'Smart Search keeps a vector embedding for every entry so it can compare meaning, not just words. We use Postgres with the pgvector extension because it scales to millions of rows and keeps the data on infrastructure you control.',
-                'cta' => ['url' => $settingsBase . '#connection-postgres', 'label' => 'Setup Postgres'],
+                'cta' => ['url' => UrlHelper::cpUrl('smart-search/settings/connections/postgres'), 'label' => 'Setup Postgres'],
             ],
             [
                 'done' => !empty($settings->getOpenaiApiKey()),
                 'label' => 'Add your OpenAI API key',
                 'hint' => 'Your entries are sent to OpenAI’s embedding model to turn each one into a vector, and to the chat model when AI Answer synthesises a reply. The key is read from your Craft config and never stored in the plugin database.',
-                'cta' => ['url' => $settingsBase . '#connection-openai', 'label' => 'Setup Api Key'],
+                'cta' => ['url' => UrlHelper::cpUrl('smart-search/settings/connections/openai'), 'label' => 'Setup Api Key'],
             ],
             [
                 'done' => (bool)($stats['isConnected'] ?? false) && (int)($stats['entryCount'] ?? 0) > 0,
@@ -281,7 +280,7 @@ class DashboardController extends Controller
 
     private function buildRecommendedSteps($settings, $history, array $stats): array
     {
-        $settingsBase = UrlHelper::cpUrl('smart-search/settings');
+        $aiAnswerUrl = UrlHelper::cpUrl('smart-search/settings/ai-answer');
         $customPrompt = (string)($settings->aiAnswerCustomPrompt ?? '');
         $hasIndex = (bool)($stats['isConnected'] ?? false) && (int)($stats['entryCount'] ?? 0) > 0;
         $steps = [];
@@ -298,13 +297,13 @@ class DashboardController extends Controller
                 'done' => $customPrompt !== '',
                 'label' => 'Customise the AI Answer system prompt',
                 'hint' => 'By default the answer model is told to reply from your content in a neutral tone. Override the system prompt to match your brand voice, restrict what it can talk about, or add domain rules like always linking to the relevant product page.',
-                'cta' => ['url' => $settingsBase . '#tab-ai-answer', 'label' => 'Configure'],
+                'cta' => ['url' => $aiAnswerUrl, 'label' => 'Configure'],
             ],
             [
                 'done' => abs(((float)($settings->costBudgetDailyGlobal ?? 0)) - 3.0) > 0.001,
                 'label' => 'Set a daily AI Answer spend cap',
                 'hint' => 'Every AI Answer call costs a few cents on the OpenAI side. The daily cap pauses synthesis once spending hits your limit, so a traffic spike or a misbehaving bot can’t drain your account overnight. Default is $3/day.',
-                'cta' => ['url' => $settingsBase . '#tab-ai-answer', 'label' => 'Set budget'],
+                'cta' => ['url' => $aiAnswerUrl, 'label' => 'Set budget'],
             ],
         ]);
     }

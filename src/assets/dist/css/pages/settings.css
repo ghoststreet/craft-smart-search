@@ -1,5 +1,64 @@
-.settings__buttons { margin-bottom: 16px; }
-.settings__test-result { margin-left: 8px; }
-.settings__test-result[data-craftsearch-state="ok"] { color: green; }
-.settings__test-result[data-craftsearch-state="error"] { color: red; }
-.settings__db-test { margin-top: 8px; }
+.settings__buttons {
+    margin-bottom: 16px;
+}
+
+.settings__test-result {
+    margin-left: 8px;
+}
+
+.settings__test-result[data-craftsearch-state="ok"] {
+    color: var(--success-color);
+}
+
+.settings__test-result[data-craftsearch-state="error"] {
+    color: var(--error-color);
+}
+
+.settings__db-test {
+    margin-top: 8px;
+}
+
+.settings-connections {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.settings-connections__nav {
+    flex: 0 0 200px;
+}
+
+.settings-connections__nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-connections__nav li {
+    margin: 0;
+}
+
+.settings-connections__nav a {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 4px;
+    color: var(--text-color);
+    text-decoration: none;
+}
+
+.settings-connections__nav a:hover,
+.settings-connections__nav a.is-active {
+    background: var(--gray-050);
+}
+
+.settings-connections__nav a.is-active {
+    font-weight: 600;
+}
+
+.settings-connections__body {
+    flex: 1;
+    min-width: 0;
+}

@@ -1,0 +1,50 @@
+{% import '_includes/forms.twig' as forms %}
+
+<h2 id="connection-openai">OpenAI</h2>
+<p class="light">Smart Search uses OpenAI for two jobs: turning your content (and visitor queries) into vector embeddings so meaning-based search can work, and writing AI Answer summaries when a visitor asks a question. Both run against your own account, so the API key below is the only thing that authorises calls and gets billed for them.</p>
+<p class="light">You'll need a paid OpenAI account with billing set up. Embeddings are inexpensive; AI Answer costs vary by model. <a href="{{ wikiUrl }}/Connections#openai-api-key" target="_blank" rel="noopener">Setup guide →</a></p>
+
+{% namespace 'settings' %}
+    {{ forms.autosuggestField({
+        label: 'OpenAI API key',
+        instructions: 'Your OpenAI secret key, used to create embeddings and AI Answer. Reference an environment variable like <code>$OPENAI_API_KEY</code> instead of pasting the raw key.',
+        id: 'openaiApiKey', name: 'openaiApiKey',
+        value: settings.openaiApiKey, suggestEnvVars: true, required: true,
+        errors: settings.getErrors('openaiApiKey'),
+        inputAttributes: { 'data-craftsearch-target': 'openai-api-key' },
+    }) }}
+
+    <div class="buttons settings__buttons">
+        <button type="button" class="btn disabled" data-craftsearch-control="test-api-key" disabled>Test API key</button>
+        <span class="settings__test-result" data-craftsearch-target="test-api-key-result"></span>
+    </div>
+
+    {{ forms.selectField({
+        label: 'Embedding model',
+        instructions: 'The OpenAI model that turns content and search queries into vectors. Pick based on the quality-vs-cost trade-off; the default works well for most sites. Changing it invalidates the existing index and requires a full re-index. <a href="' ~ wikiUrl ~ '/Tuning-Search-Results#embedding-model" target="_blank" rel="noopener">Learn more →</a>',
+        id: 'embeddingModel', name: 'embeddingModel',
+        value: settings.embeddingModel,
+        options: [
+            { label: 'text-embedding-3-small (recommended)', value: 'text-embedding-3-small' },
+            { label: 'text-embedding-3-large (higher accuracy, ~6× cost)', value: 'text-embedding-3-large' },
+        ],
+        required: true, errors: settings.getErrors('embeddingModel'),
+        inputAttributes: { 'data-craftsearch-target': 'smart-embedding-model' },
+    }) }}
+    <p class="warning with-icon settings__reindex-warning" data-craftsearch-target="smart-embedding-warning" hidden>
+        Saving will invalidate the existing vector corpus. A full reindex is required after this change.
+    </p>
+
+    {{ forms.selectField({
+        label: 'Answer model',
+        instructions: 'OpenAI model that writes the AI summary. All three handle most sites; pick based on the quality-vs-cost trade-off. <a href="' ~ wikiUrl ~ '/AI-Answer-Setup#answer-model" target="_blank" rel="noopener">Learn more →</a>',
+        id: 'aiAnswerModel', name: 'aiAnswerModel',
+        value: settings.aiAnswerModel,
+        options: [
+            { label: 'GPT-5.4 Nano — fastest, cheapest ($0.20 / $1.25 per 1M tokens)', value: 'gpt-5.4-nano' },
+            { label: 'GPT-5.4 Mini — balanced ($0.75 / $4.50 per 1M tokens)', value: 'gpt-5.4-mini' },
+            { label: 'GPT-5.4 — highest quality, slowest ($2.50 / $15.00 per 1M tokens)', value: 'gpt-5.4' },
+        ],
+        required: true, errors: settings.getErrors('aiAnswerModel'),
+    }) }}
+{% endnamespace %}

@@ -1,0 +1,18 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Settings' %}
+{% set wikiUrl = 'https://github.com/ghoststreet/craft-smart-search/wiki' %}
+{% set selectedSubnavItem = 'settings' %}
+
+{% set tabs = {
+    connections:    { label: 'Connections',  url: cpUrl('smart-search/settings/connections/openai') },
+    indexing:       { label: 'Indexing',     url: cpUrl('smart-search/settings/indexing') },
+    'smart-search': { label: 'Smart Search', url: cpUrl('smart-search/settings/smart-search') },
+    'ai-answer':    { label: 'AI Answer',    url: cpUrl('smart-search/settings/ai-answer') },
+    advanced:       { label: 'Advanced',     url: cpUrl('smart-search/settings/advanced') },
+} %}
+{% set selectedTab = pageKey %}
+
+{% block content %}
+    {% block settingsContent %}{% endblock %}
+{% endblock %}

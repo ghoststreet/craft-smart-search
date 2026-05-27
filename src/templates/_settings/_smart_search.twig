@@ -1,27 +1,5 @@
 {% import '_includes/forms.twig' as forms %}
 
-<h2>Embedding model</h2>
-<p class="light">The OpenAI model that turns content and search queries into vectors. Pick based on the quality-vs-cost trade-off; the default works well for most sites. Changing it invalidates the existing index and requires a full re-index. <a href="{{ wikiUrl }}/Tuning-Search-Results#embedding-model" target="_blank" rel="noopener">Learn more →</a></p>
-
-{% namespace 'settings' %}
-    {{ forms.selectField({
-        label: 'Embedding model',
-        id: 'embeddingModel', name: 'embeddingModel',
-        value: settings.embeddingModel,
-        options: [
-            { label: 'text-embedding-3-small (recommended)', value: 'text-embedding-3-small' },
-            { label: 'text-embedding-3-large (higher accuracy, ~6× cost)', value: 'text-embedding-3-large' },
-        ],
-        required: true, errors: settings.getErrors('embeddingModel'),
-        inputAttributes: { 'data-craftsearch-target': 'smart-embedding-model' },
-    }) }}
-{% endnamespace %}
-<p class="warning with-icon settings__reindex-warning" data-craftsearch-target="smart-embedding-warning" hidden>
-    Saving will invalidate the existing vector corpus. A full reindex is required after this change.
-</p>
-
-<hr>
-
 <h2>Ranking</h2>
 <p class="light">Every search is scored by two signals: <strong>semantic</strong> (results that match the meaning of the query) and <strong>keyword</strong> (results that contain the exact words). The settings below decide how those two scores are mixed and how strict the final cut-off is. Defaults are tuned for general-purpose sites.</p>
 <p class="light">Think of <strong>Semantic weight</strong> and <strong>Keyword weight</strong> as slices of a pie: how much of the final ranking each signal gets to decide. They must add up to <code>1.00</code> (e.g. <code>0.7 + 0.3</code>, or <code>0.5 + 0.5</code>); the form won't save until they do. If you slide the meaning weight up, exact-word matches matter less; slide it down and the opposite happens.</p>
@@ -122,21 +100,7 @@
         errors: settings.getErrors('enableTypoTolerance'),
     }) }}
 
-    {{ forms.textField({
-        label: 'Dictionary table',
-        instructions: trgmInstalled
-            ? 'Name of the Postgres table that holds the corpus dictionary (one row per known word). Smart Search reads from this table at query time to find typo candidates; it never writes outside it. Lives in the same schema as your vectors table. Defaults to <code>smart_search_terms</code>; change it only if your DBA wants a different name.'
-            : 'Install the <code>pg_trgm</code> extension above to configure this.',
-        id: 'termsTableName', name: 'termsTableName',
-        value: settings.termsTableName,
-        required: true, placeholder: 'smart_search_terms',
-        disabled: not trgmInstalled,
-        errors: settings.getErrors('termsTableName'),
-    }) }}
 {% endnamespace %}
-{% if not trgmInstalled %}
-    <input type="hidden" name="settings[termsTableName]" value="{{ settings.termsTableName ?: 'smart_search_terms' }}">
-{% endif %}
 
 <hr>
 

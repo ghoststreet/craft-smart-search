@@ -4,19 +4,6 @@
 <p class="light">AI Answer reads the top search results and writes a short summary with citations, shown above the result list. It runs only when you explicitly call it from your front-end, app, or a Twig template; otherwise plain search results are returned on their own. You can fetch the full answer at once or stream it token-by-token. <a href="{{ wikiUrl }}/Using-the-API#ai-answer-endpoint" target="_blank" rel="noopener">Learn more →</a></p>
 
 {% namespace 'settings' %}
-    {{ forms.selectField({
-        label: 'Answer model',
-        instructions: 'OpenAI model that writes the AI summary. All three handle most sites; pick based on the quality-vs-cost trade-off. <a href="' ~ wikiUrl ~ '/AI-Answer-Setup#answer-model" target="_blank" rel="noopener">Learn more →</a>',
-        id: 'aiAnswerModel', name: 'aiAnswerModel',
-        value: settings.aiAnswerModel,
-        options: [
-            { label: 'GPT-5.4 Nano — fastest, cheapest ($0.20 / $1.25 per 1M tokens)', value: 'gpt-5.4-nano' },
-            { label: 'GPT-5.4 Mini — balanced ($0.75 / $4.50 per 1M tokens)', value: 'gpt-5.4-mini' },
-            { label: 'GPT-5.4 — highest quality, slowest ($2.50 / $15.00 per 1M tokens)', value: 'gpt-5.4' },
-        ],
-        required: true, errors: settings.getErrors('aiAnswerModel'),
-    }) }}
-
     {{ forms.textField({
         label: 'AI answer context size (tokens)',
         instructions: 'Token budget for search content packed into each AI Answer. One token ≈ 4 characters. <a href="' ~ wikiUrl ~ '/AI-Answer-Setup#ai-answer-context-size-tokens" target="_blank" rel="noopener">Learn more →</a>',

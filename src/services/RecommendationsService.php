@@ -50,7 +50,7 @@ class RecommendationsService extends Component
                 'Daily cost budget at ' . round($ratio * 100) . '%',
                 sprintf('$%.4f of $%.2f spent today. New AI Answer requests will be rejected at 100%%.', $budget['spent'], $budget['cap']),
                 'Adjust budget',
-                'smart-search/settings#budgets'
+                'smart-search/settings/ai-answer'
             )];
         }
         if ($ratio >= 0.75) {
@@ -59,7 +59,7 @@ class RecommendationsService extends Component
                 'Daily cost budget at ' . round($ratio * 100) . '%',
                 sprintf('$%.4f of $%.2f spent today.', $budget['spent'], $budget['cap']),
                 'Adjust budget',
-                'smart-search/settings#budgets'
+                'smart-search/settings/ai-answer'
             )];
         }
         if (!empty($budget['etaDays']) && $budget['etaDays'] < 7) {
@@ -68,7 +68,7 @@ class RecommendationsService extends Component
                 'Projected to hit cap in ' . $budget['etaDays'] . ' days',
                 'Based on 7-day burn rate. Raise the daily cap or reduce AI Answer traffic if this is unexpected.',
                 'Adjust budget',
-                'smart-search/settings#budgets'
+                'smart-search/settings/ai-answer'
             )];
         }
         return [];
@@ -124,7 +124,7 @@ class RecommendationsService extends Component
             'Low embedding cache hit rate',
             'Only ' . round($cacheHitRate * 100) . '% of queries hit the cache. Consider raising the cache TTL to reduce embedding cost.',
             'Tune cache',
-            'smart-search/settings#cache'
+            'smart-search/settings/indexing'
         )];
     }
 
@@ -184,7 +184,7 @@ class RecommendationsService extends Component
             'OpenAI API key is not configured',
             'Search and indexing will fail until a key is set.',
             'Open settings',
-            'smart-search/settings'
+            'smart-search/settings/connections/openai'
         )];
     }
 
