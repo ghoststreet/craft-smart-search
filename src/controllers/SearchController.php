@@ -3,7 +3,6 @@
 namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
-use craft\elements\Entry;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use ghoststreet\craftsmartsearch\filters\SmartSearchCors;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
@@ -271,43 +270,6 @@ class SearchController extends BaseApiController
         $response->format = Response::FORMAT_JSON;
         $response->data = ApiResponseHelper::error($e, 'rateLimit', ['requestId' => $this->requestId]);
         $response->setStatusCode($e->httpStatus());
-    }
-
-    /** Pass-through to Craft's native Entry::find()->search(). No embeddings, no AI. */
-    public function actionIndex(): Response
-    {
-        $this->requireAcceptsJson();
-        $params = RequestParameterExtractor::extractSearchParams();
-
-        if ($params['validationError'] !== null) {
-            return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
-        }
-
-        $this->logRequest('craftSearch', $params);
-
-        try {
-            $searchQuery = Entry::find();
-
-            if ($params['siteId'] !== null) {
-                $searchQuery->siteId($params['siteId']);
-            }
-
-            $searchQuery->status(Entry::STATUS_ENABLED)
-                ->search($params['query'])
-                ->limit($params['limit']);
-
-            $entries = $searchQuery->all();
-
-            $formattedResults = $this->formatElementResults($entries, [], SearchResultFormatter::TYPE_CRAFT);
-
-            return $this->successResponse('craftSearch', [
-                'query' => $params['query'],
-                'results' => $formattedResults,
-                'count' => count($formattedResults),
-            ]);
-        } catch (Throwable $e) {
-            return ApiResponseHelper::jsonError($this, $e, 'craftSearch', $this->errorContext($params));
-        }
     }
 
     /** Hybrid semantic + keyword search fused with RRF. No LLM call. */

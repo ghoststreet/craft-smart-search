@@ -235,7 +235,6 @@ class SmartSearch extends Plugin
             UrlManager::class,
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
             function(RegisterUrlRulesEvent $event) {
-                $event->rules['api/smart-search'] = 'smart-search/search/index';
                 $event->rules['api/smart-search/search'] = 'smart-search/search/search';
                 $event->rules['api/smart-search/ai-answer'] = 'smart-search/search/ai-answer';
                 $event->rules['api/smart-search/ai-answer/stream'] = 'smart-search/search/ai-answer-stream';
@@ -266,8 +265,11 @@ class SmartSearch extends Plugin
                 $event->rules['POST smart-search/index/exclude-entry'] = 'smart-search/index/exclude-entry';
                 $event->rules['POST smart-search/index/include-entry'] = 'smart-search/index/include-entry';
 
-                // Insights (consolidated from history + keywords)
+                // Insights — one route per page
                 $event->rules['smart-search/insights'] = 'smart-search/insights/index';
+                $event->rules['smart-search/insights/top-queries'] = 'smart-search/insights/top-queries';
+                $event->rules['smart-search/insights/zero-results'] = 'smart-search/insights/zero-results';
+                $event->rules['smart-search/insights/trending'] = 'smart-search/insights/trending';
 
                 // Preview
                 $event->rules['smart-search/preview'] = 'smart-search/preview/index';

@@ -345,11 +345,11 @@ class HistoryService extends Component
             $site = $sitesService->getSiteById($id);
             $sites[] = [
                 'id' => $id,
-                'name' => $site?->name ?: $site?->handle,
+                'name' => $site?->name ?: $site?->handle ?: "Site #{$id}",
                 'handle' => $site?->handle,
             ];
         }
-        usort($sites, static fn($a, $b) => strcasecmp($a['name'], $b['name']));
+        usort($sites, static fn($a, $b) => strcasecmp($a['name'] ?? '', $b['name'] ?? ''));
 
         return $sites;
     }

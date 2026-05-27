@@ -223,12 +223,6 @@
                 action: 'smart-search/search/search', dataField: 'semanticResults',
             });
         },
-        craft: function (q, root) {
-            runStandardSearch(q, root, {
-                resultsTarget: 'craft-results', errorTarget: 'craft-error',
-                action: 'smart-search/search/index', dataField: 'results',
-            });
-        },
         'ai-answer': function (q, root) { runRagAnswer(q, root); },
     };
 

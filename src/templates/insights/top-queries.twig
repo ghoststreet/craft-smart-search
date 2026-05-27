@@ -1,0 +1,44 @@
+{% set pageKey = 'top-queries' %}
+{% set pageUrl = cpUrl('smart-search/insights/top-queries') %}
+{% set showDays = true %}
+{% set hasResults = topQueries|length > 0 %}
+
+{% extends 'smart-search/insights/_layout' %}
+
+{% block insightsContent %}
+    <p class="light">Your 30 most-searched queries for the selected period. Use it to see what your audience wants and to spot popular searches returning few or no results.</p>
+    {% if topQueries|length %}
+        <div class="tableview data-table data-table--auto">
+            <table class="data fullwidth big">
+                <thead>
+                    <tr>
+                        <th scope="col">Query</th>
+                        <th scope="col" class="rightalign">Searches</th>
+                        <th scope="col" class="rightalign">Avg results</th>
+                        <th scope="col">Last searched</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in topQueries %}
+                        {% set sharePct = totalSearches > 0 ? (k.hits / totalSearches * 100)|round : 0 %}
+                        <tr>
+                            <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                            <td class="rightalign">{{ k.hits|number_format }} <span class="light">({{ sharePct }}%)</span></td>
+                            <td class="rightalign">
+                                {% if k.avgResults < 1 %}<span class="status orange" title="Returns few or no results"></span> {% endif %}
+                                <span class="light">{{ k.avgResults|number_format(1) }}</span>
+                            </td>
+                            <td><span class="light" title="{{ k.lastSeen|date('Y-m-d H:i:s') }}">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        {% include 'smart-search/_components/empty-state' with {
+            variant: 'neutral',
+            title: 'No queries yet',
+            text: 'Searches will show up here once visitors start using search.',
+        } only %}
+    {% endif %}
+{% endblock %}

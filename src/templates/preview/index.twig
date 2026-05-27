@@ -57,11 +57,6 @@
                     <td>GET (SSE)</td>
                     <td>Streaming version of AI Answer</td>
                 </tr>
-                <tr>
-                    <td><code>/api/smart-search</code></td>
-                    <td>POST</td>
-                    <td>Craft native keyword search</td>
-                </tr>
             </tbody>
         </table>
     </div>
@@ -98,22 +93,6 @@
                 <div class="preview-col__summary" data-craftsearch-target="ai-answer-summary" hidden></div>
                 <div class="preview-col__results" data-craftsearch-target="ai-answer-results" role="region" hidden></div>
                 <div class="preview-col__error" data-craftsearch-target="ai-answer-error" role="alert" hidden></div>
-            </div>
-        </div>
-
-        <div class="preview-col">
-            <div class="pane preview-col__pane">
-                <h2 class="preview-col__heading">Craft Search <span class="preview-badge preview-badge--craft">Native</span></h2>
-                <p class="preview-col__desc">Runs Craft's built-in full-text search — useful as a baseline comparison.</p>
-                <div class="preview-col__form">
-                    <input type="search" class="text" placeholder="Search…" autocomplete="off"
-                           data-craftsearch-control="craft-input">
-                    <button class="btn" data-craftsearch-control="craft-submit" aria-label="Search">
-                        <span data-icon="search" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <div class="preview-col__results" data-craftsearch-target="craft-results" role="region" hidden></div>
-                <div class="preview-col__error" data-craftsearch-target="craft-error" role="alert" hidden></div>
             </div>
         </div>
 

@@ -7,11 +7,10 @@ use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Formats search-result entries into the API payload, with per-type field
- * additions (excerpt for Craft, scores for semantic/smart, AI rank for AI Answer).
+ * additions (scores for semantic/smart, AI rank for AI Answer).
  */
 final class SearchResultFormatter
 {
-    public const TYPE_CRAFT = 'craft';
     public const TYPE_SEMANTIC = 'semantic';
     public const TYPE_SMART = 'smart';
     public const TYPE_AI_ANSWER = 'aiAnswer';
@@ -21,7 +20,7 @@ final class SearchResultFormatter
      *
      * @param Entry $element The entry element
      * @param array $metadata Additional result data (scores, ranks, content, etc.)
-     * @param string $type Result type: craft, semantic, smart, or aiAnswer
+     * @param string $type Result type: semantic, smart, or aiAnswer
      * @return array|null Null if element has no URL
      */
     public static function format(Entry $element, array $metadata, string $type): ?array
@@ -39,7 +38,6 @@ final class SearchResultFormatter
         ];
 
         return match ($type) {
-            self::TYPE_CRAFT => self::addCraftFields($result, $metadata),
             self::TYPE_SEMANTIC => self::addSemanticFields($result, $metadata),
             self::TYPE_SMART => self::addSmartFields($result, $metadata),
             self::TYPE_AI_ANSWER => self::addAiAnswerFields($result, $metadata),
@@ -75,13 +73,6 @@ final class SearchResultFormatter
         }
 
         return $excerpt;
-    }
-
-    /** Craft-search payload: just an excerpt (native search returns rank by position, no score). */
-    private static function addCraftFields(array $result, array $metadata): array
-    {
-        $result['excerpt'] = $metadata['excerpt'] ?? '';
-        return $result;
     }
 
     /** Semantic-only payload: score + excerpt. semanticScore mirrors score when not separated. */

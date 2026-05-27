@@ -1,0 +1,49 @@
+{% extends "_layouts/cp" %}
+{% import 'smart-search/_components/filter-fields' as f %}
+
+{% set title = 'Insights' %}
+{% set selectedSubnavItem = 'insights' %}
+
+{% set days = filters.days %}
+{% set siteId = filters.siteId %}
+
+{% set showDays = showDays ?? true %}
+{% set showType = showType ?? false %}
+{% set showErrorsOnly = showErrorsOnly ?? false %}
+{% set hasFilterableControls = hasFilterableControls ?? (showDays or showType or showErrorsOnly or sites|length > 1) %}
+{% set hasActiveFilters = days or siteId or filters.type or filters.errorsOnly %}
+
+{% set tabs = {
+    overview:       { label: 'Overview',     url: cpUrl('smart-search/insights') },
+    'top-queries':  { label: 'Top Queries',  url: cpUrl('smart-search/insights/top-queries') },
+    'zero-results': { label: 'Zero Results', url: cpUrl('smart-search/insights/zero-results') },
+    trending:       { label: 'Trending',     url: cpUrl('smart-search/insights/trending') },
+} %}
+{% set selectedTab = pageKey %}
+
+{% block content %}
+    {% block kpis %}{% endblock %}
+
+    {% if hasFilterableControls and (hasResults|default(false) or hasActiveFilters) %}
+        <div class="filter-bar" data-craftsearch-target="filter-bar">
+            <form method="get" action="{{ pageUrl }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
+                <div class="filter-bar__group">
+                    {{ f.sitesSelect(sites, siteId) }}
+                    {% if showDays %}
+                        {{ f.daysSelect(days, 'Time range') }}
+                    {% endif %}
+                    {% if showType %}
+                        {{ f.typeSelect(filters.type) }}
+                    {% endif %}
+                    {% if showErrorsOnly %}
+                        {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+                    {% endif %}
+                    {{ f.submitButton() }}
+                    {{ f.resetButton(pageUrl, hasActiveFilters) }}
+                </div>
+            </form>
+        </div>
+    {% endif %}
+
+    {% block insightsContent %}{% endblock %}
+{% endblock %}

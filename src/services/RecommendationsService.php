@@ -138,7 +138,7 @@ class RecommendationsService extends Component
             round($zeroResultRate * 100) . '% of recent searches return zero results',
             'Inspect top zero-result queries: they often indicate missing content or overly strict thresholds.',
             'View zero-results',
-            'smart-search/insights?tab=zero-results'
+            'smart-search/insights/zero-results'
         )];
     }
 
@@ -168,7 +168,7 @@ class RecommendationsService extends Component
                 round($errors / $searches * 100) . '% error rate',
                 "{$errors} of {$searches} recent searches errored. Check the History errors view.",
                 'View errors',
-                'smart-search/insights?tab=history&errorsOnly=1'
+                'smart-search/insights?errorsOnly=1'
             );
         }
         return $out;

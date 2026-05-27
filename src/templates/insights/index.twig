@@ -1,228 +1,72 @@
-{% extends "_layouts/cp" %}
-{% import 'smart-search/_components/filter-fields' as f %}
+{% set pageKey = 'overview' %}
+{% set pageUrl = cpUrl('smart-search/insights') %}
+{% set showDays = true %}
+{% set showType = true %}
+{% set showErrorsOnly = stats.errorCount > 0 %}
+{% set hasResults = page.items|length > 0 %}
 
-{% set title = 'Insights' %}
-{% set selectedSubnavItem = 'insights' %}
+{% extends 'smart-search/insights/_layout' %}
 
-{% set days = filters.days %}
-{% set siteId = filters.siteId %}
-{% set tabParams = { days: days, siteId: siteId } %}
-{% set hasResults = (tab == 'queries' ? topQueries|default([])|length : page.items|default([])|length) > 0 %}
-{% set hasActiveFilters = days or siteId or filters.type or filters.errorsOnly %}
-
-{% set tabs = {
-    history:        { label: 'Overview',     url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'history' })) },
-    queries:        { label: 'Top Queries',  url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'queries' })) },
-    'zero-results': { label: 'Zero Results', url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'zero-results' })) },
-    trending:       { label: 'Trending',     url: cpUrl('smart-search/insights', tabParams|merge({ tab: 'trending' })) },
-} %}
-{% set selectedTab = tab %}
-
-{% block content %}
-    {% if tab == 'history' %}
-        <div class="kpi-grid kpi-grid--compact">
-            <div class="kpi-card kpi-card--compact">
-                <span class="cp-icon kpi-card__icon">{{ iconSvg('magnifying-glass') }}</span>
-                <div class="kpi-card__body">
-                    <div class="kpi-card__label">Searches</div>
-                    <div class="kpi-card__value">{{ stats.searches|number_format }}</div>
-                </div>
+{% block kpis %}
+    <div class="kpi-grid kpi-grid--compact">
+        <div class="kpi-card kpi-card--compact">
+            <span class="cp-icon kpi-card__icon">{{ iconSvg('magnifying-glass') }}</span>
+            <div class="kpi-card__body">
+                <div class="kpi-card__label">Searches</div>
+                <div class="kpi-card__value">{{ stats.searches|number_format }}</div>
             </div>
-            <div class="kpi-card kpi-card--compact">
-                <span class="cp-icon kpi-card__icon">{{ iconSvg('hashtag') }}</span>
-                <div class="kpi-card__body">
-                    <div class="kpi-card__label">Embedding tokens</div>
-                    <div class="kpi-card__value">{{ stats.embeddingTokens|number_format }}</div>
-                </div>
-            </div>
-            <div class="kpi-card kpi-card--compact">
-                <span class="cp-icon kpi-card__icon">{{ iconSvg('robot') }}</span>
-                <div class="kpi-card__body">
-                    <div class="kpi-card__label">LLM tokens</div>
-                    <div class="kpi-card__value">{{ stats.llmTokens|number_format }}</div>
-                </div>
-            </div>
-            <div class="kpi-card kpi-card--compact">
-                <span class="cp-icon kpi-card__icon">{{ iconSvg('coin') }}</span>
-                <div class="kpi-card__body">
-                    <div class="kpi-card__label">Total cost</div>
-                    <div class="kpi-card__value">${{ stats.cost|number_format(6) }}</div>
-                </div>
-            </div>
-            <div class="kpi-card kpi-card--compact">
-                <span class="cp-icon kpi-card__icon">{{ iconSvg('gauge-high') }}</span>
-                <div class="kpi-card__body">
-                    <div class="kpi-card__label">Avg duration</div>
-                    <div class="kpi-card__value">{{ stats.avgDurationMs|number_format }}<span class="kpi-card__value-unit"> ms</span></div>
-                </div>
-            </div>
-            {% if stats.errorCount > 0 %}
-                <a href="{{ cpUrl('smart-search/insights', { tab: 'history', errorsOnly: 1, days: days, siteId: siteId }) }}"
-                   class="kpi-card kpi-card--compact kpi-card--error kpi-card--link" title="View errored searches">
-                    <span class="cp-icon kpi-card__icon">{{ iconSvg('triangle-exclamation') }}</span>
-                    <div class="kpi-card__body">
-                        <div class="kpi-card__label">Errors</div>
-                        <div class="kpi-card__value kpi-card__error">{{ stats.errorCount|number_format }}</div>
-                    </div>
-                </a>
-            {% endif %}
         </div>
-    {% endif %}
-
-    {% if hasResults or hasActiveFilters %}
-        <div class="filter-bar" data-craftsearch-target="filter-bar">
-            <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
-                <input type="hidden" name="tab" value="{{ tab }}">
-                <div class="filter-bar__group">
-                    {{ f.sitesSelect(sites, siteId) }}
-                    {% if tab != 'trending' %}
-                        {{ f.daysSelect(days, 'Time range') }}
-                    {% endif %}
-                    {% if tab == 'history' %}
-                        {{ f.typeSelect(filters.type) }}
-                        {% if stats.errorCount > 0 %}
-                            {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
-                        {% endif %}
-                    {% endif %}
-                    {{ f.submitButton() }}
-                    {{ f.resetButton(cpUrl('smart-search/insights', { tab: tab }), days or siteId or filters.type or filters.errorsOnly) }}
-                </div>
-            </form>
+        <div class="kpi-card kpi-card--compact">
+            <span class="cp-icon kpi-card__icon">{{ iconSvg('hashtag') }}</span>
+            <div class="kpi-card__body">
+                <div class="kpi-card__label">Embedding tokens</div>
+                <div class="kpi-card__value">{{ stats.embeddingTokens|number_format }}</div>
+            </div>
         </div>
-    {% endif %}
-
-    {% if tab == 'queries' %}
-        <p class="light">Your 30 most-searched queries for the selected period. Use it to see what your audience wants and to spot popular searches returning few or no results.</p>
-        {% if topQueries|length %}
-            <div class="tableview data-table data-table--auto">
-                <table class="data fullwidth big">
-                    <thead>
-                        <tr>
-                            <th scope="col">Query</th>
-                            <th scope="col" class="rightalign">Searches</th>
-                            <th scope="col" class="rightalign">Avg results</th>
-                            <th scope="col">Last searched</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for k in topQueries %}
-                            {% set sharePct = totalSearches > 0 ? (k.hits / totalSearches * 100)|round : 0 %}
-                            <tr>
-                                <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
-                                <td class="rightalign">{{ k.hits|number_format }} <span class="light">({{ sharePct }}%)</span></td>
-                                <td class="rightalign">
-                                    {% if k.avgResults < 1 %}<span class="status orange" title="Returns few or no results"></span> {% endif %}
-                                    <span class="light">{{ k.avgResults|number_format(1) }}</span>
-                                </td>
-                                <td><span class="light" title="{{ k.lastSeen|date('Y-m-d H:i:s') }}">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="kpi-card kpi-card--compact">
+            <span class="cp-icon kpi-card__icon">{{ iconSvg('robot') }}</span>
+            <div class="kpi-card__body">
+                <div class="kpi-card__label">LLM tokens</div>
+                <div class="kpi-card__value">{{ stats.llmTokens|number_format }}</div>
             </div>
-        {% else %}
-            {% include 'smart-search/_components/empty-state' with {
-                variant: 'neutral',
-                title: 'No queries yet',
-                text: 'Searches will show up here once visitors start using search.',
-            } only %}
-        {% endif %}
-
-    {% elseif tab == 'zero-results' %}
-        <p class="light">Queries that returned no results. These often reveal missing content or overly strict thresholds.</p>
-        {% if page.items|length %}
-            <div class="tableview data-table data-table--auto">
-                <table class="data fullwidth big">
-                    <thead>
-                        <tr>
-                            <th scope="col">Query</th>
-                            <th scope="col" class="rightalign">Searches</th>
-                            <th scope="col">Last searched</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for k in page.items %}
-                            <tr>
-                                <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
-                                <td class="rightalign">{{ k.hits|number_format }}</td>
-                                <td><span class="light" title="{{ k.lastSeen|date('Y-m-d H:i:s') }}">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        </div>
+        <div class="kpi-card kpi-card--compact">
+            <span class="cp-icon kpi-card__icon">{{ iconSvg('coin') }}</span>
+            <div class="kpi-card__body">
+                <div class="kpi-card__label">Total cost</div>
+                <div class="kpi-card__value">${{ stats.cost|number_format(6) }}</div>
             </div>
-        {% else %}
-            {% include 'smart-search/_components/empty-state' with {
-                variant: 'positive',
-                title: 'Every search found something',
-                text: 'No zero-result queries in this period. Search is serving your audience well.',
-            } only %}
-        {% endif %}
-
-        {% include 'smart-search/_components/pagination-cp' with {
-            currentPage: page.page,
-            totalPages: page.pages,
-            path: 'smart-search/insights',
-            baseParams: { tab: 'zero-results', days: days, siteId: siteId },
-        } only %}
-
-    {% elseif tab == 'trending' %}
-        <p class="light">Queries gaining momentum: searched more in the last 7 days than in the 7 days before. Use it to spot rising interest early.</p>
-        {% if page.items|length %}
-            <div class="tableview data-table data-table--auto">
-                <table class="data fullwidth big">
-                    <thead>
-                        <tr>
-                            <th scope="col">Query</th>
-                            <th scope="col" class="rightalign" title="Searches in the last 7 days">Recent</th>
-                            <th scope="col" class="rightalign" title="Searches in the prior 7 days">Prior</th>
-                            <th scope="col" class="rightalign">Growth</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for k in page.items %}
-                            <tr>
-                                <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
-                                <td class="rightalign">{{ k.recent|number_format }}</td>
-                                <td class="rightalign light">{{ k.prior|number_format }}</td>
-                                <td class="rightalign">
-                                    {% if k.growthPct is null %}
-                                        <span class="delta-tag delta-tag--up">new</span>
-                                    {% else %}
-                                        <span class="delta-tag delta-tag--up">▲ {{ k.growthPct }}%</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        </div>
+        <div class="kpi-card kpi-card--compact">
+            <span class="cp-icon kpi-card__icon">{{ iconSvg('gauge-high') }}</span>
+            <div class="kpi-card__body">
+                <div class="kpi-card__label">Avg duration</div>
+                <div class="kpi-card__value">{{ stats.avgDurationMs|number_format }}<span class="kpi-card__value-unit"> ms</span></div>
             </div>
-        {% else %}
-            {% include 'smart-search/_components/empty-state' with {
-                variant: 'neutral',
-                title: 'Not enough data yet',
-                text: 'Trends compare the last 7 days with the prior 7. Check back once more searches are recorded.',
-            } only %}
+        </div>
+        {% if stats.errorCount > 0 %}
+            <a href="{{ cpUrl('smart-search/insights', { errorsOnly: 1, days: filters.days, siteId: filters.siteId }) }}"
+               class="kpi-card kpi-card--compact kpi-card--error kpi-card--link" title="View errored searches">
+                <span class="cp-icon kpi-card__icon">{{ iconSvg('triangle-exclamation') }}</span>
+                <div class="kpi-card__body">
+                    <div class="kpi-card__label">Errors</div>
+                    <div class="kpi-card__value kpi-card__error">{{ stats.errorCount|number_format }}</div>
+                </div>
+            </a>
         {% endif %}
+    </div>
+{% endblock %}
 
-        {% include 'smart-search/_components/pagination-cp' with {
-            currentPage: page.page,
-            totalPages: page.pages,
-            path: 'smart-search/insights',
-            baseParams: { tab: 'trending', days: days, siteId: siteId },
-        } only %}
+{% block insightsContent %}
+    {% include 'smart-search/_partials/search-history-table' with {
+        items: page.items,
+        cachedTitle: 'Cached',
+    } only %}
 
-    {% elseif tab == 'history' %}
-        {% include 'smart-search/_partials/search-history-table' with {
-            items: page.items,
-            cachedTitle: 'Cached',
-        } only %}
-
-        {% include 'smart-search/_components/pagination-cp' with {
-            currentPage: page.page,
-            totalPages: page.pages,
-            path: 'smart-search/insights',
-            baseParams: { tab: 'history', days: days, siteId: siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null },
-        } only %}
-    {% endif %}
+    {% include 'smart-search/_components/pagination-cp' with {
+        currentPage: page.page,
+        totalPages: page.pages,
+        path: 'smart-search/insights',
+        baseParams: { days: filters.days, siteId: filters.siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null },
+    } only %}
 {% endblock %}

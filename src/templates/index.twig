@@ -111,7 +111,7 @@
                 </tbody>
             </table>
             {% if topQueries|length %}
-                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights') }}">View all queries</a></p>
+                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights/top-queries') }}">View all queries</a></p>
             {% endif %}
         </div>
 
@@ -139,7 +139,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights?tab=history&errorsOnly=1') }}">View all errors</a></p>
+                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights', { errorsOnly: 1 }) }}">View all errors</a></p>
             </div>
         </div>
     {% endif %}
