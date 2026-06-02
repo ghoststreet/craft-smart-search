@@ -69,7 +69,7 @@ class KeywordSearchService extends Component
 
             $tsQuery = "websearch_to_tsquery('{$language}', :query)";
             $whereExpr = "tsv @@ {$tsQuery}";
-            $scoreExpr = "ts_rank_cd(tsv, {$tsQuery})";
+            $scoreExpr = "ts_rank_cd('{0.05, 0.1, 0.2, 1.0}'::float4[], tsv, {$tsQuery}, 32)";
             $params = [':query' => $orQuery];
 
             $corrected = TimingProfiler::profile(
@@ -78,7 +78,7 @@ class KeywordSearchService extends Component
             );
             if ($corrected !== null) {
                 $whereExpr = "({$whereExpr} OR tsv @@ (:corrected)::tsquery)";
-                $scoreExpr .= " + (0.5 * ts_rank_cd(tsv, (:corrected)::tsquery))";
+                $scoreExpr .= " + (0.5 * ts_rank_cd('{0.05, 0.1, 0.2, 1.0}'::float4[], tsv, (:corrected)::tsquery, 32))";
                 $params[':corrected'] = $corrected;
 
                 Logger::debug('Keyword typo correction applied', [
