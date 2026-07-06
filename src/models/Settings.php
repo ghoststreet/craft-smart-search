@@ -11,7 +11,7 @@ use RuntimeException;
  */
 class Settings extends Model
 {
-    public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/';
+    public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_\-]{0,62}$/';
 
     public const SCENARIO_CONNECTIONS = 'connections';
     public const SCENARIO_CONNECTIONS_OPENAI = 'connections.openai';
@@ -206,7 +206,7 @@ class Settings extends Model
             [['vectorsSchemaName'], 'default', 'value' => 'public'],
             [['vectorsTableName'], 'required', 'on' => $postgres],
             [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
-                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
+                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
                 'on' => $postgres, ],
 
             // Content chunking — Indexing
@@ -251,7 +251,7 @@ class Settings extends Model
             [['termsTableName'], 'required', 'on' => $postgres],
             [['termsTableName'], 'default', 'value' => 'smart_search_terms'],
             [['termsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
-                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores; max 63 chars).',
+                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
                 'on' => $postgres, ],
 
             // Smart Search — rate limits (0 disables the window)
