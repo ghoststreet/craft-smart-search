@@ -312,7 +312,8 @@ class SearchController extends BaseApiController
             $results = SmartSearch::getInstance()->searchService->search(
                 $params['query'],
                 $params['limit'],
-                $params['siteId']
+                $params['siteId'],
+                sections: $params['sections'],
             );
 
             $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_SMART);
@@ -634,6 +635,7 @@ class SearchController extends BaseApiController
             'q' => mb_substr($params['query'], 0, 100),
             'limit' => $params['limit'],
             'siteId' => $params['siteId'],
+            'sections' => $params['sections'],
         ]);
     }
 

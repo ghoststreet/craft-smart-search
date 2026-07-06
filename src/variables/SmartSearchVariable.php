@@ -2,6 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\variables;
 
+use ghoststreet\craftsmartsearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
@@ -17,11 +18,17 @@ class SmartSearchVariable
      * @param string $query The search query
      * @param int $limit Maximum number of results
      * @param int|null $siteId Optional site ID filter
+     * @param array|string|null $sections Optional section handles (array or CSV string)
      * @return array Search results with element, score, and content
      */
-    public function search(string $query, int $limit = 10, ?int $siteId = null): array
+    public function search(string $query, int $limit = 10, ?int $siteId = null, array|string|null $sections = null): array
     {
-        return SmartSearch::getInstance()->searchService->search($query, $limit, $siteId);
+        return SmartSearch::getInstance()->searchService->search(
+            $query,
+            $limit,
+            $siteId,
+            sections: RequestParameterExtractor::normalizeSections($sections),
+        );
     }
 
     /**

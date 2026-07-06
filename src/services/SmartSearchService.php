@@ -2,6 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
+use Craft;
 use craft\elements\Entry;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
@@ -18,16 +19,28 @@ use yii\base\Component;
  */
 class SmartSearchService extends Component
 {
+    public const EVENT_FORMAT_RESULT = 'formatSearchResult';
+
     /**
      * Perform smart search combining semantic similarity and keyword scoring
      * using Reciprocal Rank Fusion (RRF) to merge both signal types.
      *
+     * @param string[]|null $sections Restrict results to these section handles
      * @throws \ghoststreet\craftsmartsearch\exceptions\EmbeddingException If embedding generation fails
      * @throws \ghoststreet\craftsmartsearch\exceptions\SearchException If vector or Keyword query fails
      */
-    public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
+    public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null, ?array $sections = null): array
     {
         $settings = SmartSearch::getInstance()->getSettings();
+
+        $sectionIds = null;
+        if (!empty($sections)) {
+            $sectionIds = $this->resolveSectionIds($sections);
+            if ($sectionIds === []) {
+                Logger::debug('Section filter matched no known sections', ['sections' => $sections]);
+                return [];
+            }
+        }
 
         $queryVector = TimingProfiler::profile(
             'Query embedding generation',
@@ -36,12 +49,12 @@ class SmartSearchService extends Component
 
         $keywordResults = TimingProfiler::profile(
             'Keyword scoring',
-            fn() => SmartSearch::getInstance()->keywordSearchService->calculateScores($query, $siteId)
+            fn() => SmartSearch::getInstance()->keywordSearchService->calculateScores($query, $siteId, $sectionIds)
         );
 
         $semanticResults = TimingProfiler::profile(
             'Vector similarity query',
-            fn() => SmartSearch::getInstance()->searchService->semanticSearchRaw($query, min($settings->maxSemanticResults, $limit * 10), $siteId, $embeddingModel, $queryVector)
+            fn() => SmartSearch::getInstance()->searchService->semanticSearchRaw($query, min($settings->maxSemanticResults, $limit * 10), $siteId, $embeddingModel, $queryVector, $sectionIds)
         );
 
         $semanticLookup = $this->buildSemanticLookup($semanticResults);
@@ -91,6 +104,28 @@ class SmartSearchService extends Component
         ]);
 
         return $finalResults;
+    }
+
+    /**
+     * Resolve section handles to ids. Unknown handles are dropped, so an
+     * empty return means the filter cannot match anything.
+     *
+     * @param string[] $handles
+     * @return int[]
+     */
+    private function resolveSectionIds(array $handles): array
+    {
+        $entries = Craft::$app->getEntries();
+        $ids = [];
+
+        foreach ($handles as $handle) {
+            $section = $entries->getSectionByHandle($handle);
+            if ($section !== null) {
+                $ids[] = (int)$section->id;
+            }
+        }
+
+        return $ids;
     }
 
     /**

@@ -5,6 +5,7 @@ namespace ghoststreet\craftsmartsearch\services;
 use Craft;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\SqlHelper;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use Locale;
@@ -48,10 +49,11 @@ class KeywordSearchService extends Component
     }
 
     /**
+     * @param int[]|null $sectionIds Restrict candidates to these Craft section ids
      * @return list<array{elementId: int, siteId: int, keywordScore: float, content: string}>
      * @throws SearchException If the database query fails
      */
-    public function calculateScores(string $query, ?int $siteId = null): array
+    public function calculateScores(string $query, ?int $siteId = null, ?array $sectionIds = null): array
     {
         $db = SmartSearch::getInstance()->databaseService->getConnection();
         $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
@@ -93,6 +95,13 @@ class KeywordSearchService extends Component
                 $params[':siteId'] = $siteId;
             }
 
+            $sectionFilter = '';
+            if (!empty($sectionIds)) {
+                [$inList, $sectionParams] = SqlHelper::namedInList($sectionIds, 'sectionId');
+                $sectionFilter = " AND \"sectionId\" IN {$inList}";
+                $params += $sectionParams;
+            }
+
             $maxResults = (int)SmartSearch::getInstance()->getSettings()->maxSemanticResults;
 
             $sql = "
@@ -104,7 +113,7 @@ class KeywordSearchService extends Component
                         body AS content,
                         {$scoreExpr} AS keyword_score
                     FROM {$table}
-                    WHERE {$whereExpr}{$siteFilter}
+                    WHERE {$whereExpr}{$siteFilter}{$sectionFilter}
                     ORDER BY \"elementId\", \"siteId\", {$scoreExpr} DESC
                 ) best_per_entry
                 ORDER BY keyword_score DESC

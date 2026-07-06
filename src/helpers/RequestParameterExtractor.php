@@ -23,7 +23,7 @@ final class RequestParameterExtractor
      *     must match an existing site id.
      *
      * @param int $defaultLimit Default result limit if not specified in request
-     * @return array{query: string, limit: int, siteId: int|null, allSites: bool, validationError: array|null}
+     * @return array{query: string, limit: int, siteId: int|null, allSites: bool, sections: string[], validationError: array|null}
      */
     public static function extractSearchParams(int $defaultLimit = 10): array
     {
@@ -34,6 +34,8 @@ final class RequestParameterExtractor
         $limit = ApiResponseHelper::clampLimit(
             (int)$request->getParam('limit', $defaultLimit)
         );
+
+        $sections = self::normalizeSections($request->getParam('sections'));
 
         $rawSiteId = $request->getParam('siteId');
         $siteResolution = self::resolveSiteId($rawSiteId);
@@ -46,8 +48,24 @@ final class RequestParameterExtractor
             'limit' => $limit,
             'siteId' => $siteResolution['siteId'],
             'allSites' => $siteResolution['allSites'],
+            'sections' => $sections,
             'validationError' => $validationError,
         ];
+    }
+
+    /**
+     * Split a CSV string of section handles into an array; arrays pass through.
+     * Anything else means no filter. Unknown handles simply match no entries.
+     *
+     * @return string[]
+     */
+    public static function normalizeSections(mixed $raw): array
+    {
+        if (is_string($raw)) {
+            return array_values(array_filter(array_map('trim', explode(',', $raw))));
+        }
+
+        return is_array($raw) ? $raw : [];
     }
 
     /**

@@ -5,6 +5,7 @@ namespace ghoststreet\craftsmartsearch\services;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\SearchResultDeduplicator;
+use ghoststreet\craftsmartsearch\helpers\SqlHelper;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDO;
@@ -26,11 +27,12 @@ class SearchService extends Component
     /** Minimum number of rows to fetch regardless of the requested limit */
     private const MIN_OVERFETCH = 20;
     /**
+     * @param string[]|null $sections Restrict results to these section handles
      * @throws SearchException If database query fails
      */
-    public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null): array
+    public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null, ?array $sections = null): array
     {
-        return SmartSearch::getInstance()->smartSearchService->search($query, $limit, $siteId, $embeddingModel);
+        return SmartSearch::getInstance()->smartSearchService->search($query, $limit, $siteId, $embeddingModel, $sections);
     }
 
     /**
@@ -39,10 +41,11 @@ class SearchService extends Component
      * embedding generation when called from SmartSearchService.
      *
      * @param array|null $precomputedVector Reuse an already-generated query vector
+     * @param int[]|null $sectionIds Restrict candidates to these Craft section ids
      * @return array Raw result rows with elementId, siteId, similarity, and content
      * @throws SearchException If the vector query fails
      */
-    public function semanticSearchRaw(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null, ?array $precomputedVector = null): array
+    public function semanticSearchRaw(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null, ?array $precomputedVector = null, ?array $sectionIds = null): array
     {
         $db = SmartSearch::getInstance()->databaseService->getConnection();
 
@@ -75,6 +78,12 @@ class SearchService extends Component
             if ($siteId !== null) {
                 $conditions[] = "\"siteId\" = :siteId";
                 $params[':siteId'] = $siteId;
+            }
+
+            if (!empty($sectionIds)) {
+                [$inList, $sectionParams] = SqlHelper::namedInList($sectionIds, 'sectionId');
+                $conditions[] = "\"sectionId\" IN {$inList}";
+                $params += $sectionParams;
             }
 
             if (!empty($conditions)) {

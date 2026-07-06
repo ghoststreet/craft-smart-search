@@ -700,7 +700,7 @@ class EmbeddingService extends Component
                 'siteId' => $element->siteId,
                 'chunks' => $totalChunks,
             ]);
-            $this->touchVectors($element->id, $element->siteId);
+            $this->touchVectors($element->id, $element->siteId, $element->sectionId);
             return;
         }
 
@@ -719,6 +719,7 @@ class EmbeddingService extends Component
                 $chunkText,
                 $language,
                 $hash,
+                $element->sectionId,
             );
         }
 
@@ -747,16 +748,17 @@ class EmbeddingService extends Component
         ?string $body = null,
         string $language = 'simple',
         ?string $contentHash = null,
+        ?int $sectionId = null,
     ): void {
         $databaseService = SmartSearch::getInstance()->databaseService;
         $table = $databaseService->getQualifiedTable();
         $vectorString = (string) new Vector($vector);
 
         $databaseService->executeStatement(
-            "INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, title, body, language, \"contentHash\", \"dateUpdated\")
-             VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :title, :body, :language::regconfig, :contentHash, CURRENT_TIMESTAMP)
+            "INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, title, body, language, \"contentHash\", \"sectionId\", \"dateUpdated\")
+             VALUES (:elementId, :siteId, :chunkIndex, :totalChunks, :vector::vector, :title, :body, :language::regconfig, :contentHash, :sectionId, CURRENT_TIMESTAMP)
              ON CONFLICT(\"elementId\", \"siteId\", \"chunkIndex\")
-             DO UPDATE SET vector = EXCLUDED.vector, title = EXCLUDED.title, body = EXCLUDED.body, language = EXCLUDED.language, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"contentHash\" = EXCLUDED.\"contentHash\", \"dateUpdated\" = CURRENT_TIMESTAMP",
+             DO UPDATE SET vector = EXCLUDED.vector, title = EXCLUDED.title, body = EXCLUDED.body, language = EXCLUDED.language, \"totalChunks\" = EXCLUDED.\"totalChunks\", \"contentHash\" = EXCLUDED.\"contentHash\", \"sectionId\" = EXCLUDED.\"sectionId\", \"dateUpdated\" = CURRENT_TIMESTAMP",
             [
                 ':elementId' => $elementId,
                 ':siteId' => $siteId,
@@ -767,6 +769,7 @@ class EmbeddingService extends Component
                 ':body' => $body,
                 ':language' => $language,
                 ':contentHash' => $contentHash,
+                ':sectionId' => $sectionId,
             ],
             'storeVector'
         );
@@ -802,13 +805,13 @@ class EmbeddingService extends Component
      *
      * @throws \ghoststreet\craftsmartsearch\exceptions\DatabaseException
      */
-    private function touchVectors(int $elementId, int $siteId): void
+    private function touchVectors(int $elementId, int $siteId, ?int $sectionId = null): void
     {
         $databaseService = SmartSearch::getInstance()->databaseService;
         $table = $databaseService->getQualifiedTable();
         $databaseService->executeStatement(
-            "UPDATE {$table} SET \"dateUpdated\" = CURRENT_TIMESTAMP WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId",
-            [':elementId' => $elementId, ':siteId' => $siteId],
+            "UPDATE {$table} SET \"dateUpdated\" = CURRENT_TIMESTAMP, \"sectionId\" = :sectionId WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId",
+            [':elementId' => $elementId, ':siteId' => $siteId, ':sectionId' => $sectionId],
             'touchVectors'
         );
     }

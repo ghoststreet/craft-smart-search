@@ -3,7 +3,10 @@
 namespace ghoststreet\craftsmartsearch\helpers;
 
 use craft\elements\Entry;
+use ghoststreet\craftsmartsearch\events\FormatSearchResultEvent;
+use ghoststreet\craftsmartsearch\services\SmartSearchService;
 use ghoststreet\craftsmartsearch\SmartSearch;
+use Throwable;
 
 /**
  * Formats search-result entries into the API payload, with per-type field
@@ -35,14 +38,47 @@ final class SearchResultFormatter
             'title' => $element->title,
             'url' => $url,
             'type' => $type,
+            'sectionHandle' => $element->getSection()?->handle,
         ];
 
-        return match ($type) {
+        $formatted = match ($type) {
             self::TYPE_SEMANTIC => self::addSemanticFields($result, $metadata),
             self::TYPE_SMART => self::addSmartFields($result, $metadata),
             self::TYPE_AI_ANSWER => self::addAiAnswerFields($result, $metadata),
             default => $result,
         };
+
+        return self::applyListenerFields($element, $type, $formatted);
+    }
+
+    /**
+     * Let EVENT_FORMAT_RESULT listeners project field data into the payload.
+     * A throwing listener is logged and swallowed so search keeps working;
+     * the result is then returned without a `fields` key.
+     */
+    private static function applyListenerFields(Entry $element, string $type, array $result): array
+    {
+        $service = SmartSearch::getInstance()->smartSearchService;
+
+        if (!$service->hasEventHandlers(SmartSearchService::EVENT_FORMAT_RESULT)) {
+            return $result;
+        }
+
+        try {
+            $event = new FormatSearchResultEvent([
+                'element' => $element,
+                'type' => $type,
+            ]);
+            $service->trigger(SmartSearchService::EVENT_FORMAT_RESULT, $event);
+
+            if ($event->fields !== []) {
+                $result['fields'] = $event->fields;
+            }
+        } catch (Throwable $e) {
+            Logger::exception($e, 'formatSearchResult event', ['elementId' => $element->id]);
+        }
+
+        return $result;
     }
 
     /**
