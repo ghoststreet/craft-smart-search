@@ -14,6 +14,7 @@ use craft\elements\Entry;
 use craft\fields\Link;
 use craft\fields\Time;
 use DateTime;
+use ghoststreet\craftsmartsearch\events\IndexFieldTextEvent;
 use ghoststreet\craftsmartsearch\exceptions\EmbeddingException;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\ContentPatterns;
@@ -27,6 +28,7 @@ use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
 use Pgvector\Vector;
 use ReflectionClass;
+use Throwable;
 use verbb\supertable\elements\SuperTableBlockElement;
 use yii\base\Component;
 
@@ -40,6 +42,8 @@ use yii\base\Component;
  */
 class EmbeddingService extends Component
 {
+    public const EVENT_INDEX_FIELD_TEXT = 'indexFieldText';
+
     /**
      * Request-level cache for query embeddings.
      * Prevents duplicate API calls when agent calls multiple semantic-based tools with the same query.
@@ -418,6 +422,7 @@ class EmbeddingService extends Component
             }
 
             $extracted = $this->extractTextFromFieldValue($field, $fieldValue);
+            $extracted = $this->applyIndexFieldTextListeners($element, $field, $fieldValue, $extracted);
             $blocks = $this->inspectBlocksFromFieldValue($fieldValue);
 
             if (!TextValidator::isNotEmpty($extracted)) {
@@ -445,6 +450,31 @@ class EmbeddingService extends Component
         }
 
         return $rows;
+    }
+
+    /**
+     * Let EVENT_INDEX_FIELD_TEXT listeners rewrite the text a field contributes
+     * to the index. A throwing listener is logged and the original text kept.
+     */
+    private function applyIndexFieldTextListeners(ElementInterface $element, FieldInterface $field, mixed $value, string $text): string
+    {
+        if (!$this->hasEventHandlers(self::EVENT_INDEX_FIELD_TEXT)) {
+            return $text;
+        }
+
+        try {
+            $event = new IndexFieldTextEvent([
+                'element' => $element,
+                'field' => $field,
+                'value' => $value,
+                'text' => $text,
+            ]);
+            $this->trigger(self::EVENT_INDEX_FIELD_TEXT, $event);
+            return $event->text;
+        } catch (Throwable $e) {
+            Logger::exception($e, 'indexFieldText event', ['elementId' => $element->id, 'field' => $field->handle]);
+            return $text;
+        }
     }
 
     /**
