@@ -238,6 +238,13 @@ class SearchController extends BaseApiController
         return $host;
     }
 
+    /**
+     * Authenticate a presented bearer token. A valid token marks the caller as
+     * server-to-server and lets beforeAction() skip CSRF. A request with no
+     * bearer is left for the CSRF path, so same-origin callers (CP Preview,
+     * Twig pages) keep working when an apiToken is set. Only a wrong token is
+     * rejected here.
+     */
     private function enforceBearerTokenIfConfigured($request): void
     {
         $token = SmartSearch::getInstance()->getSettings()->getApiToken();
@@ -247,11 +254,11 @@ class SearchController extends BaseApiController
         }
 
         $authorization = (string)$request->getHeaders()->get('Authorization');
-        $presented = str_starts_with($authorization, 'Bearer ')
-            ? substr($authorization, 7)
-            : '';
+        if (!str_starts_with($authorization, 'Bearer ')) {
+            return;
+        }
 
-        if ($presented !== '' && hash_equals($token, $presented)) {
+        if (hash_equals($token, substr($authorization, 7))) {
             $this->bearerAuthenticated = true;
             return;
         }
@@ -261,7 +268,7 @@ class SearchController extends BaseApiController
             'ip' => $request->getUserIP(),
         ]);
 
-        throw new UnauthorizedHttpException('Invalid or missing API token.');
+        throw new UnauthorizedHttpException('Invalid API token.');
     }
 
     private function emitRateLimitResponse(RateLimitException $e): void
