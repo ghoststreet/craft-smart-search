@@ -245,9 +245,12 @@ class DatabaseService extends Component
     private function createConnection(string $dsn, string $user, string $password, bool $cache = true): PDO
     {
         try {
-            $pdo = new PDO($dsn, $user, $password);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            $pdo = new PDO($dsn, $user, $password, [
+                PDO::ATTR_PERSISTENT => true,
+                PDO::ATTR_EMULATE_PREPARES => true,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
             $pdo->exec('SET hnsw.ef_search = 20');
 
             Logger::info('Successfully connected to PostgreSQL database');
