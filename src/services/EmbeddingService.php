@@ -14,6 +14,7 @@ use craft\elements\Entry;
 use craft\fields\Link;
 use craft\fields\Time;
 use DateTime;
+use ghoststreet\craftsmartsearch\events\IndexBoostsEvent;
 use ghoststreet\craftsmartsearch\events\IndexFieldTextEvent;
 use ghoststreet\craftsmartsearch\exceptions\EmbeddingException;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
@@ -43,6 +44,8 @@ use yii\base\Component;
 class EmbeddingService extends Component
 {
     public const EVENT_INDEX_FIELD_TEXT = 'indexFieldText';
+
+    public const EVENT_INDEX_BOOSTS = 'indexBoosts';
 
     /**
      * Request-level cache for query embeddings.
@@ -478,6 +481,28 @@ class EmbeddingService extends Component
     }
 
     /**
+     * Let EVENT_INDEX_BOOSTS listeners attach weighted boost rules to an entry.
+     * A throwing listener is logged and no rules are attached.
+     *
+     * @return array<array{terms: string[], weight: int|float}>
+     */
+    private function collectBoostRules(ElementInterface $element): array
+    {
+        if (!$this->hasEventHandlers(self::EVENT_INDEX_BOOSTS)) {
+            return [];
+        }
+
+        try {
+            $event = new IndexBoostsEvent(['element' => $element]);
+            $this->trigger(self::EVENT_INDEX_BOOSTS, $event);
+            return $event->rules;
+        } catch (Throwable $e) {
+            Logger::exception($e, 'indexBoosts event', ['elementId' => $element->id]);
+            return [];
+        }
+    }
+
+    /**
      * If the field value is an iterable of block elements (Matrix entries / Super Table rows),
      * return a per-block breakdown with each block's own per-field inspection rows. Otherwise empty.
      *
@@ -708,6 +733,12 @@ class EmbeddingService extends Component
             throw SearchException::indexEntryMissingUrl($element->id, $element->siteId);
         }
 
+        SmartSearch::getInstance()->boostService->syncEntry(
+            (int)$element->id,
+            (int)$element->siteId,
+            $this->collectBoostRules($element),
+        );
+
         $text = $this->extractTextFromElement($element);
 
         if (TextValidator::isEmpty($text)) {
@@ -848,6 +879,8 @@ class EmbeddingService extends Component
 
     public function deleteVector(int $elementId, ?int $siteId = null): void
     {
+        SmartSearch::getInstance()->boostService->deleteForEntry($elementId, $siteId);
+
         $databaseService = SmartSearch::getInstance()->databaseService;
         $table = $databaseService->getQualifiedTable();
 

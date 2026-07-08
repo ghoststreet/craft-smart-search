@@ -45,15 +45,39 @@
 }
 
 /* === Panes =========================================================== */
-.index-entry__chunks { margin-top: 24px; }
+.index-entry__chunks,
+.index-entry__boosts { margin-top: 24px; }
 
 .index-entry__fields > .pane-header,
-.index-entry__chunks > .pane-header {
+.index-entry__chunks > .pane-header,
+.index-entry__boosts > .pane-header {
     display: flex;
     align-items: center;
 }
 .index-entry__fields > .pane-header h2,
-.index-entry__chunks > .pane-header h2 { margin: 0; }
+.index-entry__chunks > .pane-header h2,
+.index-entry__boosts > .pane-header h2 { margin: 0; }
+
+.index-entry__boost-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.boost-rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--medium-border-radius, 5px);
+    background: var(--white, #fff);
+    padding: 10px 14px;
+}
+.boost-rule__trigger { color: var(--medium-text-color); }
+.boost-rule__phrase {
+    margin-left: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--gray-100, #f4f4f5);
+    color: var(--text-color);
+    font-weight: 600;
+}
+.boost-rule__priority { margin-left: auto; color: var(--medium-text-color); font-size: 12px; white-space: nowrap; }
 
 /* === Filter chips ==================================================== */
 .field-card-filters {

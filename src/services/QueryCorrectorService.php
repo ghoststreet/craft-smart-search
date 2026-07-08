@@ -103,6 +103,91 @@ class QueryCorrectorService extends Component
     }
 
     /**
+     * Build a tsvector *literal* for boost matching where each query token keeps
+     * its position and word tokens carry their dictionary variants at that same
+     * position. Casting the literal `::tsvector` (do NOT wrap in to_tsvector —
+     * that would re-tokenize and lose the positional variants) preserves phrase
+     * adjacency so a stored rule tsquery like `'1' <-> 'bedroom'` matches only
+     * when those lexemes are actually adjacent.
+     *
+     * Order-preserving, keeps EVERY token (numbers, single chars, decimals) —
+     * unlike tokenize(), which drops <2-char tokens and de-dups/reorders. Word
+     * tokens (letters, length >= 3) are stemmed and typo-expanded via the shared
+     * dictionary engine; numbers/short tokens (e.g. "6", "3.5") are kept verbatim
+     * so they line up with what phraseto_tsquery stored on the rule side.
+     *
+     * Always returns a string (never null): with no typos it is just one
+     * `lex:pos` per token; the empty query yields `''` (an empty tsvector).
+     */
+    public function expandedTsvector(string $query, ?int $siteId = null): string
+    {
+        $tokens = $this->splitPreservingOrder($query);
+        if ($tokens === []) {
+            return '';
+        }
+
+        $dictionary = SmartSearch::getInstance()->dictionaryService;
+        $wordTokens = array_values(array_unique(array_column(
+            array_filter($tokens, static fn(array $t): bool => $t['word']),
+            'raw',
+        )));
+
+        $variants = [];
+        if ($wordTokens !== [] && $dictionary->isAvailable()) {
+            $language = KeywordSearchService::resolveLanguage($siteId);
+            try {
+                $variants = $this->lookupVariants($wordTokens, $dictionary, $this->stemDictionaryFor($language));
+            } catch (PDOException $e) {
+                Logger::warning('Boost tsvector variant lookup failed; matching without typo expansion', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $parts = [];
+        foreach ($tokens as $token) {
+            $pos = $token['pos'];
+            if ($token['word'] && isset($variants[$token['raw']])) {
+                $info = $variants[$token['raw']];
+                $lexemes = array_merge([self::cleanLexeme($info['lex'])], array_map([self::class, 'cleanLexeme'], $info['variants']));
+            } elseif ($token['word']) {
+                $lexemes = [self::cleanLexeme($token['raw'])];
+            } else {
+                $lexemes = [trim(preg_replace('/[^\p{L}\p{N}.]+/u', '', $token['raw']) ?? '', '.')];
+            }
+
+            foreach (array_unique(array_filter($lexemes, static fn(string $l): bool => $l !== '')) as $lex) {
+                $parts[] = "'" . str_replace("'", "''", $lex) . "':" . $pos;
+            }
+        }
+
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Split on whitespace, keeping every token in order with a 1-based position.
+     * A token is a "word" (stem + typo-expand) only when it is all letters and
+     * at least 3 long; everything else (numbers, decimals, single chars) is kept
+     * verbatim so phrase positions match the rule tsquery.
+     *
+     * @return array<array{raw: string, pos: int, word: bool}>
+     */
+    private function splitPreservingOrder(string $query): array
+    {
+        $raw = preg_split('/\s+/', mb_strtolower(trim($query)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $tokens = [];
+        foreach ($raw as $i => $word) {
+            $tokens[] = [
+                'raw' => $word,
+                'pos' => $i + 1,
+                'word' => (bool)preg_match('/^\p{L}{3,}$/u', $word),
+            ];
+        }
+        return $tokens;
+    }
+
+    /**
      * @return string[]
      */
     private function tokenize(string $query): array

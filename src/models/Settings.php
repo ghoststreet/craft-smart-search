@@ -38,6 +38,8 @@ class Settings extends Model
 
     public string $termsTableName = 'smart_search_terms';
 
+    public string $boostsTableName = 'smart_search_boosts';
+
     public float $rrfSemanticWeight = 0.3;
     public float $rrfKeywordWeight = 0.7;
 
@@ -96,6 +98,7 @@ class Settings extends Model
             'postgresqlPassword', 'postgresqlSslMode',
             'vectorsSchemaName', 'vectorsTableName',
             'termsTableName',
+            'boostsTableName',
         ],
         self::SCENARIO_INDEXING => [
             'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
@@ -251,6 +254,12 @@ class Settings extends Model
             [['termsTableName'], 'required', 'on' => $postgres],
             [['termsTableName'], 'default', 'value' => 'smart_search_terms'],
             [['termsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
+                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
+                'on' => $postgres, ],
+
+            [['boostsTableName'], 'required', 'on' => $postgres],
+            [['boostsTableName'], 'default', 'value' => 'smart_search_boosts'],
+            [['boostsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
                 'on' => $postgres, ],
 

@@ -25,6 +25,7 @@ use ghoststreet\craftsmartsearch\jobs\DeleteEntryJob;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\services\AiAnswerService;
+use ghoststreet\craftsmartsearch\services\BoostService;
 use ghoststreet\craftsmartsearch\services\DatabaseService;
 use ghoststreet\craftsmartsearch\services\DictionaryService;
 use ghoststreet\craftsmartsearch\services\EmbeddingService;
@@ -66,6 +67,7 @@ use yii\web\Response;
  * @property-read RecommendationsService $recommendationsService
  * @property-read DictionaryService $dictionaryService
  * @property-read QueryCorrectorService $queryCorrectorService
+ * @property-read BoostService $boostService
  */
 class SmartSearch extends Plugin
 {
@@ -125,6 +127,7 @@ class SmartSearch extends Plugin
                 'recommendationsService' => RecommendationsService::class,
                 'dictionaryService' => DictionaryService::class,
                 'queryCorrectorService' => QueryCorrectorService::class,
+                'boostService' => BoostService::class,
             ],
         ];
     }

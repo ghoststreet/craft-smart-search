@@ -186,7 +186,7 @@ class IndexInspectionService extends Component
     /**
      * Inspect a single entry: meta, per-field breakdown, and stored chunks.
      *
-     * @return array{entry: Entry, fields: array, chunks: array, totalChunks: int}|null
+     * @return array{entry: Entry, fields: array, chunks: array, boosts: array}|null
      */
     public function inspectElement(int $elementId, int $siteId): ?array
     {
@@ -217,6 +217,7 @@ class IndexInspectionService extends Component
             'entry' => $entry,
             'fields' => $fields,
             'chunks' => $chunks,
+            'boosts' => $plugin->boostService->getRulesForElement($elementId, $siteId),
         ];
     }
 }

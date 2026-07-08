@@ -94,6 +94,20 @@ class SmartSearchService extends Component
             'droppedByRRF' => count($allIds) - count($scoredResults),
         ]);
 
+        $boosts = SmartSearch::getInstance()->boostService->match($query, $siteId);
+        foreach ($boosts as $elementId => $weight) {
+            if (isset($scoredResults[$elementId])) {
+                $scoredResults[$elementId]['rrfScore'] += $weight;
+            } else {
+                $scoredResults[$elementId] = [
+                    'rrfScore' => $weight,
+                    'semanticScore' => 0.0, 'semanticRank' => 0,
+                    'keywordScore' => 0.0, 'keywordRank' => 0,
+                    'content' => '',
+                ];
+            }
+        }
+
         uasort($scoredResults, fn($a, $b) => $b['rrfScore'] <=> $a['rrfScore']);
 
         $finalResults = $this->loadElementsWithScores($scoredResults, $limit);

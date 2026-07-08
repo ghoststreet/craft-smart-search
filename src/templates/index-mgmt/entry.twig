@@ -193,6 +193,26 @@
         {% endif %}
     </div>
 
+    {% if inspection.boosts|length %}
+        <div class="pane index-entry__boosts">
+            <header class="pane-header">
+                <h2>{{ 'Search boosts'|t('smart-search') }} <span class="light">({{ inspection.boosts|length }})</span></h2>
+            </header>
+            <p class="instructions">{{ 'When a search contains one of the phrases below, this entry is moved toward the top of the results. If several boosted entries match the same search, the one with the higher priority appears first. These rules are set in code (indexBoosts event) and can’t be edited here.'|t('smart-search') }}</p>
+            <ul class="index-entry__boost-list">
+                {% for boost in inspection.boosts %}
+                    <li class="boost-rule">
+                        <span class="boost-rule__trigger">
+                            {{ 'Search for'|t('smart-search') }}
+                            <code class="boost-rule__phrase">{{ boost.label }}</code>
+                        </span>
+                        <span class="boost-rule__priority" title="{{ 'Higher priority ranks first among boosted entries'|t('smart-search') }}">{{ 'priority {weight}'|t('smart-search', { weight: boost.weight }) }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
     {# Chunks pane #}
     <div class="pane index-entry__chunks">
         <header class="pane-header">

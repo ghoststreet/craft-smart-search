@@ -46,4 +46,12 @@
         disabled: not trgmInstalled,
         errors: settings.getErrors('termsTableName'),
     }) }}
+    {{ forms.textField({
+        label: 'Boosts table',
+        instructions: 'Postgres table that holds per-entry boost rules, in the same schema as the vectors table. Created by the install SQL. Default <code>smart_search_boosts</code>.',
+        id: 'boostsTableName', name: 'boostsTableName',
+        value: settings.boostsTableName,
+        required: true, placeholder: 'smart_search_boosts',
+        errors: settings.getErrors('boostsTableName'),
+    }) }}
 {% endnamespace %}
