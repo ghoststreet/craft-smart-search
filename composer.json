@@ -11,8 +11,7 @@
     "ext-pdo": "*",
     "ext-pdo_pgsql": "*",
     "craftcms/cms": "^5.0",
-    "openai-php/client": "^0.18",
-    "pgvector/pgvector": "^0.2"
+    "openai-php/client": "^0.18"
   },
   "require-dev": {
     "craftcms/ecs": "dev-main",

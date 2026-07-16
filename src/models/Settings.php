@@ -77,47 +77,100 @@ class Settings extends Model
     public float $costBudgetDailyGlobal = 3.0;
 
     /**
-     * Maps each CP settings tab to the attributes it owns. Drives both `scenarios()`
-     * (mass-assignment filtering) and the `on` tag on every rule below.
+     * The one table describing every CP settings tab: the attributes it owns and
+     * where it lives. `attributes` drives `scenarios()` (mass-assignment filtering)
+     * and the `on` tag on every rule below; the rest drives SettingsController's
+     * entry-point redirects, post-save redirects, and on-failure renders.
+     *
+     * Adding a tab is one entry here.
      */
-    public const SCENARIO_ATTRIBUTES = [
+    public const SCENARIOS = [
         self::SCENARIO_CONNECTIONS_OPENAI => [
-            'openaiApiKey',
-            'embeddingModel',
-            'aiAnswerModel',
+            'attributes' => [
+                'openaiApiKey',
+                'embeddingModel',
+                'aiAnswerModel',
+            ],
+            'url' => 'smart-search/settings/connections/openai',
+            'partial' => 'smart-search/_settings/_connections_openai',
+            'pageKey' => 'connections',
+            'subPage' => 'openai',
         ],
         self::SCENARIO_CONNECTIONS_POSTGRES => [
-            'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
-            'postgresqlPassword', 'postgresqlSslMode',
-            'vectorsSchemaName', 'vectorsTableName',
-            'termsTableName',
-            'boostsTableName',
+            'attributes' => [
+                'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
+                'postgresqlPassword', 'postgresqlSslMode',
+                'vectorsSchemaName', 'vectorsTableName',
+                'termsTableName',
+                'boostsTableName',
+            ],
+            'url' => 'smart-search/settings/connections/postgres',
+            'partial' => 'smart-search/_settings/_connections_postgres',
+            'pageKey' => 'connections',
+            'subPage' => 'postgres',
         ],
         self::SCENARIO_INDEXING => [
-            'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
-            'embeddingCacheTtlDays',
+            'attributes' => [
+                'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
+                'embeddingCacheTtlDays',
+            ],
+            'url' => 'smart-search/settings/indexing',
+            'partial' => 'smart-search/_settings/_indexing',
+            'pageKey' => 'indexing',
+            'subPage' => null,
         ],
         self::SCENARIO_SMART_SEARCH => [
-            'rrfSemanticWeight', 'rrfKeywordWeight',
-            'minSemanticThreshold', 'maxSemanticResults',
-            'excerptLength',
-            'enableTypoTolerance',
-            'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
+            'attributes' => [
+                'rrfSemanticWeight', 'rrfKeywordWeight',
+                'minSemanticThreshold', 'maxSemanticResults',
+                'excerptLength',
+                'enableTypoTolerance',
+                'rateLimitSearchPerMinute', 'rateLimitSearchPerHour',
+            ],
+            'url' => 'smart-search/settings/smart-search',
+            'partial' => 'smart-search/_settings/_smart_search',
+            'pageKey' => 'smart-search',
+            'subPage' => null,
         ],
         self::SCENARIO_AI_ANSWER => [
-            'maxPromptTokens', 'aiAnswerCustomPrompt',
-            'costBudgetDailyGlobal',
-            'rateLimitAiAnswerPerMinute', 'rateLimitAiAnswerPerHour',
-            'aiAnswerConcurrencyPerIp', 'aiAnswerConcurrencyGlobal',
+            'attributes' => [
+                'maxPromptTokens', 'aiAnswerCustomPrompt',
+                'costBudgetDailyGlobal',
+                'rateLimitAiAnswerPerMinute', 'rateLimitAiAnswerPerHour',
+                'aiAnswerConcurrencyPerIp', 'aiAnswerConcurrencyGlobal',
+            ],
+            'url' => 'smart-search/settings/ai-answer',
+            'partial' => 'smart-search/_settings/_ai_answer',
+            'pageKey' => 'ai-answer',
+            'subPage' => null,
         ],
         self::SCENARIO_ADVANCED => [
-            'apiToken', 'allowedOrigins',
+            'attributes' => [
+                'apiToken', 'allowedOrigins',
+            ],
+            'url' => 'smart-search/settings/advanced',
+            'partial' => 'smart-search/_settings/_advanced',
+            'pageKey' => 'advanced',
+            'subPage' => null,
         ],
     ];
 
+    /**
+     * The attributes owned by a scenario, or [] for an unknown one.
+     *
+     * @return string[]
+     */
+    public static function attributesFor(string $scenario): array
+    {
+        return self::SCENARIOS[$scenario]['attributes'] ?? [];
+    }
+
     public function scenarios(): array
     {
-        return array_merge(parent::scenarios(), self::SCENARIO_ATTRIBUTES);
+        return array_merge(
+            parent::scenarios(),
+            array_map(fn(array $page) => $page['attributes'], self::SCENARIOS),
+        );
     }
 
     /**
@@ -128,13 +181,8 @@ class Settings extends Model
      */
     public function errorsForScenario(string $scenario): array
     {
-        $attributes = self::SCENARIO_ATTRIBUTES[$scenario] ?? null;
-        if ($attributes === null) {
-            return [];
-        }
-
         $errors = [];
-        foreach ($attributes as $attribute) {
+        foreach (self::attributesFor($scenario) as $attribute) {
             foreach ($this->getErrors($attribute) as $message) {
                 $errors[] = $message;
             }

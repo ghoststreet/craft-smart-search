@@ -19,8 +19,6 @@ class SmartSearchAsset extends AssetBundle
         $this->js = [
             'js/smart-search-base.js',
             'js/core/dom.js',
-            'js/core/utils.js',
-            'js/core/errors.js',
             'js/components/filter-bar.js',
             'js/components/error-modal.js',
         ];

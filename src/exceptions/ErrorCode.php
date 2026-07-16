@@ -2,7 +2,10 @@
 
 namespace ghoststreet\craftsmartsearch\exceptions;
 
-enum ErrorCode: string
+use Craft;
+use Throwable;
+
+enum ErrorCode : string
 {
     case SEARCH_SEMANTIC_FAILED = 'SEARCH_SEMANTIC_FAILED';
     case SEARCH_RAG_FAILED = 'SEARCH_RAG_FAILED';
@@ -29,6 +32,18 @@ enum ErrorCode: string
     case CONFIG_MISSING_API_KEY = 'CONFIG_MISSING_API_KEY';
 
     case UNKNOWN = 'UNKNOWN';
+
+    /** The stable code for any Throwable. Anything not ours is UNKNOWN. */
+    public static function for(Throwable $e): self
+    {
+        return $e instanceof SmartSearchException ? $e->errorCode() : self::UNKNOWN;
+    }
+
+    /** The curated, user-facing message, localized. */
+    public function translated(): string
+    {
+        return Craft::t('smart-search', $this->message());
+    }
 
     public function httpStatus(): int
     {

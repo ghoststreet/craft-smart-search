@@ -26,7 +26,6 @@ use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
-use Pgvector\Vector;
 use ReflectionClass;
 use Throwable;
 use verbb\supertable\elements\SuperTableBlockElement;
@@ -812,7 +811,7 @@ class EmbeddingService extends Component
     ): void {
         $databaseService = SmartSearch::getInstance()->databaseService;
         $table = $databaseService->getQualifiedTable();
-        $vectorString = (string) new Vector($vector);
+        $vectorString = json_encode($vector);
 
         $databaseService->executeStatement(
             "INSERT INTO {$table} (\"elementId\", \"siteId\", \"chunkIndex\", \"totalChunks\", vector, title, body, language, \"contentHash\", \"sectionId\", \"dateUpdated\")

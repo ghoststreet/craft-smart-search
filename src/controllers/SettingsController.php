@@ -16,54 +16,13 @@ class SettingsController extends BaseApiController
     protected array|int|bool $allowAnonymous = false;
 
     /**
-     * Scenario => [CP page URL, fields partial, page key, optional sub-page].
-     * Drives entry-point redirects, post-save redirects, and on-failure renders.
-     * Every scenario renders settings/_page; only the fields partial differs.
+     * Both entry points land on the first tab. Every scenario renders
+     * settings/_page; only the fields partial differs.
      */
-    private const SCENARIO_PAGES = [
-        Settings::SCENARIO_CONNECTIONS_OPENAI => [
-            'url' => 'smart-search/settings/connections/openai',
-            'partial' => 'smart-search/_settings/_connections_openai',
-            'pageKey' => 'connections',
-            'subPage' => 'openai',
-        ],
-        Settings::SCENARIO_CONNECTIONS_POSTGRES => [
-            'url' => 'smart-search/settings/connections/postgres',
-            'partial' => 'smart-search/_settings/_connections_postgres',
-            'pageKey' => 'connections',
-            'subPage' => 'postgres',
-        ],
-        Settings::SCENARIO_INDEXING => [
-            'url' => 'smart-search/settings/indexing',
-            'partial' => 'smart-search/_settings/_indexing',
-            'pageKey' => 'indexing',
-        ],
-        Settings::SCENARIO_SMART_SEARCH => [
-            'url' => 'smart-search/settings/smart-search',
-            'partial' => 'smart-search/_settings/_smart_search',
-            'pageKey' => 'smart-search',
-        ],
-        Settings::SCENARIO_AI_ANSWER => [
-            'url' => 'smart-search/settings/ai-answer',
-            'partial' => 'smart-search/_settings/_ai_answer',
-            'pageKey' => 'ai-answer',
-        ],
-        Settings::SCENARIO_ADVANCED => [
-            'url' => 'smart-search/settings/advanced',
-            'partial' => 'smart-search/_settings/_advanced',
-            'pageKey' => 'advanced',
-        ],
-    ];
-
     public function actionIndex(): Response
     {
         $this->requireAdmin();
-        return $this->redirect(self::SCENARIO_PAGES[Settings::SCENARIO_CONNECTIONS_POSTGRES]['url']);
-    }
-
-    public function actionConnections(): Response
-    {
-        return $this->actionIndex();
+        return $this->redirect(Settings::SCENARIOS[Settings::SCENARIO_CONNECTIONS_POSTGRES]['url']);
     }
 
     public function actionConnectionsOpenai(): Response
@@ -103,14 +62,14 @@ class SettingsController extends BaseApiController
 
         $request = Craft::$app->getRequest();
         $scenario = (string)$request->getBodyParam('scenario', '');
-        if (!isset(self::SCENARIO_PAGES[$scenario])) {
+        if (!isset(Settings::SCENARIOS[$scenario])) {
             throw new BadRequestHttpException('Invalid settings scenario.');
         }
 
         $plugin = SmartSearch::getInstance();
         $settings = $plugin->getSettings();
 
-        $allowed = Settings::SCENARIO_ATTRIBUTES[$scenario] ?? [];
+        $allowed = Settings::attributesFor($scenario);
         $posted = (array)$request->getBodyParam('settings', []);
         $filtered = array_intersect_key($posted, array_flip($allowed));
 
@@ -125,14 +84,14 @@ class SettingsController extends BaseApiController
         }
 
         Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Settings saved.'));
-        return $this->redirect(self::SCENARIO_PAGES[$scenario]['url']);
+        return $this->redirect(Settings::SCENARIOS[$scenario]['url']);
     }
 
     private function renderScenario(string $scenario, ?Settings $settings = null): Response
     {
         $this->requireAdmin();
 
-        $page = self::SCENARIO_PAGES[$scenario];
+        $page = Settings::SCENARIOS[$scenario];
         $settings ??= SmartSearch::getInstance()->getSettings();
 
         $dictionary = SmartSearch::getInstance()->dictionaryService;

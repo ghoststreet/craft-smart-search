@@ -2,18 +2,8 @@
 
 namespace ghoststreet\craftsmartsearch\assets;
 
-use craft\web\AssetBundle;
-
-class InsightsAsset extends AssetBundle
+class InsightsAsset extends PageAsset
 {
-    public function init(): void
-    {
-        $this->sourcePath = __DIR__ . '/dist';
-        $this->depends = [SmartSearchAsset::class, ChartAsset::class];
-        $this->js = [
-            'js/pages/insights.js',
-        ];
-
-        parent::init();
-    }
+    public $depends = [ChartAsset::class];
+    public $js = ['js/pages/insights.js'];
 }

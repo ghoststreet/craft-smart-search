@@ -2,17 +2,8 @@
 
 namespace ghoststreet\craftsmartsearch\assets;
 
-use craft\web\AssetBundle;
-
-class SettingsAsset extends AssetBundle
+class SettingsAsset extends PageAsset
 {
-    public function init(): void
-    {
-        $this->sourcePath = __DIR__ . '/dist';
-        $this->depends = [SmartSearchAsset::class];
-        $this->js = ['js/pages/settings.js'];
-        $this->css = ['css/pages/settings.css'];
-
-        parent::init();
-    }
+    public $js = ['js/pages/settings.js'];
+    public $css = ['css/pages/settings.css'];
 }

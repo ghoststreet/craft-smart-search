@@ -37,7 +37,6 @@ use ghoststreet\craftsmartsearch\services\OpenAIClientFactory;
 use ghoststreet\craftsmartsearch\services\QueryCorrectorService;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
 use ghoststreet\craftsmartsearch\services\RecommendationsService;
-use ghoststreet\craftsmartsearch\services\SearchService;
 use ghoststreet\craftsmartsearch\services\SmartSearchService;
 use ghoststreet\craftsmartsearch\variables\SmartSearchVariable;
 use yii\base\Event;
@@ -56,7 +55,6 @@ use yii\web\Response;
  * @license https://craftcms.github.io/license/ Craft License
  * @property-read DatabaseService $databaseService
  * @property-read EmbeddingService $embeddingService
- * @property-read SearchService $searchService
  * @property-read KeywordSearchService $keywordSearchService
  * @property-read SmartSearchService $smartSearchService
  * @property-read AiAnswerService $aiAnswerService
@@ -107,7 +105,6 @@ class SmartSearch extends Plugin
                 'openAIClientFactory' => OpenAIClientFactory::class,
                 'databaseService' => DatabaseService::class,
                 'embeddingService' => EmbeddingService::class,
-                'searchService' => SearchService::class,
                 'keywordSearchService' => KeywordSearchService::class,
                 'smartSearchService' => SmartSearchService::class,
                 'aiAnswerService' => AiAnswerService::class,
@@ -221,7 +218,7 @@ class SmartSearch extends Plugin
                 $event->rules['smart-search'] = 'smart-search/dashboard/index';
 
                 $event->rules['smart-search/settings'] = 'smart-search/settings/index';
-                $event->rules['smart-search/settings/connections'] = 'smart-search/settings/connections';
+                $event->rules['smart-search/settings/connections'] = 'smart-search/settings/index';
                 $event->rules['smart-search/settings/connections/openai'] = 'smart-search/settings/connections-openai';
                 $event->rules['smart-search/settings/connections/postgres'] = 'smart-search/settings/connections-postgres';
                 $event->rules['smart-search/settings/indexing'] = 'smart-search/settings/indexing';

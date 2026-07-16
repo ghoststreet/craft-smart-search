@@ -8,7 +8,6 @@ use craft\db\Table;
 use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
-use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use ghoststreet\craftsmartsearch\jobs\SyncSearchIndexJob;
@@ -90,7 +89,7 @@ class IndexController extends BaseApiController
             $error = null;
         } catch (DatabaseException $e) {
             $result = ['rows' => [], 'total' => 0, 'page' => 1, 'pageSize' => 25, 'counts' => ['indexed' => 0, 'stale' => 0, 'not-indexed' => 0, 'total' => 0]];
-            $error = ErrorMapper::present($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
+            $error = $this->presentError($e, 'getEntryRows', ['siteId' => $filters['siteId']]);
         }
 
         return $this->renderTemplate('smart-search/index-mgmt/entries', array_merge($this->commonViewData(), [
@@ -139,7 +138,7 @@ class IndexController extends BaseApiController
             $error = null;
         } catch (DatabaseException $e) {
             $inspection = null;
-            $error = ErrorMapper::present($e, 'inspectElement', ['elementId' => $elementId, 'siteId' => $siteId]);
+            $error = $this->presentError($e, 'inspectElement', ['elementId' => $elementId, 'siteId' => $siteId]);
         }
 
         if ($inspection === null && $error === null) {
@@ -217,11 +216,11 @@ class IndexController extends BaseApiController
             if (Craft::$app->getRequest()->getAcceptsJson()) {
                 return $this->asJson([
                     'success' => false,
-                    'error' => ErrorMapper::present($e, 'sync'),
+                    'error' => $this->presentError($e, 'sync'),
                 ]);
             }
             Craft::$app->getSession()->setError(
-                Craft::t('smart-search', 'Failed to start sync: {error}', ['error' => ErrorMapper::present($e, 'sync')])
+                Craft::t('smart-search', 'Failed to start sync: {error}', ['error' => $this->presentError($e, 'sync')])
             );
         }
 

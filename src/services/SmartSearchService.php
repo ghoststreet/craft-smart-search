@@ -4,9 +4,14 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\elements\Entry;
+use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\SqlHelper;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
+use PDO;
+use PDOException;
 use yii\base\Component;
 
 /**
@@ -16,10 +21,22 @@ use yii\base\Component;
  * Each signal contributes a weighted RRF score; results appearing in only one signal
  * receive a configurable penalty. Semantic-only results below a minimum threshold
  * are excluded entirely.
+ *
+ * @phpstan-type SignalEntry array{score: float, rank: int, content: string}
+ * @phpstan-type ScoredEntry array{rrfScore: float, semanticScore: float, semanticRank: ?int, keywordScore: float, keywordRank: ?int, content: string}
  */
 class SmartSearchService extends Component
 {
     public const EVENT_FORMAT_RESULT = 'formatSearchResult';
+
+    /** Rank damping constant for Reciprocal Rank Fusion. */
+    private const RANK_OFFSET = 60;
+
+    /** Over-fetch multiplier to ensure enough unique entries after chunk deduplication */
+    private const OVERFETCH_MULTIPLIER = 3;
+
+    /** Minimum number of rows to fetch regardless of the requested limit */
+    private const MIN_OVERFETCH = 20;
 
     /**
      * Perform smart search combining semantic similarity and keyword scoring
@@ -52,21 +69,17 @@ class SmartSearchService extends Component
             fn() => SmartSearch::getInstance()->keywordSearchService->calculateScores($query, $siteId, $sectionIds)
         );
 
-        $semanticResults = TimingProfiler::profile(
-            'Vector similarity query',
-            fn() => SmartSearch::getInstance()->searchService->semanticSearchRaw($query, min($settings->maxSemanticResults, $limit * 10), $siteId, $embeddingModel, $queryVector, $sectionIds)
+        $semanticResults = $this->semanticSearchRaw(
+            $queryVector,
+            min($settings->maxSemanticResults, $limit * 10),
+            $siteId,
+            $sectionIds,
         );
 
         $semanticLookup = $this->buildSemanticLookup($semanticResults);
         $keywordLookup = $this->buildKeywordLookup($keywordResults);
 
-        $scoredResults = (new RrfFuser())->fuse(
-            $semanticLookup,
-            $keywordLookup,
-            $settings->rrfSemanticWeight,
-            $settings->rrfKeywordWeight,
-            $settings->minSemanticThreshold,
-        );
+        $scoredResults = $this->fuse($semanticLookup, $keywordLookup, $settings);
 
         Logger::debug('Smart search RRF', [
             'semanticRawRows' => count($semanticResults),
@@ -102,6 +115,144 @@ class SmartSearchService extends Component
         ]);
 
         return $finalResults;
+    }
+
+    /**
+     * Reciprocal Rank Fusion over the two ranked signal lookups.
+     *
+     * Per-signal contribution: weight / (RANK_OFFSET + rank). Entries below
+     * minSemanticThreshold that lack a keyword hit are dropped as semantic noise.
+     *
+     * @param array<int, SignalEntry> $semanticLookup
+     * @param array<int, SignalEntry> $keywordLookup
+     * @return array<int, ScoredEntry>
+     */
+    private function fuse(array $semanticLookup, array $keywordLookup, Settings $settings): array
+    {
+        $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($keywordLookup)]);
+
+        $scored = [];
+        foreach ($allIds as $id) {
+            $hasSemantic = isset($semanticLookup[$id]);
+            $hasKeyword = isset($keywordLookup[$id]);
+            $semanticScore = $hasSemantic ? $semanticLookup[$id]['score'] : 0.0;
+
+            if ($hasSemantic && !$hasKeyword && $semanticScore < $settings->minSemanticThreshold) {
+                continue;
+            }
+
+            $rrfScore = 0.0;
+            if ($hasSemantic) {
+                $rrfScore += $settings->rrfSemanticWeight / (self::RANK_OFFSET + $semanticLookup[$id]['rank']);
+            }
+            if ($hasKeyword) {
+                $rrfScore += $settings->rrfKeywordWeight / (self::RANK_OFFSET + $keywordLookup[$id]['rank']);
+            }
+
+            if ($hasKeyword && $keywordLookup[$id]['score'] >= 0.5) {
+                $rrfScore += $settings->rrfKeywordWeight / self::RANK_OFFSET;
+            }
+
+            $scored[$id] = [
+                'rrfScore' => $rrfScore,
+                'semanticScore' => $semanticScore,
+                'semanticRank' => $hasSemantic ? $semanticLookup[$id]['rank'] : null,
+                'keywordScore' => $hasKeyword ? $keywordLookup[$id]['score'] : 0.0,
+                'keywordRank' => $hasKeyword ? $keywordLookup[$id]['rank'] : null,
+                'content' => $semanticLookup[$id]['content'] ?? $keywordLookup[$id]['content'] ?? '',
+            ];
+        }
+
+        return $scored;
+    }
+
+    /**
+     * Raw pgvector similarity query. Over-fetches because one entry can own many
+     * chunk rows, then collapses to that entry's best-scoring chunk.
+     *
+     * @param int[]|null $sectionIds Restrict candidates to these Craft section ids
+     * @return array Rows with elementId, siteId, similarity, and content
+     * @throws SearchException If the vector query fails
+     */
+    private function semanticSearchRaw(array $queryVector, int $limit, ?int $siteId, ?array $sectionIds): array
+    {
+        $databaseService = SmartSearch::getInstance()->databaseService;
+        $db = $databaseService->getConnection();
+        $table = $databaseService->getQualifiedTable();
+
+        try {
+            $sql = "
+                SELECT
+                    \"elementId\",
+                    \"siteId\",
+                    1 - (vector <=> :queryVector::vector) AS similarity,
+                    body AS content
+                FROM {$table}
+            ";
+
+            $conditions = [];
+            $params = [':queryVector' => json_encode($queryVector)];
+
+            if ($siteId !== null) {
+                $conditions[] = "\"siteId\" = :siteId";
+                $params[':siteId'] = $siteId;
+            }
+
+            if (!empty($sectionIds)) {
+                [$inList, $sectionParams] = SqlHelper::namedInList($sectionIds, 'sectionId');
+                $conditions[] = "\"sectionId\" IN {$inList}";
+                $params += $sectionParams;
+            }
+
+            if (!empty($conditions)) {
+                $sql .= " WHERE " . implode(' AND ', $conditions);
+            }
+
+            $overFetchLimit = max(self::MIN_OVERFETCH, $limit * self::OVERFETCH_MULTIPLIER);
+            $sql .= " ORDER BY vector <=> :queryVector::vector ASC LIMIT {$overFetchLimit}";
+
+            $rows = TimingProfiler::profile(
+                'PostgreSQL vector query',
+                function() use ($db, $sql, $params) {
+                    $stmt = $db->prepare($sql);
+                    $stmt->execute($params);
+                    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+                },
+                ['overFetchLimit' => $overFetchLimit]
+            );
+
+            return $this->bestChunkPerEntry($rows, $limit);
+        } catch (PDOException $e) {
+            Logger::exception($e, 'semanticSearch');
+            throw SearchException::vectorQueryFailed($e);
+        }
+    }
+
+    /**
+     * Collapse chunk rows to the highest-similarity row per entry, then sort and limit.
+     */
+    private function bestChunkPerEntry(array $rows, int $limit): array
+    {
+        $best = [];
+
+        foreach ($rows as $row) {
+            $key = $row['elementId'] . '-' . $row['siteId'];
+            if (!isset($best[$key]) || (float)$row['similarity'] > (float)$best[$key]['similarity']) {
+                $best[$key] = $row;
+            }
+        }
+
+        $best = array_values($best);
+        usort($best, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+
+        Logger::debug('Vector query', [
+            'rowsIn' => count($rows),
+            'uniqueElements' => count($best),
+            'collapsedChunks' => count($rows) - count($best),
+            'limit' => $limit,
+        ]);
+
+        return array_slice($best, 0, $limit);
     }
 
     /**

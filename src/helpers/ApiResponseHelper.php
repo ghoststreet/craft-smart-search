@@ -2,7 +2,6 @@
 
 namespace ghoststreet\craftsmartsearch\helpers;
 
-use Craft;
 use craft\web\Controller;
 use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
@@ -32,11 +31,11 @@ final class ApiResponseHelper
      */
     public static function error(Throwable $e, string $operation = 'API error', array $context = []): array
     {
-        $code = ErrorMapper::codeFor($e);
+        $code = ErrorCode::for($e);
         Logger::exception($e, $operation, $context + ['code' => $code->value]);
 
         $requestId = !empty($context['requestId']) ? (string)$context['requestId'] : null;
-        $message = ErrorMapper::translatedMessage($e);
+        $message = $code->translated();
         if ($requestId !== null) {
             $message .= " (Reference: {$requestId})";
         }
@@ -99,7 +98,7 @@ final class ApiResponseHelper
         return [
             'success' => false,
             'code' => $code->value,
-            'message' => Craft::t('smart-search', $code->message()),
+            'message' => $code->translated(),
         ];
     }
 
