@@ -66,18 +66,6 @@
         };
     }
 
-    function showRegionError(slot, message) {
-        slot.innerHTML = '<blockquote class="note warning"><p>' + escapeHtml(message) + '</p></blockquote>';
-    }
-
-    function findRegion(regionTarget, contentTarget) {
-        var region = DOM.find(regionTarget);
-        if (!region) return null;
-        var content = DOM.find(contentTarget, region);
-        if (!content) return null;
-        return { region: region, content: content };
-    }
-
     function SiteBlock(card) {
         this.card = card;
         this.siteId = parseInt(card.getAttribute('data-craftsearch-site-id'), 10);
@@ -312,9 +300,7 @@
 
     function indexByKey(list, key) {
         var out = {};
-        if (!list) return out;
-        var items = Array.isArray(list) ? list : Object.keys(list).map(function (k) { return list[k]; });
-        items.forEach(function (item) {
+        (list || []).forEach(function (item) {
             if (item && item[key] != null) out[item[key]] = item;
         });
         return out;

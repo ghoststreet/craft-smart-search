@@ -25,9 +25,6 @@
             if (value === '' || value == null) el.removeAttribute(ATTR_STATE);
             else el.setAttribute(ATTR_STATE, value);
         },
-        getState: function (el) {
-            return el ? el.getAttribute(ATTR_STATE) : null;
-        },
         onDelegate: function (root, controlName, event, handler) {
             if (!root) return;
             root.addEventListener(event, function (e) {
