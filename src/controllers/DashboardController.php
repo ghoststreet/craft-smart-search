@@ -23,10 +23,10 @@ class DashboardController extends Controller
     private const ALLOWED_RANGES = [7, 30, 90];
     private const DEFAULT_RANGE = 30;
 
-    /** Minimum sample size before a hit/error rate is shown. */
-    private const MIN_N_RATE = 30;
-    /** Minimum days remaining before the budget-ETA advisory fires. */
+    /** Days of real traffic needed before the burn rate is trustworthy enough to project an ETA. */
     private const MIN_DAYS_BUDGET_ETA = 7;
+    /** An ETA further out than this isn't worth showing. */
+    private const MAX_DAYS_BUDGET_ETA = 30;
 
     public function actionIndex(): Response
     {
@@ -40,9 +40,13 @@ class DashboardController extends Controller
 
         $metrics = $this->loadMetrics($history, $range);
         $coverage = $this->loadCachedCoverage();
-        $budget = $plugin->rateLimitService->getBudgetConsumption($metrics['sevenDayBurn']);
+        $budget = $this->gateBudgetEta(
+            $plugin->rateLimitService->getBudgetConsumption($metrics['sevenDayBurn']),
+            $metrics['daysWithData']
+        );
         $aggregates = $this->computeAggregates($metrics['dailySeries'], $range);
         $health = $this->buildHealth($settings, $stats, $budget);
+        $coverageTotals = $this->sumCoverage($coverage);
 
         $recommendations = $plugin->recommendationsService->build([
             'dailySeries' => $metrics['dailySeries'],
@@ -75,13 +79,13 @@ class DashboardController extends Controller
             'stats' => $stats,
             'range' => $range,
             'allowedRanges' => self::ALLOWED_RANGES,
-            'trendingWindow' => $metrics['trendingWindow'],
-            'dailySeries' => $metrics['dailySeries'],
+            'seriesSearches' => $this->chartSeries($metrics['dailySeries'], 'searches'),
+            'seriesCost' => $this->chartSeries($metrics['dailySeries'], 'cost'),
             'aggregates' => $aggregates,
-            'daysWithData' => $metrics['daysWithData'],
-            'minNRate' => self::MIN_N_RATE,
-            'minDaysBudgetEta' => self::MIN_DAYS_BUDGET_ETA,
             'coverage' => $coverage,
+            'coverageTotals' => $coverageTotals['totals'],
+            'coverageTotal' => $coverageTotals['total'],
+            'coveragePct' => $coverageTotals['pct'],
             'budget' => $budget,
             'topQueries' => $metrics['topQueries'],
             'trendingQueries' => $metrics['trendingQueries'],
@@ -134,7 +138,6 @@ class DashboardController extends Controller
         return [
             'dailySeries' => $dailySeries,
             'topQueries' => $history->getTopKeywords($range, null, 10),
-            'trendingWindow' => $trendingWindow,
             'trendingQueries' => $history->getTrendingKeywords(null, $trendingWindow, 10),
             'recentErrors' => $history->getRecentErrors(10),
             'sevenDayBurn' => $sevenDayBurn,
@@ -149,6 +152,52 @@ class DashboardController extends Controller
             fn() => SmartSearch::getInstance()->indexInspectionService->getCoverageBySite(),
             self::CACHE_TTL
         );
+    }
+
+    /**
+     * Reshape a daily-series column into the { date, value } pairs the chart JS reads.
+     */
+    private function chartSeries(array $series, string $key): array
+    {
+        return array_map(
+            static fn(array $row) => ['date' => $row['date'], 'value' => $row[$key]],
+            $series
+        );
+    }
+
+    /**
+     * Roll the per-site coverage rows into the donut's totals, plus the headline percentage.
+     * Keys match the series the donut chart expects.
+     */
+    private function sumCoverage(array $coverage): array
+    {
+        $totals = [
+            'indexed' => (int)array_sum(array_column($coverage, 'indexed')),
+            'stale' => (int)array_sum(array_column($coverage, 'stale')),
+            'notIndexed' => (int)array_sum(array_column($coverage, 'notIndexed')),
+        ];
+        $total = array_sum($totals);
+
+        return [
+            'totals' => $totals,
+            'total' => $total,
+            'pct' => $total > 0 ? (int)round($totals['indexed'] / $total * 100) : 0,
+        ];
+    }
+
+    /**
+     * Blank the budget ETA unless it's both trustworthy and near enough to act on,
+     * so the template can just ask whether there's an ETA to show.
+     */
+    private function gateBudgetEta(array $budget, int $daysWithData): array
+    {
+        $eta = $budget['etaDays'] ?? null;
+        $worthShowing = $eta !== null
+            && $eta < self::MAX_DAYS_BUDGET_ETA
+            && $daysWithData >= self::MIN_DAYS_BUDGET_ETA;
+        $budget['etaDays'] = $worthShowing ? $eta : null;
+
+        return $budget;
     }
 
     /**

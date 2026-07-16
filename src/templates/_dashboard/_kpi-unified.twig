@@ -27,7 +27,7 @@
             <div class="budget-bar{% if budgetClass %} {{ budgetClass }}{% endif %}" title="{{ budgetPct }}% of daily cap used">
                 <span class="budget-bar__fill" style="width: {{ budgetPct < 1 ? 1 : budgetPct }}%"></span>
             </div>
-            {% if budget.etaDays is not null and budget.etaDays < 30 and daysWithData >= minDaysBudgetEta %}
+            {% if budget.etaDays %}
                 <div class="kpi-card__eta">Projected to hit cap in ~{{ budget.etaDays }} days</div>
             {% endif %}
         </div>

@@ -53,10 +53,6 @@
 <h2>Typo tolerance</h2>
 <p class="light">Matches misspellings like <code>aple</code> against indexed terms like <code>apple</code>. Needs the Postgres <code>pg_trgm</code> extension. <a href="{{ wikiUrl }}/Installation#typo-tolerance" target="_blank" rel="noopener">Setup steps</a>.</p>
 
-{% set dictionaryService = craft.app.plugins.getPlugin('smart-search').dictionaryService %}
-{% set trgmInstalled = dictionaryService.hasTrgmExtension() %}
-{% set termCount = dictionaryService.getTermCount() %}
-
 {% if not trgmInstalled %}
     <p class="warning with-icon">
         <strong>Setup required.</strong> Install the <code>pg_trgm</code> Postgres extension on your vectors database to use typo tolerance.

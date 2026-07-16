@@ -2,13 +2,38 @@
 
 {% extends 'smart-search/index-mgmt/_layout' %}
 
-{% block indexContent %}
-    <div class="craftsearch-coverage" data-craftsearch-target="coverage-region">
-        <div class="craftsearch-coverage__content" data-craftsearch-target="coverage-content">
-            {% include 'smart-search/_partials/coverage-content' with {
-                coverage: coverage,
-                error: error,
-            } only %}
+{% block content %}
+    {% if error %}
+        <blockquote class="note warning"><p><strong>Database error.</strong> {{ error }}</p></blockquote>
+    {% elseif coverage|length %}
+        <div class="tableview data-table">
+            <table class="data fullwidth big">
+                <thead>
+                    <tr>
+                        <th scope="col">Site</th>
+                        <th scope="col" class="rightalign">Indexed</th>
+                        <th scope="col" class="rightalign">Stale</th>
+                        <th scope="col" class="rightalign">Not indexed</th>
+                        <th scope="col" class="rightalign">Total</th>
+                        <th scope="col" class="rightalign">Coverage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in coverage %}
+                        {% set pct = c.total > 0 ? (c.indexed / c.total * 100)|round : 0 %}
+                        <tr>
+                            <td>{{ c.site|default('') ? c.site : c.handle }}</td>
+                            <td class="rightalign">{{ c.indexed }}</td>
+                            <td class="rightalign">{% if c.stale > 0 %}<span class="status orange"></span> {% endif %}{{ c.stale }}</td>
+                            <td class="rightalign">{% if c.notIndexed > 0 %}<span class="status off"></span> {% endif %}{{ c.notIndexed }}</td>
+                            <td class="rightalign">{{ c.total }}</td>
+                            <td class="rightalign">{{ pct }}%</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-    </div>
+    {% else %}
+        <div class="zilch small">No sites configured.</div>
+    {% endif %}
 {% endblock %}

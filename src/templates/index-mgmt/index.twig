@@ -2,14 +2,31 @@
 
 {% extends 'smart-search/index-mgmt/_layout' %}
 
-{% block indexContent %}
-    <div class="craftsearch-overview" data-craftsearch-target="overview-region">
-        <div class="craftsearch-overview__content" data-craftsearch-target="overview-content">
-            {% include 'smart-search/_partials/overview-content' with {
-                setup: setup,
-                overview: overview,
-                syncStarted: syncStarted,
-            } only %}
+{% block content %}
+    {% if overview.state == 'onboarding' %}
+        {% include 'smart-search/_partials/overview-onboarding' with { setupSteps: setupSteps } only %}
+
+    {% elseif overview.state == 'disconnected' %}
+        {% include 'smart-search/_partials/overview-disconnected' with { error: overview.error } only %}
+
+    {% else %}
+        {% if overview.isMultiSite %}
+            <div class="craftsearch-overview-actions">
+                <form method="post">
+                    {{ csrfInput() }}
+                    {{ actionInput('smart-search/index/sync') }}
+                    <button type="submit" class="btn submit" data-craftsearch-control="sync-all-btn">Sync all sites</button>
+                </form>
+                <p class="light smalltext">Only changed entries are re-embedded — unchanged ones are skipped.</p>
+            </div>
+        {% endif %}
+
+        <div class="craftsearch-card-grid"
+             data-craftsearch-target="overview-grid"
+             {% if syncStarted %}data-craftsearch-sync-started="1"{% endif %}>
+            {% for site in overview.sites %}
+                {% include 'smart-search/_partials/overview-site-card' with { site: site, isMultiSite: overview.isMultiSite } only %}
+            {% endfor %}
         </div>
-    </div>
+    {% endif %}
 {% endblock %}

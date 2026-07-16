@@ -3,19 +3,13 @@
     fully configured (credentials, schema, or OpenAI key missing).
 
     Params:
-        setup  object  { credentials, connection, schema, openaiKey, error }
+        setupSteps  list<{ done, label, hint, url }>  from IndexController::buildSetupSteps
 #}
 <h2>Finish setup</h2>
 <p class="light">Each step links to where it can be fixed.</p>
 <table class="data fullwidth collapsible">
     <tbody>
-        {% set steps = [
-            { done: setup.credentials, label: 'Configure PostgreSQL credentials', hint: setup.credentials ? null : 'Host, database, user, and password are all required.', url: cpUrl('smart-search/settings/connections/postgres') },
-            { done: setup.connection, label: 'Connect to the vector database', hint: (setup.credentials and not setup.connection) ? setup.error : null, url: cpUrl('smart-search/settings/connections/postgres') },
-            { done: setup.schema, label: 'Initialize the vector schema', hint: (setup.connection and not setup.schema) ? 'The vectors table was not found. Run the setup SQL from the README.' : null, url: cpUrl('smart-search/settings/connections/postgres') },
-            { done: setup.openaiKey, label: 'Add the OpenAI API key', hint: setup.openaiKey ? null : 'Required to generate embeddings during indexing.', url: cpUrl('smart-search/settings/connections/openai') },
-        ] %}
-        {% for step in steps %}
+        {% for step in setupSteps %}
             <tr>
                 <td class="thin centeralign">
                     {% if step.done %}<span class="success" data-icon="check"></span>

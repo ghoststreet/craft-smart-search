@@ -6,6 +6,7 @@ use Craft;
 use craft\db\Query;
 use craft\db\Table;
 use craft\elements\Entry;
+use craft\helpers\UrlHelper;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
 use ghoststreet\craftsmartsearch\helpers\Logger;
@@ -51,7 +52,6 @@ class IndexController extends BaseApiController
             'openaiKey' => !empty($settings->getOpenaiApiKey()),
             'error' => $stats['error'] ?? null,
         ];
-        $setup['ready'] = $setup['credentials'] && $setup['connection'] && $setup['schema'] && $setup['openaiKey'];
 
         $syncJobs = $this->loadSyncJobs();
         $overview = $this->buildOverviewData($setup, $stats, $syncJobs['perSite']);
@@ -59,7 +59,7 @@ class IndexController extends BaseApiController
             || !empty($syncJobs['all']);
 
         return $this->renderTemplate('smart-search/index-mgmt/index', array_merge($this->commonViewData(), [
-            'setup' => $setup,
+            'setupSteps' => $this->buildSetupSteps($setup),
             'overview' => $overview,
             'syncStarted' => $syncStarted,
         ]));
@@ -403,6 +403,47 @@ class IndexController extends BaseApiController
             // Queue inspection failures shouldn't block rendering.
         }
         return $out;
+    }
+
+    /**
+     * Diagnostic checklist for the Overview tab's onboarding state. Each hint only
+     * fires once the step before it passes, so one broken link in the chain doesn't
+     * light up every row below it.
+     *
+     * @param array $setup Flags from actionIndex: credentials, connection, schema, openaiKey, error.
+     */
+    private function buildSetupSteps(array $setup): array
+    {
+        $postgresUrl = UrlHelper::cpUrl('smart-search/settings/connections/postgres');
+
+        return [
+            [
+                'done' => $setup['credentials'],
+                'label' => 'Configure PostgreSQL credentials',
+                'hint' => $setup['credentials'] ? null : 'Host, database, user, and password are all required.',
+                'url' => $postgresUrl,
+            ],
+            [
+                'done' => $setup['connection'],
+                'label' => 'Connect to the vector database',
+                'hint' => ($setup['credentials'] && !$setup['connection']) ? $setup['error'] : null,
+                'url' => $postgresUrl,
+            ],
+            [
+                'done' => $setup['schema'],
+                'label' => 'Initialize the vector schema',
+                'hint' => ($setup['connection'] && !$setup['schema'])
+                    ? 'The vectors table was not found. Run the setup SQL from the README.'
+                    : null,
+                'url' => $postgresUrl,
+            ],
+            [
+                'done' => $setup['openaiKey'],
+                'label' => 'Add the OpenAI API key',
+                'hint' => $setup['openaiKey'] ? null : 'Required to generate embeddings during indexing.',
+                'url' => UrlHelper::cpUrl('smart-search/settings/connections/openai'),
+            ],
+        ];
     }
 
     /**

@@ -1,32 +1,21 @@
 {#
-    Index status counts grid. Used by _partials/entries-content.twig.
+    Index status counts grid. Used by index-mgmt/entries.twig.
 
     Params:
         counts  object  { total, indexed, stale, 'not-indexed', excluded }
 #}
 <div class="index-stats">
-    <div class="index-stats__item">
-        <span class="index-stats__count">{{ counts.total }}</span>
-        <span class="index-stats__label">Total</span>
-    </div>
-    <div class="index-stats__item">
-        <span class="status green"></span>
-        <span class="index-stats__count">{{ counts.indexed }}</span>
-        <span class="index-stats__label">Indexed</span>
-    </div>
-    <div class="index-stats__item">
-        <span class="status orange"></span>
-        <span class="index-stats__count">{{ counts.stale }}</span>
-        <span class="index-stats__label">Stale</span>
-    </div>
-    <div class="index-stats__item">
-        <span class="status off"></span>
-        <span class="index-stats__count">{{ counts['not-indexed'] }}</span>
-        <span class="index-stats__label">Not indexed</span>
-    </div>
-    <div class="index-stats__item">
-        <span class="status grey"></span>
-        <span class="index-stats__count">{{ counts.excluded ?? 0 }}</span>
-        <span class="index-stats__label">Excluded</span>
-    </div>
+    {% for stat in [
+        { label: 'Total',       count: counts.total },
+        { label: 'Indexed',     count: counts.indexed,          dot: 'green' },
+        { label: 'Stale',       count: counts.stale,            dot: 'orange' },
+        { label: 'Not indexed', count: counts['not-indexed'],   dot: 'off' },
+        { label: 'Excluded',    count: counts.excluded ?? 0,    dot: 'grey' },
+    ] %}
+        <div class="index-stats__item">
+            {% if stat.dot is defined %}<span class="status {{ stat.dot }}"></span>{% endif %}
+            <span class="index-stats__count">{{ stat.count }}</span>
+            <span class="index-stats__label">{{ stat.label }}</span>
+        </div>
+    {% endfor %}
 </div>

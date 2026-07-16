@@ -72,6 +72,8 @@ use yii\web\Response;
  */
 class SmartSearch extends Plugin
 {
+    public const WIKI_URL = 'https://github.com/ghoststreet/craft-smart-search/wiki';
+
     public string $schemaVersion = '1.0.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;

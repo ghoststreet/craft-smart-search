@@ -20,6 +20,7 @@ class PreviewController extends Controller
             'plugin' => $plugin,
             'sites' => $sites,
             'selectedSubnavItem' => 'preview',
+            'wikiUrl' => SmartSearch::WIKI_URL,
         ]);
     }
 }

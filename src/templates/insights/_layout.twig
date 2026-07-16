@@ -24,7 +24,7 @@
 {% block content %}
     {% block kpis %}{% endblock %}
 
-    {% if hasFilterableControls and (hasResults|default(false) or hasActiveFilters) %}
+    {% if hasFilterableControls and (hasResults or hasActiveFilters) %}
         <div class="filter-bar" data-craftsearch-target="filter-bar">
             <form method="get" action="{{ pageUrl }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
                 <div class="filter-bar__group">

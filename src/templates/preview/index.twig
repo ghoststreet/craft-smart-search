@@ -26,38 +26,13 @@
     <div class="preview-info pane">
         <div class="preview-info__content">
             <h2>Test your search setup</h2>
-            <p>Use this page to run live queries against all three search modes side-by-side. <br> Each mode maps to a different API endpoint you can call from your front end.</p>
+            <p>
+                Run live queries against each search mode side-by-side. Every mode maps to an endpoint you
+                can call from your front end — see
+                <a href="{{ wikiUrl }}/Using-the-API" target="_blank" rel="noopener">Using the API</a>
+                for the request and response shapes.
+            </p>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Endpoint</th>
-                    <th>Method</th>
-                    <th><code>type</code></th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><code>/actions/smart-search/search</code></td>
-                    <td>POST</td>
-                    <td><code>search</code></td>
-                    <td>Semantic vector + keyword</td>
-                </tr>
-                <tr>
-                    <td><code>/actions/smart-search/search</code></td>
-                    <td>POST</td>
-                    <td><code>ai-answer</code></td>
-                    <td>AI Answer with citations</td>
-                </tr>
-                <tr>
-                    <td><code>/actions/smart-search/search</code></td>
-                    <td>GET (SSE)</td>
-                    <td><code>ai-answer-stream</code></td>
-                    <td>Streaming version of AI Answer</td>
-                </tr>
-            </tbody>
-        </table>
     </div>
 
     <div class="preview-grid">

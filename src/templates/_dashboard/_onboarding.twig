@@ -2,9 +2,7 @@
     Onboarding card shown on the dashboard until required setup is complete.
 
     Params:
-        settings           Plugin settings model
-        stats              { isConnected, entryCount }
-        requiredSteps      list<{ done, label, hint, cta: { url, label } }>
+        requiredSteps      list<{ done, label, hint, disabled?, cta: { url, label } }>
         recommendedSteps   list<{ done, label, hint, cta: { url, label } }>
 #}
 <div class="pane onboarding-card">

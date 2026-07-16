@@ -2,11 +2,12 @@
     badge — small pill with a leading status dot and an uppercase label.
     Pair with the _components/badge.twig macro.
 
-    Modifiers:
-      badge--ai-answer        purple dot  (AI Answer searches)
-      badge--success    green pill  (successful rows)
-      badge--error      red pill    (errored rows)
-      badge--cached     gray pill, blue dot  (cached embedding)
+    Modifiers (variant is kebabed by the macro — history's `aiAnswer` arrives as `ai-answer`):
+      badge--ai-answer  purple dot          (AI Answer searches)
+      badge--smart      blue dot            (Smart searches)
+      badge--success    green pill          (successful rows)
+      badge--error      red pill            (errored rows)
+      badge--cached     gray pill, blue dot (cached embedding)
 */
 .badge {
     display: inline-flex;
@@ -33,6 +34,7 @@
 }
 
 .badge--ai-answer .badge__dot { background: var(--smart-search-ai-answer); }
+.badge--smart .badge__dot { background: var(--smart-search-semantic); }
 
 .badge--success {
     background: var(--smart-search-chip-success-bg);

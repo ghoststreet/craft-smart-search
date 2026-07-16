@@ -3,17 +3,6 @@
 
 {% set title = 'Smart Search' %}
 
-{% set seriesSearches = dailySeries|map(r => { date: r.date, value: r.searches }) %}
-{% set seriesCost = dailySeries|map(r => { date: r.date, value: r.cost }) %}
-
-{% set coverageTotals = {
-    indexed: coverage|reduce((sum, c) => sum + c.indexed, 0),
-    stale: coverage|reduce((sum, c) => sum + c.stale, 0),
-    notIndexed: coverage|reduce((sum, c) => sum + c.notIndexed, 0),
-} %}
-{% set coverageTotal = coverageTotals.indexed + coverageTotals.stale + coverageTotals.notIndexed %}
-{% set coveragePct = coverageTotal > 0 ? (coverageTotals.indexed / coverageTotal * 100)|round : 0 %}
-
 {% block content %}
 {% if not setupComplete %}
     <div class="dashboard dashboard--onboarding">
@@ -68,8 +57,6 @@
             isMultisite: isMultisite,
             siteCount: siteCount,
             indexedSiteCount: indexedSiteCount,
-            daysWithData: daysWithData,
-            minDaysBudgetEta: minDaysBudgetEta,
         } only %}
     </div>
 
@@ -133,17 +120,15 @@
         </div>
     {% endif %}
 
-    <div class="dash-row">
-        {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, level: 'warn', heading: 'Action required' } only %}
-    </div>
-
-    {% if hasSearches %}
+    {# Suggestions are noise until there's search traffic to base them on. #}
+    {% for card in [
+        { level: 'warn', heading: 'Action required', show: true },
+        { level: 'info', heading: 'Suggestions', show: hasSearches },
+    ]|filter(c => c.show) %}
         <div class="dash-row">
-            {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, level: 'info', heading: 'Suggestions' } only %}
+            {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, level: card.level, heading: card.heading } only %}
         </div>
-    {% endif %}
-
-
+    {% endfor %}
 </div>
 {% endif %}
 {% endblock %}

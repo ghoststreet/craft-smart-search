@@ -135,11 +135,20 @@ class SettingsController extends BaseApiController
         $page = self::SCENARIO_PAGES[$scenario];
         $settings ??= SmartSearch::getInstance()->getSettings();
 
+        $dictionary = SmartSearch::getInstance()->dictionaryService;
+        $needsTrgm = in_array($scenario, [
+            Settings::SCENARIO_CONNECTIONS_POSTGRES,
+            Settings::SCENARIO_SMART_SEARCH,
+        ], true);
+
         return $this->renderTemplate('smart-search/settings/_page', [
             'plugin' => SmartSearch::getInstance(),
             'settings' => $settings,
             'selectedSubnavItem' => 'settings',
+            'wikiUrl' => SmartSearch::WIKI_URL,
             'insightsAvailable' => SmartSearch::getInstance()->historyService->count() > 0,
+            'trgmInstalled' => $needsTrgm && $dictionary->hasTrgmExtension(),
+            'termCount' => $needsTrgm ? $dictionary->getTermCount() : 0,
             'partial' => $page['partial'],
             'pageKey' => $page['pageKey'],
             'pageUrl' => $page['url'],

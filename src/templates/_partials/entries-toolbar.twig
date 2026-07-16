@@ -36,10 +36,7 @@
             }) }}
 
             <button type="submit" class="btn submit">Filter</button>
-            {{ f.resetButton(
-                cpUrl('smart-search/index/entries'),
-                hasActiveFilters ?? (filters.section or filters.status)
-            ) }}
+            {{ f.resetButton(cpUrl('smart-search/index/entries'), hasActiveFilters) }}
         </div>
     </form>
 </div>
