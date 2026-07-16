@@ -85,12 +85,6 @@
 }
 .onboarding-section--muted { color: var(--medium-text-color); }
 
-.onboarding-divider {
-    margin: 22px 0 0;
-    border: none;
-    border-top: 1px solid var(--hairline-color, rgba(31, 41, 51, .1));
-}
-
 /* Recommended variant: outline-circle icon, slightly muted card */
 .onboarding-list--recommended .onboarding-list__item {
     background: var(--gray-050, #f9fafb);

@@ -64,8 +64,7 @@
 }
 
 /* ── Universal card chrome (replaces bare .pane in dashboard scope) ─────── */
-.dashboard .pane,
-.dash-card {
+.dashboard .pane {
     background: #ffffff;
     border: 1px solid var(--hairline-color, #e5e7eb);
     border-radius: 8px;
@@ -164,13 +163,6 @@
     gap: 16px;
     align-items: start;
 }
-.dash-main__side {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-}
-
 /* ── Full-width row helpers ─────────────────────────────────────────────── */
 .dash-row {
     grid-column: 1 / -1;
@@ -225,14 +217,6 @@
 /* ── KPI value muted ────────────────────────────────────────────────────── */
 .kpi-card__value--muted { color: var(--medium-text-color); }
 
-/* ── Footer disclosure ──────────────────────────────────────────────────── */
-.dashboard__as-of {
-    grid-column: 1 / -1;
-    margin: 4px 2px 0;
-    text-align: right;
-    color: var(--medium-text-color);
-}
-
 /* ── Guide card (post-setup recommended steps) ──────────────────────────── */
 .guide-card {
     grid-column: 1 / -1;
@@ -259,31 +243,6 @@
 }
 .guide-card__close:hover { background: rgba(0,0,0,0.05); color: var(--text-color); }
 .guide-card > .onboarding-section { margin-top: 0; }
-.guide-card__title {
-    margin: 0 0 10px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #2c5d8f;
-    font-weight: 600;
-}
-.guide-card__list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.guide-card__item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    font-size: 13px;
-}
-.guide-card__item > div { min-width: 0; }
-.guide-card__item strong { color: var(--text-color); }
 
 /* ── Responsive collapse ────────────────────────────────────────────────── */
 @media (max-width: 1100px) {

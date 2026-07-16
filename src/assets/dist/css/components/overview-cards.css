@@ -99,11 +99,6 @@
     letter-spacing: 0.04em;
 }
 
-.craftsearch-card__pill--warn {
-    background: #fbe7c8;
-    color: #8a5a14;
-}
-
 .craftsearch-card__hero {
     display: flex;
     flex-direction: column;

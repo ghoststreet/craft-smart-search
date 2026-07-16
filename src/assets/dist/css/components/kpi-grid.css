@@ -2,14 +2,14 @@
    kpi-grid — KPI stat cards laid out in a responsive grid.
 
    Structure:
-     .kpi-grid            grid container        (modifiers: --3, --compact)
+     .kpi-grid            grid container        (modifier: --compact)
      .kpi-card            a single stat card    (modifiers: --compact,
                                                   --error, --link)
        .kpi-card__icon    leading icon          (compact cards)
        .kpi-card__body    label + value wrapper (compact cards)
        .kpi-card__label   stat name
        .kpi-card__value   stat number           (.kpi-card__value-unit inside)
-       .kpi-card__meta / __sub / __eta   secondary lines
+       .kpi-card__meta / __eta   secondary lines
        .kpi-card__error   danger-coloured value
        .kpi-card__chart   embedded chart slot
    ========================================================================== */
@@ -20,9 +20,6 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
 }
-.kpi-grid--3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
 .kpi-grid--compact {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
@@ -30,8 +27,7 @@
 }
 
 @media (max-width: 1500px) {
-    .kpi-grid,
-    .kpi-grid--3 {
+    .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
     }
     .kpi-grid--compact {
@@ -39,8 +35,7 @@
     }
 }
 @media (max-width: 600px) {
-    .kpi-grid,
-    .kpi-grid--3 {
+    .kpi-grid {
         grid-template-columns: 1fr;
     }
     .kpi-grid--compact {
@@ -79,10 +74,6 @@
 }
 .kpi-card__meta {
     font-size: 12px;
-    color: var(--medium-text-color);
-}
-.kpi-card__sub {
-    font-size: 11px;
     color: var(--medium-text-color);
 }
 .kpi-card__eta {

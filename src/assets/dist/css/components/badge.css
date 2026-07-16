@@ -4,7 +4,6 @@
 
     Modifiers:
       badge--ai-answer        purple dot  (AI Answer searches)
-      badge--semantic   blue dot    (semantic searches)
       badge--success    green pill  (successful rows)
       badge--error      red pill    (errored rows)
       badge--cached     gray pill, blue dot  (cached embedding)
@@ -34,7 +33,6 @@
 }
 
 .badge--ai-answer .badge__dot { background: var(--smart-search-ai-answer); }
-.badge--semantic .badge__dot { background: var(--smart-search-semantic); }
 
 .badge--success {
     background: var(--smart-search-chip-success-bg);
