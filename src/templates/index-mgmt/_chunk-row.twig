@@ -3,21 +3,21 @@
 {% set tokens = chunk.estimatedTokens ?? 0 %}
 {% set max = maxTokens ?? 0 %}
 {% set barPct = max > 0 ? (tokens / max * 100)|round : 0 %}
-<div class="chunk-row pane">
-    <header class="chunk-row__header">
+{% set expandable = chunk.content is not empty %}
+{% set tag = expandable ? 'details' : 'div' %}
+{% set headTag = expandable ? 'summary' : 'header' %}
+<{{ tag }} class="chunk-row pane{{ expandable ? ' ss-expander' }}">
+    <{{ headTag }} class="chunk-row__header">
         <span class="chunk-row__index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
         <span class="chunk-row__tokens">~{{ tokens }} {{ 'tokens'|t('smart-search') }}</span>
         <div class="chunk-row__token-bar" aria-hidden="true">
             <span style="width: {{ barPct }}%"></span>
         </div>
         <span class="chunk-row__updated">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
-    </header>
-    {% if chunk.content %}
-        <details class="chunk-row__details">
-            <summary>{{ chunk.content|slice(0, 160) }}{% if chunk.content|length > 160 %}…{% endif %}</summary>
-            <pre class="chunk-row__content">{{ chunk.content }}</pre>
-        </details>
+    </{{ headTag }}>
+    {% if expandable %}
+        <pre class="chunk-row__content">{{ chunk.content }}</pre>
     {% else %}
         <div class="chunk-row__empty"><span class="light">—</span></div>
     {% endif %}
-</div>
+</{{ tag }}>

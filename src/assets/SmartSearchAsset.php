@@ -40,6 +40,7 @@ class SmartSearchAsset extends AssetBundle
             'css/components/empty-state.css',
             'css/components/entries-loading.css',
             'css/components/error-modal.css',
+            'css/components/expander.css',
             'css/components/filter-bar.css',
             'css/components/index-stats.css',
             'css/components/kpi-grid.css',

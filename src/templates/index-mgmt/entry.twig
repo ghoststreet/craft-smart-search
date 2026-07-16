@@ -77,8 +77,11 @@
     {% set hasBlocks = field.blocks is defined and field.blocks|length > 0 %}
     {% set hasText = field.extractedText is not empty %}
     {% set state = field.indexed ? 'indexed' : 'skipped' %}
-    <article class="field-card field-card--depth-{{ depth }} field-card--{{ state }}" data-state="{{ state }}">
-        <header class="field-card__head">
+    {% set expandable = hasBlocks or hasText %}
+    {% set tag = expandable ? 'details' : 'article' %}
+    {% set headTag = expandable ? 'summary' : 'header' %}
+    <{{ tag }} class="field-card field-card--depth-{{ depth }} field-card--{{ state }}{{ expandable ? ' ss-expander' }}" data-state="{{ state }}">
+        <{{ headTag }} class="field-card__head">
             {% if field.indexed %}
                 <span class="status green" aria-label="{{ 'Indexed'|t('smart-search') }}"></span>
             {% else %}
@@ -99,7 +102,7 @@
             {% elseif field.reason %}
                 <span class="field-card__tag field-card__tag--muted">{{ field.reason }}</span>
             {% endif %}
-        </header>
+        </{{ headTag }}>
 
         {% if hasBlocks %}
             <div class="field-card__blocks">
@@ -126,7 +129,7 @@
                 <pre class="field-card__text">{{ field.extractedText }}</pre>
             </div>
         {% endif %}
-    </article>
+    </{{ tag }}>
 {% endmacro %}
 
 {% from _self import fieldCard %}
@@ -218,7 +221,7 @@
         <header class="pane-header">
             <h2>{{ 'Chunks'|t('smart-search') }} <span class="light">({{ chunkCount }})</span></h2>
         </header>
-        <p class="instructions">{{ 'Stored rows from'|t('smart-search') }} <code>{{ plugin.settings.vectorsTableName }}</code>. {{ 'Concatenating these (after the title prefix) reconstructs the indexed text.'|t('smart-search') }}</p>
+        <p class="instructions">{{ 'Each chunk is a slice of this entry’s indexed text, embedded for vector search and stored in'|t('smart-search') }} <code>{{ plugin.settings.vectorsTableName }}</code>. {{ 'Read in order, they reconstruct the full indexed text: the entry title, then each field’s text.'|t('smart-search') }}</p>
 
         {% if chunkCount %}
             <div class="chunk-list">
