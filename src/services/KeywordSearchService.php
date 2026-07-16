@@ -31,6 +31,9 @@ class KeywordSearchService extends Component
         'tamil', 'turkish', 'yiddish',
     ];
 
+    /** ts_rank_cd weights for the {D,C,B,A} lexeme classes; title (A) outranks body (B). */
+    private const RANK_WEIGHTS = "'{0.05, 0.1, 0.2, 1.0}'::float4[]";
+
     /**
      * Resolves from the Craft site's language (e.g. `en-US`, `en-GB`, `en-AU` all
      * collapse to `english`). Used at index time to populate the per-row `language`
@@ -71,7 +74,7 @@ class KeywordSearchService extends Component
 
             $tsQuery = "websearch_to_tsquery('{$language}', :query)";
             $whereExpr = "tsv @@ {$tsQuery}";
-            $scoreExpr = "ts_rank_cd('{0.05, 0.1, 0.2, 1.0}'::float4[], tsv, {$tsQuery}, 32)";
+            $scoreExpr = "ts_rank_cd(" . self::RANK_WEIGHTS . ", tsv, {$tsQuery}, 32)";
             $params = [':query' => $orQuery];
 
             $corrected = TimingProfiler::profile(
@@ -80,7 +83,7 @@ class KeywordSearchService extends Component
             );
             if ($corrected !== null) {
                 $whereExpr = "({$whereExpr} OR tsv @@ (:corrected)::tsquery)";
-                $scoreExpr .= " + (0.5 * ts_rank_cd('{0.05, 0.1, 0.2, 1.0}'::float4[], tsv, (:corrected)::tsquery, 32))";
+                $scoreExpr .= " + (0.5 * ts_rank_cd(" . self::RANK_WEIGHTS . ", tsv, (:corrected)::tsquery, 32))";
                 $params[':corrected'] = $corrected;
 
                 Logger::debug('Keyword typo correction applied', [

@@ -57,9 +57,7 @@ final class RrfFuser
                 'semanticRank' => $hasSemantic ? $semanticLookup[$id]['rank'] : null,
                 'keywordScore' => $hasKeyword ? $keywordLookup[$id]['score'] : 0.0,
                 'keywordRank' => $hasKeyword ? $keywordLookup[$id]['rank'] : null,
-                'content' => $hasSemantic
-                    ? $semanticLookup[$id]['content']
-                    : ($hasKeyword ? ($keywordLookup[$id]['content'] ?? '') : ''),
+                'content' => $semanticLookup[$id]['content'] ?? $keywordLookup[$id]['content'] ?? '',
             ];
         }
 

@@ -137,6 +137,28 @@ class AiAnswerService extends Component
     }
 
     /**
+     * Assemble the [system, user] chat messages for the summarizer. $streaming
+     * swaps the system prompt's output section (markdown vs JSON) and the user
+     * prompt's closing instruction to match.
+     *
+     * @return array<int, array{role: string, content: string}>
+     */
+    private function buildMessages(string $query, string $context, Settings $settings, bool $streaming): array
+    {
+        $today = (new DateTimeImmutable('now', new DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
+        $safeQuery = TextValidator::sanitizeQuery($query);
+
+        $closing = $streaming
+            ? 'Reply as us, in our own voice. Write markdown with inline [id] citations.'
+            : 'Reply as us, in our own voice. Return your response as JSON: {"summary": "your answer", "sourceIds": [id1, id2], "confidence": "high|medium|low"}';
+
+        return [
+            ['role' => 'system', 'content' => $this->buildSystemPrompt($settings, $today, $streaming)],
+            ['role' => 'user', 'content' => "<user_query>\n{$safeQuery}\n</user_query>\n\n{$context}\n\n{$closing}"],
+        ];
+    }
+
+    /**
      * Send the query and context to the configured LLM and return the raw response content.
      *
      * @throws RuntimeException If the LLM API call fails
@@ -145,21 +167,9 @@ class AiAnswerService extends Component
     {
         $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
 
-        $today = (new DateTimeImmutable('now', new DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
-        $systemPrompt = $this->buildSystemPrompt($settings, $today);
-
-        $safeQuery = TextValidator::sanitizeQuery($query);
-        $userPrompt = "<user_query>\n{$safeQuery}\n</user_query>\n\n";
-        $userPrompt .= "{$context}\n\n";
-        $userPrompt .= "Reply as us, in our own voice. ";
-        $userPrompt .= "Return your response as JSON: {\"summary\": \"your answer\", \"sourceIds\": [id1, id2], \"confidence\": \"high|medium|low\"}";
-
         $response = $client->chat()->create([
             'model' => $settings->aiAnswerModel,
-            'messages' => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userPrompt],
-            ],
+            'messages' => $this->buildMessages($query, $context, $settings, false),
             'reasoning_effort' => 'low',
             'verbosity' => 'low',
         ]);
@@ -222,20 +232,9 @@ class AiAnswerService extends Component
     {
         $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
 
-        $today = (new DateTimeImmutable('now', new DateTimeZone(Craft::$app->getTimeZone())))->format('l, j F Y');
-        $systemPrompt = $this->buildSystemPrompt($settings, $today, true);
-
-        $safeQuery = TextValidator::sanitizeQuery($query);
-        $userPrompt = "<user_query>\n{$safeQuery}\n</user_query>\n\n";
-        $userPrompt .= "{$context}\n\n";
-        $userPrompt .= "Reply as us, in our own voice. Write markdown with inline [id] citations.";
-
         $stream = $client->chat()->createStreamed([
             'model' => $settings->aiAnswerModel,
-            'messages' => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userPrompt],
-            ],
+            'messages' => $this->buildMessages($query, $context, $settings, true),
             'reasoning_effort' => 'low',
             'verbosity' => 'low',
             'stream_options' => ['include_usage' => true],
@@ -393,7 +392,7 @@ PROMPT;
      */
     private function contextTokenBudget(Settings $settings): int
     {
-        return (new AiAnswerPromptBuilder())->computeContextBudget($settings->maxPromptTokens);
+        return max(500, $settings->maxPromptTokens);
     }
 
     /**

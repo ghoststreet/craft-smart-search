@@ -71,15 +71,7 @@ class IndexInspectionService extends Component
             $key = $entry->id . '-' . $entry->siteId;
             $indexed = $summary[$key] ?? null;
             $isExcluded = isset($excludedKeys[$key]);
-
-            $status = self::STATUS_NOT_INDEXED;
-            if ($isExcluded) {
-                $status = self::STATUS_EXCLUDED;
-            } elseif ($indexed !== null) {
-                $vectorUpdated = strtotime($indexed['lastIndexed']);
-                $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
-                $status = $entryUpdated > $vectorUpdated ? self::STATUS_STALE : self::STATUS_INDEXED;
-            }
+            $status = $this->statusFor($entry, $indexed, $isExcluded);
 
             $counts[$status]++;
             $counts['total']++;
@@ -114,6 +106,27 @@ class IndexInspectionService extends Component
             'pageSize' => self::PAGE_SIZE,
             'counts' => $counts,
         ];
+    }
+
+    /**
+     * Classify one entry against its stored-vector summary row. Excluded wins over
+     * everything; a missing row is not-indexed; otherwise stale iff the entry was
+     * edited after its vectors were written.
+     *
+     * @param array{lastIndexed: string}|null $summaryRow
+     */
+    private function statusFor(Entry $entry, ?array $summaryRow, bool $isExcluded): string
+    {
+        if ($isExcluded) {
+            return self::STATUS_EXCLUDED;
+        }
+        if ($summaryRow === null) {
+            return self::STATUS_NOT_INDEXED;
+        }
+        $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
+        return $entryUpdated > strtotime($summaryRow['lastIndexed'])
+            ? self::STATUS_STALE
+            : self::STATUS_INDEXED;
     }
 
     /**
@@ -155,17 +168,13 @@ class IndexInspectionService extends Component
                 if (isset($excludedKeys[$key])) {
                     continue;
                 }
-                $row = $summary[$key] ?? null;
-                if ($row === null) {
-                    $notIndexed++;
-                    continue;
-                }
-                $vectorUpdated = strtotime($row['lastIndexed']);
-                $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
-                if ($entryUpdated > $vectorUpdated) {
+                $status = $this->statusFor($entry, $summary[$key] ?? null, false);
+                if ($status === self::STATUS_STALE) {
                     $stale++;
-                } else {
+                } elseif ($status === self::STATUS_INDEXED) {
                     $indexed++;
+                } else {
+                    $notIndexed++;
                 }
             }
 

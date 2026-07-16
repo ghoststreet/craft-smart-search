@@ -60,18 +60,6 @@ class SmartSearchService extends Component
         $semanticLookup = $this->buildSemanticLookup($semanticResults);
         $keywordLookup = $this->buildKeywordLookup($keywordResults);
 
-        Logger::debug('Smart search signals', [
-            'semanticRawRows' => count($semanticResults),
-            'semanticUniqueElements' => count($semanticLookup),
-            'keywordUniqueElements' => count($keywordLookup),
-        ]);
-
-        $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($keywordLookup)]);
-
-        Logger::debug('Smart search candidates', [
-            'totalUniqueCandidates' => count($allIds),
-        ]);
-
         $scoredResults = (new RrfFuser())->fuse(
             $semanticLookup,
             $keywordLookup,
@@ -80,18 +68,14 @@ class SmartSearchService extends Component
             $settings->minSemanticThreshold,
         );
 
-        Logger::debug('RRF signal breakdown', [
-            'totalCandidates' => count($allIds),
+        Logger::debug('Smart search RRF', [
+            'semanticRawRows' => count($semanticResults),
+            'semanticUniqueElements' => count($semanticLookup),
+            'keywordUniqueElements' => count($keywordLookup),
             'survived' => count($scoredResults),
-            'dropped' => count($allIds) - count($scoredResults),
             'minSemanticThreshold' => $settings->minSemanticThreshold,
             'rrfSemanticWeight' => $settings->rrfSemanticWeight,
             'rrfKeywordWeight' => $settings->rrfKeywordWeight,
-        ]);
-
-        Logger::debug('RRF scoring complete', [
-            'survivedRRF' => count($scoredResults),
-            'droppedByRRF' => count($allIds) - count($scoredResults),
         ]);
 
         $boosts = SmartSearch::getInstance()->boostService->match($query, $siteId);

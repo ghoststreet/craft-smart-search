@@ -6,14 +6,8 @@ use ghoststreet\craftsmartsearch\helpers\TextValidator;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
 
 /**
- * Pure prompt-assembly math for AI Answer.
- *
- * Two responsibilities, both side-effect free:
- *   1. computeContextBudget()  the cap on tokens packed into source blocks.
- *      This is what the admin sets in Settings; the model's own context
- *      window absorbs the system prompt, query, and output on top.
- *   2. buildContext()          pack as many source blocks as fit into the
- *                              budget, in priority order.
+ * Pure prompt-assembly math for AI Answer: pack as many source blocks as fit
+ * into the token budget, in priority order. Side-effect free.
  *
  * Source rows are accepted as plain arrays (no Entry coupling) so unit tests
  * can construct realistic fixtures without spinning up Craft elements.
@@ -22,17 +16,6 @@ use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
  */
 final class AiAnswerPromptBuilder
 {
-    public const MIN_CONTEXT_BUDGET = 500;
-
-    /**
-     * Token budget for source content. The validator on maxPromptTokens already
-     * enforces 500 as the minimum; this floor is just a defensive safety net.
-     */
-    public function computeContextBudget(int $maxPromptTokens): int
-    {
-        return max(self::MIN_CONTEXT_BUDGET, $maxPromptTokens);
-    }
-
     /**
      * Pack source rows into a context string until $tokenBudget is exhausted.
      *

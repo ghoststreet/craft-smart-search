@@ -155,7 +155,8 @@ class HistoryService extends Component
      */
     public function getTopKeywords(?int $days = null, ?int $siteId = null, int $limit = 10): array
     {
-        return $this->aggregateKeywords($days, $siteId, $limit, false);
+        $limit = max(1, min(50, $limit));
+        return $this->groupedCounts($this->cutoff($days), null, $siteId, false, false, $limit);
     }
 
     /**
@@ -405,13 +406,6 @@ class HistoryService extends Component
         $items = array_slice($all, ($page - 1) * $perPage, $perPage);
 
         return $this->paginated($items, count($all), $page, $perPage);
-    }
-
-    private function aggregateKeywords(?int $days, ?int $siteId, int $limit, bool $zeroOnly): array
-    {
-        $limit = max(1, min(50, $limit));
-
-        return $this->groupedCounts($this->cutoff($days), null, $siteId, $zeroOnly, false, $limit);
     }
 
     private function groupedCountsTotal(?string $cutoffFrom, ?string $cutoffTo, ?int $siteId, bool $zeroOnly): int
