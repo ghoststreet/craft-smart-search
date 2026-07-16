@@ -3,16 +3,9 @@
     Used by insights/index.twig (history tab).
 
     Params:
-        items        iterable of history rows
-        cachedTitle  string  optional tooltip for the "cached" token badge
-
-    Usage:
-        {% include 'smart-search/_partials/search-history-table' with {
-            items: page.items
-        } only %}
+        items  iterable of history rows
 #}
 {% import 'smart-search/_components/badge' as b %}
-{% set cachedTitle = cachedTitle ?? 'Embedding served from cache — 0 embedding tokens billed' %}
 {% if items|length %}
     <div class="tableview data-table data-table--auto">
         <table class="data fullwidth big">
@@ -55,7 +48,7 @@
                                 {%- endif -%}
                                 {%- if aiAnswerTokens > 0 and hasEmbedding %} <span class="ss-tokens__sep">/</span> {% endif -%}
                                 {%- if item.embeddingCached -%}
-                                    <span title="{{ cachedTitle }}">{{ b.badge('Cached', 'cached') }}</span>
+                                    <span title="Embedding served from cache — 0 embedding tokens billed">{{ b.badge('Cached', 'cached') }}</span>
                                 {%- elseif item.embeddingTokens > 0 -%}
                                     <span class="ss-token-val" title="Embedding tokens">{{ item.embeddingTokens|number_format }}<span class="ss-token-dot ss-token-dot--embedding"></span></span>
                                 {%- endif -%}

@@ -1,31 +1,19 @@
 {#
-    Indexable entries listing table. Used by index-mgmt/index.twig.
+    Indexable entries listing table. Used by index-mgmt/entries.twig.
 
     Params:
-        rows           iterable
-        entryUrlPath   string   cpUrl path for the detail link, e.g. 'smart-search/index/entry'
-        labels         object   { title, section, status, chunks, lastIndexed,
-                                  indexed, stale, notIndexed, emptyMessage, untitled }
+        rows  iterable
 #}
-{% set labels = labels ?? {} %}
-{% set L = {
-    title: 'Title', section: 'Section', status: 'Status',
-    chunks: 'Chunks', lastIndexed: 'Last indexed',
-    indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed',
-    excluded: 'Excluded',
-    emptyMessage: 'No entries match these filters.', untitled: '(untitled)',
-}|merge(labels) %}
-
 {% if rows|length %}
-    <div class="tableview">
+    <div class="tableview data-table">
     <table class="data fullwidth big">
         <thead>
             <tr>
-                <th scope="col">{{ L.title }}</th>
-                <th scope="col">{{ L.section }}</th>
-                <th scope="col" class="thin">{{ L.status }}</th>
-                <th scope="col" class="thin">{{ L.chunks }}</th>
-                <th scope="col" class="thin">{{ L.lastIndexed }}</th>
+                <th scope="col">Title</th>
+                <th scope="col">Section</th>
+                <th scope="col" class="thin">Status</th>
+                <th scope="col" class="thin">Chunks</th>
+                <th scope="col" class="thin">Last indexed</th>
                 <th scope="col" class="thin"><span class="visually-hidden">Actions</span></th>
             </tr>
         </thead>
@@ -33,18 +21,18 @@
             {% for row in rows %}
                 <tr data-craftsearch-entry-row data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}">
                     <td class="cell-bold">
-                        <a href="{{ cpUrl(entryUrlPath, { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: L.untitled }}</a>
+                        <a href="{{ cpUrl('smart-search/index/entry', { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: '(untitled)' }}</a>
                     </td>
                     <td>{{ row.section }}</td>
                     <td class="thin" data-craftsearch-target="status-cell">
                         {% if row.status == 'excluded' %}
-                            <span class="status grey"></span> {{ L.excluded }}
+                            <span class="status grey"></span> Excluded
                         {% elseif row.status == 'indexed' %}
-                            <span class="status green"></span> {{ L.indexed }}
+                            <span class="status green"></span> Indexed
                         {% elseif row.status == 'stale' %}
-                            <span class="status orange"></span> {{ L.stale }}
+                            <span class="status orange"></span> Stale
                         {% else %}
-                            <span class="status off"></span> {{ L.notIndexed }}
+                            <span class="status off"></span> Not indexed
                         {% endif %}
                     </td>
                     <td class="thin" data-craftsearch-target="chunks-cell">{{ row.chunkCount }}</td>
@@ -56,36 +44,22 @@
                         {% endif %}
                     </td>
                     <td class="thin centeralign">
-                        <form method="post" data-craftsearch-control="reindex-form" data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}"{% if row.excluded %} hidden{% endif %}>
-                            {{ csrfInput() }}
-                            {{ actionInput('smart-search/index/reindex-entry') }}
-                            {{ redirectInput(craft.app.request.url) }}
-                            <input type="hidden" name="elementId" value="{{ row.elementId }}">
-                            <input type="hidden" name="siteId" value="{{ row.siteId }}">
-                            <craft-tooltip placement="top" text="Re-index">
-                                <button type="submit" class="btn small" data-icon="refresh" aria-label="Re-index"></button>
-                            </craft-tooltip>
-                        </form>
-                        <form method="post" data-craftsearch-control="exclude-form" data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}"{% if row.excluded %} hidden{% endif %}>
-                            {{ csrfInput() }}
-                            {{ actionInput('smart-search/index/exclude-entry') }}
-                            {{ redirectInput(craft.app.request.url) }}
-                            <input type="hidden" name="elementId" value="{{ row.elementId }}">
-                            <input type="hidden" name="siteId" value="{{ row.siteId }}">
-                            <craft-tooltip placement="top" text="Exclude from index">
-                                <button type="submit" class="btn small" data-icon="disabled" aria-label="Exclude from index"></button>
-                            </craft-tooltip>
-                        </form>
-                        <form method="post" data-craftsearch-control="include-form" data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}"{% if not row.excluded %} hidden{% endif %}>
-                            {{ csrfInput() }}
-                            {{ actionInput('smart-search/index/include-entry') }}
-                            {{ redirectInput(craft.app.request.url) }}
-                            <input type="hidden" name="elementId" value="{{ row.elementId }}">
-                            <input type="hidden" name="siteId" value="{{ row.siteId }}">
-                            <craft-tooltip placement="top" text="Re-include in index">
-                                <button type="submit" class="btn small" data-icon="plus" aria-label="Re-include in index"></button>
-                            </craft-tooltip>
-                        </form>
+                        {% for action in [
+                            { name: 'reindex', label: 'Re-index',            icon: 'refresh',  hidden: row.excluded },
+                            { name: 'exclude', label: 'Exclude from index',  icon: 'disabled', hidden: row.excluded },
+                            { name: 'include', label: 'Re-include in index', icon: 'plus',     hidden: not row.excluded },
+                        ] %}
+                            <form method="post" data-craftsearch-control="{{ action.name }}-form" data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}"{% if action.hidden %} hidden{% endif %}>
+                                {{ csrfInput() }}
+                                {{ actionInput('smart-search/index/' ~ action.name ~ '-entry') }}
+                                {{ redirectInput(craft.app.request.url) }}
+                                <input type="hidden" name="elementId" value="{{ row.elementId }}">
+                                <input type="hidden" name="siteId" value="{{ row.siteId }}">
+                                <craft-tooltip placement="top" text="{{ action.label }}">
+                                    <button type="submit" class="btn small" data-icon="{{ action.icon }}" aria-label="{{ action.label }}"></button>
+                                </craft-tooltip>
+                            </form>
+                        {% endfor %}
                     </td>
                 </tr>
             {% endfor %}
@@ -93,5 +67,5 @@
     </table>
     </div>
 {% else %}
-    <div class="zilch small">{{ L.emptyMessage }}</div>
+    <div class="zilch small">No entries match these filters.</div>
 {% endif %}

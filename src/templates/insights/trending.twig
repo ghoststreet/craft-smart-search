@@ -26,11 +26,7 @@
                             <td class="rightalign">{{ k.recent|number_format }}</td>
                             <td class="rightalign light">{{ k.prior|number_format }}</td>
                             <td class="rightalign">
-                                {% if k.growthPct is null %}
-                                    <span class="delta-tag delta-tag--up">new</span>
-                                {% else %}
-                                    <span class="delta-tag delta-tag--up">▲ {{ k.growthPct }}%</span>
-                                {% endif %}
+                                <span class="delta-tag delta-tag--up">{{ k.growthPct is null ? 'new' : '▲ ' ~ k.growthPct ~ '%' }}</span>
                             </td>
                         </tr>
                     {% endfor %}
@@ -45,10 +41,10 @@
         } only %}
     {% endif %}
 
-    {% include 'smart-search/_components/pagination-cp' with {
+    {% include 'smart-search/_components/pagination' with {
         currentPage: page.page,
         totalPages: page.pages,
         path: 'smart-search/insights/trending',
-        baseParams: { siteId: filters.siteId },
+        params: { siteId: filters.siteId },
     } only %}
 {% endblock %}

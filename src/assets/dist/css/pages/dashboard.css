@@ -177,7 +177,6 @@
     color: var(--medium-text-color);
     font-weight: 600;
 }
-.dash-title--section { margin-top: 20px; }
 .dash-sub {
     margin: -6px 0 10px;
     color: var(--medium-text-color);

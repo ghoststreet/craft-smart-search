@@ -58,15 +58,12 @@
 {% endblock %}
 
 {% block insightsContent %}
-    {% include 'smart-search/_partials/search-history-table' with {
-        items: page.items,
-        cachedTitle: 'Cached',
-    } only %}
+    {% include 'smart-search/_partials/search-history-table' with { items: page.items } only %}
 
-    {% include 'smart-search/_components/pagination-cp' with {
+    {% include 'smart-search/_components/pagination' with {
         currentPage: page.page,
         totalPages: page.pages,
         path: 'smart-search/insights',
-        baseParams: { days: filters.days, siteId: filters.siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null },
+        params: { days: filters.days, siteId: filters.siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null },
     } only %}
 {% endblock %}

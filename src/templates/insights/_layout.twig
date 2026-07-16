@@ -30,15 +30,15 @@
                 <div class="filter-bar__group">
                     {{ f.sitesSelect(sites, siteId) }}
                     {% if showDays %}
-                        {{ f.daysSelect(days, 'Time range') }}
+                        {{ f.daysSelect(days) }}
                     {% endif %}
                     {% if showType %}
                         {{ f.typeSelect(filters.type) }}
                     {% endif %}
                     {% if showErrorsOnly %}
-                        {{ f.errorsOnlyCheckbox(filters.errorsOnly, true) }}
+                        {{ f.errorsOnlyCheckbox(filters.errorsOnly) }}
                     {% endif %}
-                    {{ f.submitButton() }}
+                    <button type="submit" class="btn submit">Filter</button>
                     {{ f.resetButton(pageUrl, hasActiveFilters) }}
                 </div>
             </form>

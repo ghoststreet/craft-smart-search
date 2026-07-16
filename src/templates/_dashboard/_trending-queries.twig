@@ -21,11 +21,7 @@
                     <td>{{ q.query|slice(0, 80) }}{% if q.query|length > 80 %}…{% endif %}</td>
                     <td class="rightalign">{{ q.recent|number_format }}</td>
                     <td class="rightalign">
-                        {% if q.growthPct is null %}
-                            <span class="delta-tag delta-tag--up">new</span>
-                        {% else %}
-                            <span class="delta-tag delta-tag--up">▲ {{ q.growthPct }}%</span>
-                        {% endif %}
+                        <span class="delta-tag delta-tag--up">{{ q.growthPct is null ? 'new' : '▲ ' ~ q.growthPct ~ '%' }}</span>
                     </td>
                 </tr>
             {% else %}

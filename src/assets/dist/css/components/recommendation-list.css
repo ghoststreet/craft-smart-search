@@ -21,9 +21,5 @@
     background: var(--smart-search-warn-bg);
     color: var(--smart-search-warn-fg);
 }
-.recommendation-list__level--crit {
-    background: var(--smart-search-danger-bg);
-    color: var(--smart-search-danger-fg);
-}
 .recommendation-list__body { color: var(--medium-text-color); }
 .recommendation-list__cta { margin-left: 6px; }

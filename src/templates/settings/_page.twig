@@ -1,0 +1,69 @@
+{#
+    Every Settings tab. The controller's SCENARIO_PAGES table decides which
+    fields partial renders and where the form posts back to, so the tabs need
+    no template of their own.
+
+    Params (from SettingsController::renderScenario):
+        partial             string  fields partial, e.g. 'smart-search/_settings/_indexing'
+        pageKey             string  selected tab
+        pageUrl             string  this page's CP path, used for the post-save redirect
+        scenario            string  Settings model scenario
+        connectionsSubPage  ?string 'postgres' | 'openai' — adds the Connections sub-nav
+#}
+{% extends "_layouts/cp" %}
+
+{% set title = 'Settings' %}
+{% set wikiUrl = 'https://github.com/ghoststreet/craft-smart-search/wiki' %}
+{% set selectedSubnavItem = 'settings' %}
+
+{% set tabs = {
+    connections:    { label: 'Connections',  url: cpUrl('smart-search/settings/connections/postgres') },
+    indexing:       { label: 'Indexing',     url: cpUrl('smart-search/settings/indexing') },
+    'smart-search': { label: 'Smart Search', url: cpUrl('smart-search/settings/smart-search') },
+    'ai-answer':    { label: 'AI Answer',    url: cpUrl('smart-search/settings/ai-answer') },
+    advanced:       { label: 'Advanced',     url: cpUrl('smart-search/settings/advanced') },
+} %}
+{% set selectedTab = pageKey %}
+
+{% set form %}
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('smart-search/settings/save') }}
+        <input type="hidden" name="scenario" value="{{ scenario }}">
+        {{ redirectInput(pageUrl) }}
+
+        {% set scenarioErrors = settings.errorsForScenario(scenario) %}
+        {% if scenarioErrors|length %}
+            <blockquote class="note error">
+                <p><strong>Please fix the following:</strong></p>
+                <ul>{% for e in scenarioErrors %}<li>{{ e }}</li>{% endfor %}</ul>
+            </blockquote>
+        {% endif %}
+
+        {% include partial %}
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Save'|t('smart-search') }}</button>
+        </div>
+    </form>
+{% endset %}
+
+{% block content %}
+    {% if connectionsSubPage %}
+        <div class="settings-connections">
+            <nav class="settings-connections__nav">
+                <ul>
+                    {% for key, label in { postgres: 'PostgreSQL', openai: 'OpenAI' } %}
+                        <li>
+                            <a href="{{ cpUrl('smart-search/settings/connections/' ~ key) }}"
+                               class="{{ connectionsSubPage == key ? 'is-active' : '' }}">{{ label }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+            <div class="settings-connections__body">{{ form }}</div>
+        </div>
+    {% else %}
+        {{ form }}
+    {% endif %}
+{% endblock %}

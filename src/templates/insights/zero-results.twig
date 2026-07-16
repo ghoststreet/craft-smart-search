@@ -36,10 +36,10 @@
         } only %}
     {% endif %}
 
-    {% include 'smart-search/_components/pagination-cp' with {
+    {% include 'smart-search/_components/pagination' with {
         currentPage: page.page,
         totalPages: page.pages,
         path: 'smart-search/insights/zero-results',
-        baseParams: { days: filters.days, siteId: filters.siteId },
+        params: { days: filters.days, siteId: filters.siteId },
     } only %}
 {% endblock %}

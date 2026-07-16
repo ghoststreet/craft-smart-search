@@ -17,15 +17,11 @@
 
 {% include 'smart-search/_partials/entries-stats' with { counts: counts } only %}
 
-{% include 'smart-search/_partials/entries-table' with {
-    rows: result.rows,
-    entryUrlPath: 'smart-search/index/entry',
-} only %}
+{% include 'smart-search/_partials/entries-table' with { rows: result.rows } only %}
 
-{% include 'smart-search/_components/pagination-path' with {
+{% include 'smart-search/_components/pagination' with {
     currentPage: result.page,
     totalPages: totalPages,
     params: filters,
-    pageLabel: 'Page ' ~ result.page ~ ' of ' ~ totalPages,
     path: 'smart-search/index/entries',
 } only %}

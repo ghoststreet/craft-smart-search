@@ -9,14 +9,11 @@
         {{ filters.sitesSelect(sites, siteFilter) }}
         {{ filters.typeSelect(typeFilter) }}
         {{ filters.errorsOnlyCheckbox(errorsOnly) }}
-        {{ filters.submitButton() }}
 #}
-{% import "_includes/forms.twig" as forms %}
-
-{% macro daysSelect(daysFilter, label) %}
+{% macro daysSelect(daysFilter) %}
     {% import "_includes/forms.twig" as forms %}
     {{ forms.selectField({
-        label: label ?? 'Time range',
+        label: 'Time range',
         name: 'days',
         value: daysFilter,
         options: [
@@ -61,7 +58,7 @@
     }) }}
 {% endmacro %}
 
-{% macro errorsOnlyCheckbox(errorsOnly, inline) %}
+{% macro errorsOnlyCheckbox(errorsOnly) %}
     {% import "_includes/forms.twig" as forms %}
     {{ forms.checkboxField({
         label: 'Errors only',
@@ -69,10 +66,6 @@
         value: 1,
         checked: errorsOnly,
     }) }}
-{% endmacro %}
-
-{% macro submitButton(label) %}
-    <button type="submit" class="btn submit">{{ label ?? 'Filter' }}</button>
 {% endmacro %}
 
 {#

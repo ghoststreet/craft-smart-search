@@ -2,26 +2,16 @@
 
 {% set title = 'Smart Search' %}
 
-{% set seriesSearches = [] %}
-{% set seriesCost = [] %}
-{% for r in dailySeries %}
-    {% set seriesSearches = seriesSearches|merge([{ date: r.date, value: r.searches }]) %}
-    {% set seriesCost = seriesCost|merge([{ date: r.date, value: r.cost }]) %}
-{% endfor %}
+{% set seriesSearches = dailySeries|map(r => { date: r.date, value: r.searches }) %}
+{% set seriesCost = dailySeries|map(r => { date: r.date, value: r.cost }) %}
 
-{% set coverageTotals = { indexed: 0, stale: 0, notIndexed: 0 } %}
-{% for c in coverage %}
-    {% set coverageTotals = {
-        indexed: coverageTotals.indexed + c.indexed,
-        stale: coverageTotals.stale + c.stale,
-        notIndexed: coverageTotals.notIndexed + c.notIndexed,
-    } %}
-{% endfor %}
+{% set coverageTotals = {
+    indexed: coverage|reduce((sum, c) => sum + c.indexed, 0),
+    stale: coverage|reduce((sum, c) => sum + c.stale, 0),
+    notIndexed: coverage|reduce((sum, c) => sum + c.notIndexed, 0),
+} %}
 {% set coverageTotal = coverageTotals.indexed + coverageTotals.stale + coverageTotals.notIndexed %}
 {% set coveragePct = coverageTotal > 0 ? (coverageTotals.indexed / coverageTotal * 100)|round : 0 %}
-
-{% set budgetClass = budget.ratio >= 0.9 ? 'budget-bar--crit' : (budget.ratio >= 0.75 ? 'budget-bar--warn' : '') %}
-{% set budgetPct = (budget.ratio * 100)|round %}
 
 {% block content %}
 {% if not setupComplete %}
@@ -72,8 +62,6 @@
             seriesSearches: seriesSearches,
             seriesCost: seriesCost,
             budget: budget,
-            budgetClass: budgetClass,
-            budgetPct: budgetPct,
             stats: stats,
             coveragePct: coveragePct,
             coverageTotal: coverageTotal,
@@ -151,12 +139,12 @@
     {% endif %}
 
     <div class="dash-row">
-        {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, show: 'action' } only %}
+        {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, level: 'warn', heading: 'Action required' } only %}
     </div>
 
     {% if hasSearches %}
         <div class="dash-row">
-            {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, show: 'suggestions' } only %}
+            {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, level: 'info', heading: 'Suggestions' } only %}
         </div>
     {% endif %}
 

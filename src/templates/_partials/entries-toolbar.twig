@@ -1,64 +1,41 @@
 {#
     Filter toolbar for the indexable-entries listing.
-    Used by index-mgmt/index.twig.
+    Used by index-mgmt/entries.twig.
 
     Params:
-        filters         object  { siteId, section, status }
-        sites           iterable
-        sections        iterable
-        formClass       string  optional class on the <form>
-        hiddenFields    object  optional hidden inputs, e.g. { tab: 'entries' }
-        labels          object  { site, section, status, all, allSections, indexed,
-                                  stale, notIndexed, filter }
+        filters   object  { siteId, section, status }
+        sites     iterable
+        sections  iterable
 #}
 {% import "_includes/forms.twig" as forms %}
 {% import 'smart-search/_components/filter-fields' as f %}
 
-{% set labels = labels ?? {} %}
-{% set L = {
-    site: 'Site', section: 'Section', status: 'Status',
-    all: 'All', allSections: 'All sections',
-    indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed',
-    excluded: 'Excluded',
-    filter: 'Filter',
-}|merge(labels) %}
-
-{% set sectionOptions = [{ label: L.allSections, value: '' }] %}
-{% for section in sections %}
-    {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
-{% endfor %}
-
-{% set statusOptions = [
-    { label: L.all, value: '' },
-    { label: L.indexed, value: 'indexed' },
-    { label: L.stale, value: 'stale' },
-    { label: L.notIndexed, value: 'not-indexed' },
-    { label: L.excluded, value: 'excluded' },
-] %}
-
 <div class="filter-bar" data-craftsearch-target="filter-bar">
-    <form method="get" action="{{ cpUrl('smart-search/index/entries') }}" class="filter-bar__form{% if formClass is defined and formClass %} {{ formClass }}{% endif %}" data-craftsearch-target="filter-bar-form">
-        {% for name, value in hiddenFields ?? {} %}
-            <input type="hidden" name="{{ name }}" value="{{ value }}">
-        {% endfor %}
+    <form method="get" action="{{ cpUrl('smart-search/index/entries') }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
         <div class="filter-bar__group">
             {{ f.sitesSelect(sites, filters.siteId, false) }}
 
             {{ forms.selectField({
-                label: L.section,
+                label: 'Section',
                 name: 'section',
                 value: filters.section,
-                options: sectionOptions,
+                options: [{ label: 'All sections', value: '' }]|merge(sections|map(s => { label: s.name, value: s.handle })),
             }) }}
 
             {{ forms.selectField({
-                label: L.status,
+                label: 'Status',
                 name: 'status',
                 value: filters.status,
-                options: statusOptions,
+                options: [
+                    { label: 'All', value: '' },
+                    { label: 'Indexed', value: 'indexed' },
+                    { label: 'Stale', value: 'stale' },
+                    { label: 'Not indexed', value: 'not-indexed' },
+                    { label: 'Excluded', value: 'excluded' },
+                ],
             }) }}
 
-            <button type="submit" class="btn submit">{{ L.filter }}</button>
+            <button type="submit" class="btn submit">Filter</button>
             {{ f.resetButton(
                 cpUrl('smart-search/index/entries'),
                 hasActiveFilters ?? (filters.section or filters.status)

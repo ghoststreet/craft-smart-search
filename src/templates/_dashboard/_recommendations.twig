@@ -1,43 +1,26 @@
 {#
-    Recommendations card. Splits Action Required (warn) from Suggestions (info).
-    Crit items are surfaced as a page-top banner already, so they're omitted here.
+    Recommendations card for a single severity level.
+    Crit items are surfaced as a page-top banner by index.twig, so they never reach here.
 
     Params:
         recommendations  iterable of { level, title, body, cta? }
-        show             'all' | 'action' | 'suggestions' (default 'all')
+        level            'warn' | 'info'
+        heading          string  card title
 #}
-{% set show = show ?? 'all' %}
-{% set actionRequired = (show in ['all', 'action']) ? recommendations|filter(r => r.level == 'warn') : [] %}
-{% set suggestions = (show in ['all', 'suggestions']) ? recommendations|filter(r => r.level == 'info') : [] %}
+{% set items = recommendations|filter(r => r.level == level) %}
 
-{% if actionRequired|length or suggestions|length %}
+{% if items|length %}
     <div class="pane recommendation-list">
-        {% if actionRequired|length %}
-            <h3 class="dash-title">Action required</h3>
-            <ul class="recommendation-list__items">
-                {% for r in actionRequired %}
-                    <li>
-                        <span class="recommendation-list__level recommendation-list__level--{{ r.level }}">{{ { crit: 'Critical', warn: 'Warning', info: 'Tip' }[r.level] ?? r.level }}</span>
-                        <strong>{{ r.title }}.</strong>
-                        <span class="recommendation-list__body">{{ r.body }}</span>
-                        {% if r.cta %}<a class="recommendation-list__cta" href="{{ r.cta.url }}">{{ r.cta.label }} →</a>{% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-
-        {% if suggestions|length %}
-            <h3 class="dash-title{% if actionRequired|length %} dash-title--section{% endif %}">Suggestions</h3>
-            <ul class="recommendation-list__items">
-                {% for r in suggestions %}
-                    <li>
-                        <span class="recommendation-list__level recommendation-list__level--{{ r.level }}">{{ { crit: 'Critical', warn: 'Warning', info: 'Tip' }[r.level] ?? r.level }}</span>
-                        <strong>{{ r.title }}.</strong>
-                        <span class="recommendation-list__body">{{ r.body }}</span>
-                        {% if r.cta %}<a class="recommendation-list__cta" href="{{ r.cta.url }}">{{ r.cta.label }} →</a>{% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
-        {% endif %}
+        <h3 class="dash-title">{{ heading }}</h3>
+        <ul class="recommendation-list__items">
+            {% for r in items %}
+                <li>
+                    <span class="recommendation-list__level recommendation-list__level--{{ r.level }}">{{ { warn: 'Warning', info: 'Tip' }[r.level] ?? r.level }}</span>
+                    <strong>{{ r.title }}.</strong>
+                    <span class="recommendation-list__body">{{ r.body }}</span>
+                    {% if r.cta %}<a class="recommendation-list__cta" href="{{ r.cta.url }}">{{ r.cta.label }} →</a>{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
     </div>
 {% endif %}

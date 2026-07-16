@@ -16,40 +16,41 @@ class SettingsController extends BaseApiController
     protected array|int|bool $allowAnonymous = false;
 
     /**
-     * Scenario => [CP page URL, template path, page key, optional sub-page].
+     * Scenario => [CP page URL, fields partial, page key, optional sub-page].
      * Drives entry-point redirects, post-save redirects, and on-failure renders.
+     * Every scenario renders settings/_page; only the fields partial differs.
      */
     private const SCENARIO_PAGES = [
         Settings::SCENARIO_CONNECTIONS_OPENAI => [
             'url' => 'smart-search/settings/connections/openai',
-            'template' => 'smart-search/settings/connections/openai',
+            'partial' => 'smart-search/_settings/_connections_openai',
             'pageKey' => 'connections',
             'subPage' => 'openai',
         ],
         Settings::SCENARIO_CONNECTIONS_POSTGRES => [
             'url' => 'smart-search/settings/connections/postgres',
-            'template' => 'smart-search/settings/connections/postgres',
+            'partial' => 'smart-search/_settings/_connections_postgres',
             'pageKey' => 'connections',
             'subPage' => 'postgres',
         ],
         Settings::SCENARIO_INDEXING => [
             'url' => 'smart-search/settings/indexing',
-            'template' => 'smart-search/settings/indexing',
+            'partial' => 'smart-search/_settings/_indexing',
             'pageKey' => 'indexing',
         ],
         Settings::SCENARIO_SMART_SEARCH => [
             'url' => 'smart-search/settings/smart-search',
-            'template' => 'smart-search/settings/smart-search',
+            'partial' => 'smart-search/_settings/_smart_search',
             'pageKey' => 'smart-search',
         ],
         Settings::SCENARIO_AI_ANSWER => [
             'url' => 'smart-search/settings/ai-answer',
-            'template' => 'smart-search/settings/ai-answer',
+            'partial' => 'smart-search/_settings/_ai_answer',
             'pageKey' => 'ai-answer',
         ],
         Settings::SCENARIO_ADVANCED => [
             'url' => 'smart-search/settings/advanced',
-            'template' => 'smart-search/settings/advanced',
+            'partial' => 'smart-search/_settings/_advanced',
             'pageKey' => 'advanced',
         ],
     ];
@@ -134,12 +135,14 @@ class SettingsController extends BaseApiController
         $page = self::SCENARIO_PAGES[$scenario];
         $settings ??= SmartSearch::getInstance()->getSettings();
 
-        return $this->renderTemplate($page['template'], [
+        return $this->renderTemplate('smart-search/settings/_page', [
             'plugin' => SmartSearch::getInstance(),
             'settings' => $settings,
             'selectedSubnavItem' => 'settings',
             'insightsAvailable' => SmartSearch::getInstance()->historyService->count() > 0,
+            'partial' => $page['partial'],
             'pageKey' => $page['pageKey'],
+            'pageUrl' => $page['url'],
             'connectionsSubPage' => $page['subPage'] ?? null,
             'scenario' => $scenario,
         ]);

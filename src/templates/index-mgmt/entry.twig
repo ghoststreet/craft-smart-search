@@ -2,19 +2,13 @@
 
 {% set entry = inspection.entry %}
 {% set chunkCount = inspection.chunks|length %}
-{% set status = chunkCount > 0 ? 'indexed' : 'not-indexed' %}
 
-{% set fieldsIndexed = 0 %}
-{% for field in inspection.fields %}{% if field.indexed %}{% set fieldsIndexed = fieldsIndexed + 1 %}{% endif %}{% endfor %}
+{% set fieldsIndexed = inspection.fields|filter(f => f.indexed)|length %}
 
-{% set totalTokens = 0 %}
-{% set maxChunkTokens = 0 %}
-{% set lastIndexed = null %}
-{% for chunk in inspection.chunks %}
-    {% set totalTokens = totalTokens + (chunk.estimatedTokens ?? 0) %}
-    {% if (chunk.estimatedTokens ?? 0) > maxChunkTokens %}{% set maxChunkTokens = chunk.estimatedTokens %}{% endif %}
-    {% if lastIndexed is null or chunk.dateUpdated > lastIndexed %}{% set lastIndexed = chunk.dateUpdated %}{% endif %}
-{% endfor %}
+{% set chunkTokens = inspection.chunks|map(c => c.estimatedTokens ?? 0) %}
+{% set totalTokens = chunkTokens|reduce((sum, t) => sum + t, 0) %}
+{% set maxChunkTokens = chunkCount ? max(chunkTokens) : 0 %}
+{% set lastIndexed = chunkCount ? max(inspection.chunks|map(c => c.dateUpdated)) : null %}
 
 {% set fieldsSorted = inspection.fields|sort((a, b) => (b.indexed ? 1 : 0) <=> (a.indexed ? 1 : 0)) %}
 
@@ -146,10 +140,8 @@
         <div class="index-entry__stat">
             <span class="index-entry__stat-label">{{ 'Status'|t('smart-search') }}</span>
             <span class="index-entry__stat-value">
-                {% if status == 'indexed' %}
+                {% if chunkCount > 0 %}
                     <span class="status green"></span>{{ 'Indexed'|t('smart-search') }}
-                {% elseif status == 'stale' %}
-                    <span class="status orange"></span>{{ 'Stale'|t('smart-search') }}
                 {% else %}
                     <span class="status off"></span>{{ 'Not indexed'|t('smart-search') }}
                 {% endif %}

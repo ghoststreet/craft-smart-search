@@ -1,35 +1,32 @@
 {#
-    Index status counts grid (Total / Indexed / Stale / Not indexed).
-    Used by index-mgmt/index.twig.
+    Index status counts grid. Used by _partials/entries-content.twig.
 
     Params:
-        counts  object  { total, indexed, stale, 'not-indexed' }
-        labels  object  { total, indexed, stale, notIndexed }
+        counts  object  { total, indexed, stale, 'not-indexed', excluded }
 #}
-{% set labels = labels ?? { total: 'Total', indexed: 'Indexed', stale: 'Stale', notIndexed: 'Not indexed', excluded: 'Excluded' } %}
 <div class="index-stats">
     <div class="index-stats__item">
         <span class="index-stats__count">{{ counts.total }}</span>
-        <span class="index-stats__label">{{ labels.total }}</span>
+        <span class="index-stats__label">Total</span>
     </div>
     <div class="index-stats__item">
         <span class="status green"></span>
         <span class="index-stats__count">{{ counts.indexed }}</span>
-        <span class="index-stats__label">{{ labels.indexed }}</span>
+        <span class="index-stats__label">Indexed</span>
     </div>
     <div class="index-stats__item">
         <span class="status orange"></span>
         <span class="index-stats__count">{{ counts.stale }}</span>
-        <span class="index-stats__label">{{ labels.stale }}</span>
+        <span class="index-stats__label">Stale</span>
     </div>
     <div class="index-stats__item">
         <span class="status off"></span>
         <span class="index-stats__count">{{ counts['not-indexed'] }}</span>
-        <span class="index-stats__label">{{ labels.notIndexed }}</span>
+        <span class="index-stats__label">Not indexed</span>
     </div>
     <div class="index-stats__item">
         <span class="status grey"></span>
         <span class="index-stats__count">{{ counts.excluded ?? 0 }}</span>
-        <span class="index-stats__label">{{ labels.excluded }}</span>
+        <span class="index-stats__label">Excluded</span>
     </div>
 </div>

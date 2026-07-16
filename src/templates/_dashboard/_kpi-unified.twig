@@ -1,6 +1,9 @@
 {#
     Unified KPI hero row: Searches · Spend · Index coverage (donut).
 #}
+{% set budgetPct = (budget.ratio * 100)|round %}
+{% set budgetClass = budget.ratio >= 0.9 ? 'budget-bar--crit' : (budget.ratio >= 0.75 ? 'budget-bar--warn' : '') %}
+
 <div class="kpi-card">
     <div class="kpi-card__label">Searches · {{ aggregates.rangeDays }}d</div>
     <div class="kpi-card__value">{{ aggregates.searches|number_format }}</div>

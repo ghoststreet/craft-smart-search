@@ -26,13 +26,12 @@
 {% endif %}
 
 {% set presets = {
-    'synced':      { pillLabel: 'Healthy',    pillDot: 'on',     buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
-    'needs-sync':  { pillLabel: 'Needs sync', pillDot: 'orange', buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
-    'not-synced':  { pillLabel: 'Not synced', pillDot: 'off',    buttonClass: ' submit',                  buttonDisabled: false, heroPrefix: 'entries indexed · ',     buttonLabel: 'Sync Index' },
+    'synced':      { pillLabel: 'Healthy',    pillDot: 'on',     buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' },
+    'needs-sync':  { pillLabel: 'Needs sync', pillDot: 'orange', buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' },
+    'not-synced':  { pillLabel: 'Not synced', pillDot: 'off',    buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' },
     'indexing':    { pillLabel: jobRunning ? 'Indexing' : 'Queued',
                      pillDot: 'blue',
                      buttonClass: '',
-                     buttonDisabled: false,
                      heroPrefix: jobRunning ? 'indexing · ' : 'waiting for worker · ',
                      buttonLabel: 'Cancel' },
 } %}
@@ -81,7 +80,7 @@
             {{ csrfInput() }}
             {{ actionInput('smart-search/index/sync') }}
             <input type="hidden" name="siteId" value="{{ site.siteId }}">
-            <button type="submit" class="btn{{ p.buttonClass }}{% if p.buttonDisabled %} disabled{% endif %}" data-craftsearch-control="sync-site-btn"{% if p.buttonDisabled %} disabled aria-disabled="true"{% endif %}>
+            <button type="submit" class="btn{{ p.buttonClass }}" data-craftsearch-control="sync-site-btn">
                 <span data-craftsearch-target="button-label">{{ p.buttonLabel }}</span>
             </button>
         </form>

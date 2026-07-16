@@ -3,4 +3,3 @@
     color: var(--medium-text-color);
 }
 .delta-tag--up { color: var(--smart-search-success); }
-.delta-tag--down { color: var(--smart-search-danger); }
