@@ -13,7 +13,6 @@ class Settings extends Model
 {
     public const IDENTIFIER_REGEX = '/^[a-zA-Z_][a-zA-Z0-9_\-]{0,62}$/';
 
-    public const SCENARIO_CONNECTIONS = 'connections';
     public const SCENARIO_CONNECTIONS_OPENAI = 'connections.openai';
     public const SCENARIO_CONNECTIONS_POSTGRES = 'connections.postgres';
     public const SCENARIO_INDEXING = 'indexing';
@@ -82,12 +81,6 @@ class Settings extends Model
      * (mass-assignment filtering) and the `on` tag on every rule below.
      */
     public const SCENARIO_ATTRIBUTES = [
-        self::SCENARIO_CONNECTIONS => [
-            'openaiApiKey',
-            'postgresqlHost', 'postgresqlPort', 'postgresqlDatabase', 'postgresqlUser',
-            'postgresqlPassword', 'postgresqlSslMode',
-            'vectorsSchemaName', 'vectorsTableName',
-        ],
         self::SCENARIO_CONNECTIONS_OPENAI => [
             'openaiApiKey',
             'embeddingModel',
@@ -159,8 +152,8 @@ class Settings extends Model
      */
     public function rules(): array
     {
-        $openai = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS, self::SCENARIO_CONNECTIONS_OPENAI];
-        $postgres = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS, self::SCENARIO_CONNECTIONS_POSTGRES];
+        $openai = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS_OPENAI];
+        $postgres = [self::SCENARIO_DEFAULT, self::SCENARIO_CONNECTIONS_POSTGRES];
         $indexing = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
         $smartSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_SMART_SEARCH];
         $aiAnswer = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWER];
@@ -174,21 +167,17 @@ class Settings extends Model
             // PostgreSQL connection — Connections / PostgreSQL
             [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlPassword', 'postgresqlPort', 'postgresqlSslMode'], 'required', 'on' => $postgres],
             [['postgresqlHost', 'postgresqlDatabase', 'postgresqlUser', 'postgresqlSslMode'], 'string', 'on' => $postgres],
-            [['postgresqlPort'], function($attribute) {
-                $value = $this->$attribute;
-                if (!is_string($value) && !is_int($value)) {
-                    $this->addError($attribute, 'Port must be a string or integer.');
-                }
-            }, 'on' => $postgres],
             [['postgresqlPassword'], 'string', 'on' => $postgres],
             [['postgresqlPassword'], 'validateEnvSecret', 'on' => $postgres],
             [['postgresqlPort'], 'default', 'value' => 5432],
             [['postgresqlSslMode'], 'in', 'range' => ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], 'on' => $postgres],
 
-            // Vector storage identifiers — Connections / PostgreSQL
+            // Table/schema identifiers — Connections / PostgreSQL
+            [['vectorsTableName', 'termsTableName', 'boostsTableName'], 'required', 'on' => $postgres],
             [['vectorsSchemaName'], 'default', 'value' => 'public'],
-            [['vectorsTableName'], 'required', 'on' => $postgres],
-            [['vectorsTableName', 'vectorsSchemaName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
+            [['termsTableName'], 'default', 'value' => 'smart_search_terms'],
+            [['boostsTableName'], 'default', 'value' => 'smart_search_boosts'],
+            [['vectorsTableName', 'vectorsSchemaName', 'termsTableName', 'boostsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
                 'on' => $postgres, ],
 
@@ -203,7 +192,7 @@ class Settings extends Model
             [['overlapTokens'], 'default', 'value' => 40],
             [['chunkThresholdTokens'], 'integer', 'min' => 100, 'max' => 1000, 'on' => $indexing],
             [['chunkThresholdTokens'], 'default', 'value' => 500],
-            [['minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens'], 'validateChunkSizing', 'on' => $indexing],
+            [['minChunkTokens', 'targetChunkTokens', 'overlapTokens'], 'validateChunkSizing', 'on' => $indexing],
 
             // Embedding cache TTL — Indexing
             [['embeddingCacheTtlDays'], 'integer', 'min' => 0, 'max' => 30, 'on' => $indexing],
@@ -231,18 +220,6 @@ class Settings extends Model
             [['enableTypoTolerance'], 'boolean', 'on' => $smartSearch],
             [['enableTypoTolerance'], 'default', 'value' => true],
 
-            [['termsTableName'], 'required', 'on' => $postgres],
-            [['termsTableName'], 'default', 'value' => 'smart_search_terms'],
-            [['termsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
-                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
-                'on' => $postgres, ],
-
-            [['boostsTableName'], 'required', 'on' => $postgres],
-            [['boostsTableName'], 'default', 'value' => 'smart_search_boosts'],
-            [['boostsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
-                'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
-                'on' => $postgres, ],
-
             // Smart Search — rate limits (0 disables the window)
             [['rateLimitSearchPerMinute', 'rateLimitSearchPerHour'], 'integer', 'min' => 0, 'max' => 100000, 'on' => $smartSearch],
 
@@ -262,7 +239,7 @@ class Settings extends Model
 
             // Advanced — API access
             [['apiToken'], 'string', 'on' => $advanced],
-            [['apiToken'], 'validateOptionalEnvSecret', 'on' => $advanced],
+            [['apiToken'], 'validateEnvSecret', 'on' => $advanced],
             [['allowedOrigins'], 'string', 'on' => $advanced],
             [['allowedOrigins'], 'validateAllowedOrigins', 'on' => $advanced],
         ];
@@ -328,17 +305,6 @@ class Settings extends Model
         if ($resolved === null || $resolved === '') {
             $this->addError($attribute, 'Environment variable ' . $value . ' is not set or is empty.');
         }
-    }
-
-    public function validateOptionalEnvSecret(string $attribute): void
-    {
-        $value = $this->$attribute;
-
-        if (!is_string($value) || $value === '') {
-            return;
-        }
-
-        $this->validateEnvSecret($attribute);
     }
 
     public function validateAllowedOrigins(string $attribute): void
@@ -435,11 +401,7 @@ class Settings extends Model
      */
     public function getPostgresqlPort(): int
     {
-        if (is_string($this->postgresqlPort)) {
-            return (int)App::parseEnv($this->postgresqlPort);
-        }
-
-        return (int)$this->postgresqlPort;
+        return (int)App::parseEnv((string)$this->postgresqlPort);
     }
 
     /**
@@ -463,32 +425,17 @@ class Settings extends Model
         return $trimmed === '' ? null : $trimmed;
     }
 
-    public function getQualifiedVectorsTable(): string
-    {
-        $qualified = $this->getQualifiedVectorsTableOrNull();
-        if ($qualified === null) {
-            throw new RuntimeException('Vectors table/schema name failed identifier validation.');
-        }
-        return $qualified;
-    }
-
     /**
-     * Same as {@see getQualifiedVectorsTable()} but returns null instead of
-     * throwing when the schema/table name is empty or fails identifier
-     * validation. Use this in read-only contexts (settings UI, status panels,
-     * health checks) where an unconfigured plugin must not crash the page.
-     *
-     * SQL-executing callers should keep using the throwing variant — the throw
-     * is a defense against unvalidated identifiers being interpolated into raw
-     * SQL.
+     * The throw is a defense against unvalidated identifiers being
+     * interpolated into raw SQL.
      */
-    public function getQualifiedVectorsTableOrNull(): ?string
+    public function getQualifiedVectorsTable(): string
     {
         $schema = $this->vectorsSchemaName;
         $table = $this->vectorsTableName;
 
         if (!preg_match(self::IDENTIFIER_REGEX, $schema) || !preg_match(self::IDENTIFIER_REGEX, $table)) {
-            return null;
+            throw new RuntimeException('Vectors table/schema name failed identifier validation.');
         }
 
         return "\"{$schema}\".\"{$table}\"";
