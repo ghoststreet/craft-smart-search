@@ -33,8 +33,7 @@
                 e.preventDefault();
                 open(trigger.getAttribute('data-craftsearch-error-message'));
             });
-        },
-        show: open
+        }
     };
 
     DOM.ready(ns.components.ErrorModal.init);

@@ -396,73 +396,49 @@ class Settings extends Model
         );
     }
 
-    /**
-     * Get the OpenAI API key, resolving any environment variable reference (e.g. `$OPENAI_API_KEY`).
-     */
+    // Each getter resolves an env var reference (e.g. `$OPENAI_API_KEY`) to its value.
+
     public function getOpenaiApiKey(): ?string
     {
         return $this->parseEnvOrNull($this->openaiApiKey);
     }
 
-    /**
-     * Get the PostgreSQL host, resolving any environment variable reference.
-     */
     public function getPostgresqlHost(): ?string
     {
         return $this->parseEnvOrNull($this->postgresqlHost);
     }
 
-    /**
-     * Get the PostgreSQL database name, resolving any environment variable reference.
-     */
     public function getPostgresqlDatabase(): ?string
     {
         return $this->parseEnvOrNull($this->postgresqlDatabase);
     }
 
-    /**
-     * Get the PostgreSQL user, resolving any environment variable reference.
-     */
     public function getPostgresqlUser(): ?string
     {
         return $this->parseEnvOrNull($this->postgresqlUser);
     }
 
-    /**
-     * Get the PostgreSQL password, resolving any environment variable reference.
-     */
     public function getPostgresqlPassword(): ?string
     {
         return $this->parseEnvOrNull($this->postgresqlPassword);
     }
 
-    /**
-     * Parse an environment variable reference, returning null for empty values.
-     */
+    /** Empty values resolve to null rather than an empty string. */
     private function parseEnvOrNull(?string $value): ?string
     {
         return empty($value) ? null : App::parseEnv($value);
     }
 
-    /**
-     * Get the PostgreSQL port, resolving any environment variable reference.
-     */
     public function getPostgresqlPort(): int
     {
         return (int)App::parseEnv((string)$this->postgresqlPort);
     }
 
-    /**
-     * Get the PostgreSQL SSL mode, resolving any environment variable reference.
-     */
     public function getPostgresqlSslMode(): string
     {
         return App::parseEnv($this->postgresqlSslMode);
     }
 
-    /**
-     * Get the API token, resolving any environment variable reference.
-     */
     public function getApiToken(): ?string
     {
         $token = $this->parseEnvOrNull($this->apiToken);

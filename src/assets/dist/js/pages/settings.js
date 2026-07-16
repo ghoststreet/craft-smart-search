@@ -22,8 +22,7 @@
 
     function runTest(action, getData, result, successMessage) {
         setResult(result, 'Testing…', '');
-        var options = getData ? { data: getData() } : {};
-        Craft.sendActionRequest('POST', action, options)
+        Craft.sendActionRequest('POST', action, { data: getData() })
             .then(function (response) {
                 var data = response.data || {};
                 if (data.success && data.warning) setResult(result, data.warning, 'warn');

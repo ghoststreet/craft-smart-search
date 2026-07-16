@@ -13,12 +13,5 @@
         });
     }
 
-    function init() {
-        bindDismissGuide();
-        if (typeof Chart === 'undefined') return;
-        ns.core.ChartTheme.applyChartDefaults();
-        ns.components.Chart.buildAll();
-    }
-
-    DOM.ready(init);
+    DOM.ready(bindDismissGuide);
 })();

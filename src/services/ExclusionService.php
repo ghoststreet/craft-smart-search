@@ -2,6 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
+use craft\helpers\Db;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\records\ExcludedEntryRecord;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -29,13 +30,7 @@ class ExclusionService extends Component
      */
     public function exclude(int $elementId, int $siteId): void
     {
-        $record = ExcludedEntryRecord::findOne(['elementId' => $elementId, 'siteId' => $siteId]);
-        if ($record === null) {
-            $record = new ExcludedEntryRecord();
-            $record->elementId = $elementId;
-            $record->siteId = $siteId;
-            $record->save();
-        }
+        Db::upsert(ExcludedEntryRecord::tableName(), ['elementId' => $elementId, 'siteId' => $siteId], false);
 
         SmartSearch::getInstance()->embeddingService->deleteVector($elementId, $siteId);
         Logger::info('Excluded entry from index', ['elementId' => $elementId, 'siteId' => $siteId]);

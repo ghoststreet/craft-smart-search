@@ -226,27 +226,15 @@ class SmartSearch extends Plugin
                 $event->rules['smart-search/settings/ai-answer'] = 'smart-search/settings/ai-answer';
                 $event->rules['smart-search/settings/advanced'] = 'smart-search/settings/advanced';
 
-                $event->rules['POST smart-search/settings/save'] = 'smart-search/settings/save';
-                $event->rules['POST smart-search/settings/test-database-connection'] = 'smart-search/settings/test-database-connection';
-                $event->rules['POST smart-search/settings/test-api-key'] = 'smart-search/settings/test-api-key';
-
-                // Index management
                 $event->rules['smart-search/index'] = 'smart-search/index/index';
                 $event->rules['smart-search/index/entries'] = 'smart-search/index/entries';
                 $event->rules['smart-search/index/entry'] = 'smart-search/index/entry';
-                $event->rules['POST smart-search/index/sync'] = 'smart-search/index/sync';
-                $event->rules['POST smart-search/index/cancel-sync'] = 'smart-search/index/cancel-sync';
-                $event->rules['POST smart-search/index/get-stats'] = 'smart-search/index/get-stats';
-                $event->rules['POST smart-search/index/exclude-entry'] = 'smart-search/index/exclude-entry';
-                $event->rules['POST smart-search/index/include-entry'] = 'smart-search/index/include-entry';
 
-                // Insights — one route per page
                 $event->rules['smart-search/insights'] = 'smart-search/insights/index';
                 $event->rules['smart-search/insights/top-queries'] = 'smart-search/insights/top-queries';
                 $event->rules['smart-search/insights/zero-results'] = 'smart-search/insights/zero-results';
                 $event->rules['smart-search/insights/trending'] = 'smart-search/insights/trending';
 
-                // Preview
                 $event->rules['smart-search/preview'] = 'smart-search/preview/index';
             }
         );

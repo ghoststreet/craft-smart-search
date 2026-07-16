@@ -24,7 +24,6 @@ use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
-use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
 use ReflectionClass;
 use Throwable;
@@ -50,14 +49,6 @@ class EmbeddingService extends Component
      * Prevents duplicate API calls when agent calls multiple semantic-based tools with the same query.
      */
     private static array $requestEmbeddingCache = [];
-
-    /**
-     * Get the shared OpenAI client instance from the factory.
-     */
-    private function getOpenAIClient(): Client
-    {
-        return SmartSearch::getInstance()->openAIClientFactory->getClient();
-    }
 
     /**
      * Map OpenAI error responses to specific EmbeddingException subtypes
@@ -87,12 +78,11 @@ class EmbeddingService extends Component
      * to avoid duplicate API calls within the same request or across requests.
      *
      * @param string $text The text to embed
-     * @param bool $useCache Whether to use persistent cache lookup/storage
      * @param string|null $model Override the default embedding model
      * @return array The embedding vector as an array of floats
      * @throws EmbeddingException If the text is empty or the API call fails
      */
-    public function generateEmbedding(string $text, bool $useCache = true, ?string $model = null): array
+    public function generateEmbedding(string $text, ?string $model = null): array
     {
         if (TextValidator::isEmpty($text)) {
             throw EmbeddingException::emptyText();
@@ -116,20 +106,17 @@ class EmbeddingService extends Component
             return self::$requestEmbeddingCache[$requestCacheKey];
         }
 
-        $cache = $useCache ? Craft::$app->getCache() : null;
+        $cache = Craft::$app->getCache();
+        $cachedEmbedding = $cache->get($persistentCacheKey);
 
-        if ($cache !== null) {
-            $cachedEmbedding = $cache->get($persistentCacheKey);
-
-            if ($cachedEmbedding !== false && is_array($cachedEmbedding)) {
-                self::$requestEmbeddingCache[$requestCacheKey] = $cachedEmbedding;
-                UsageTracker::markEmbeddingCached($model);
-                return $cachedEmbedding;
-            }
+        if ($cachedEmbedding !== false && is_array($cachedEmbedding)) {
+            self::$requestEmbeddingCache[$requestCacheKey] = $cachedEmbedding;
+            UsageTracker::markEmbeddingCached($model);
+            return $cachedEmbedding;
         }
 
         try {
-            $client = $this->getOpenAIClient();
+            $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
 
             $params = [
                 'model' => $model,
@@ -149,7 +136,7 @@ class EmbeddingService extends Component
 
             self::$requestEmbeddingCache[$requestCacheKey] = $embedding;
 
-            if ($cache !== null && $settings->embeddingCacheTtlDays > 0) {
+            if ($settings->embeddingCacheTtlDays > 0) {
                 $cache->set($persistentCacheKey, $embedding, $settings->embeddingCacheTtlDays * 86400);
             }
 
@@ -291,6 +278,20 @@ class EmbeddingService extends Component
     }
 
     /**
+     * Check if an object is a Super Table block element.
+     *
+     * The class_exists() call is not redundant with instanceof: it keeps
+     * verbb/super-table a soft dependency, and it is the guard that stops
+     * PHPStan resolving the unknown class.
+     */
+    private function isSuperTableBlock(mixed $item): bool
+    {
+        return is_object($item)
+            && class_exists(SuperTableBlockElement::class)
+            && $item instanceof SuperTableBlockElement;
+    }
+
+    /**
      * Extract text from iterable collections (Matrix blocks, Super Table rows).
      *
      * Detects block elements by checking for nested Entry (Matrix in Craft 5) or
@@ -302,7 +303,7 @@ class EmbeddingService extends Component
 
         foreach ($iterable as $item) {
             if (($item instanceof Entry && $item->getOwnerId() !== null) || $this->isSuperTableBlock($item)) {
-                $blockText = $this->extractTextFromBlockElement($item);
+                $blockText = implode(' ', $this->extractFieldsFromLayout($item));
                 if (TextValidator::isNotEmpty($blockText)) {
                     $textParts[] = $blockText;
                 }
@@ -315,27 +316,6 @@ class EmbeddingService extends Component
         }
 
         return implode(' ', $textParts);
-    }
-
-    /**
-     * Check if an object is a Super Table block element.
-     *
-     * Uses class_exists to avoid a hard dependency on the verbb/super-table package.
-     */
-    private function isSuperTableBlock(mixed $item): bool
-    {
-        return is_object($item)
-            && class_exists(SuperTableBlockElement::class)
-            && $item instanceof SuperTableBlockElement;
-    }
-
-    /**
-     * Extract text from a block element (Matrix block or Super Table row)
-     * by iterating its field layout.
-     */
-    private function extractTextFromBlockElement(ElementInterface $blockElement): string
-    {
-        return implode(' ', $this->extractFieldsFromLayout($blockElement));
     }
 
     /**
@@ -672,18 +652,14 @@ class EmbeddingService extends Component
      */
     private function splitByLength(string $text, int $maxChunkTokens): array
     {
-        $maxChars = TokenEstimator::estimateChars($maxChunkTokens);
-        $pieces = [];
-        $length = \strlen($text);
-
-        for ($offset = 0; $offset < $length; $offset += $maxChars) {
-            $piece = trim(substr($text, $offset, $maxChars));
-            if (TextValidator::isNotEmpty($piece)) {
-                $pieces[] = $piece;
-            }
+        if ($text === '') {
+            return [];
         }
 
-        return $pieces;
+        $pieces = array_map('trim', str_split($text, TokenEstimator::estimateChars($maxChunkTokens)));
+
+        // Not a bare array_filter: that would also drop a piece of "0".
+        return array_values(array_filter($pieces, static fn(string $p): bool => $p !== ''));
     }
 
     /**
@@ -875,25 +851,17 @@ class EmbeddingService extends Component
         );
     }
 
-    public function deleteVector(int $elementId, ?int $siteId = null): void
+    public function deleteVector(int $elementId, int $siteId): void
     {
         SmartSearch::getInstance()->boostService->deleteForEntry($elementId, $siteId);
 
         $databaseService = SmartSearch::getInstance()->databaseService;
         $table = $databaseService->getQualifiedTable();
 
-        if ($siteId !== null) {
-            $databaseService->executeStatement(
-                "DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId",
-                [':elementId' => $elementId, ':siteId' => $siteId],
-                'deleteVector'
-            );
-        } else {
-            $databaseService->executeStatement(
-                "DELETE FROM {$table} WHERE \"elementId\" = :elementId",
-                [':elementId' => $elementId],
-                'deleteVector'
-            );
-        }
+        $databaseService->executeStatement(
+            "DELETE FROM {$table} WHERE \"elementId\" = :elementId AND \"siteId\" = :siteId",
+            [':elementId' => $elementId, ':siteId' => $siteId],
+            'deleteVector'
+        );
     }
 }

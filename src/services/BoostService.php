@@ -29,8 +29,6 @@ use yii\base\Component;
  */
 class BoostService extends Component
 {
-    public const BOOSTS_TABLE = 'smart_search_boosts';
-
     private ?bool $tableExistsCache = null;
 
     /**
@@ -38,11 +36,11 @@ class BoostService extends Component
      * Swallows permission failures — a locked-down role relies on the install SQL
      * instead and syncEntry() then no-ops gracefully.
      */
-    public function ensureSchema(): bool
+    private function ensureSchema(): void
     {
         $db = SmartSearch::getInstance()->databaseService->getConnection();
         $table = $this->qualifiedBoostsTable();
-        $name = $this->configuredBoostsTableName();
+        $name = SmartSearch::getInstance()->getSettings()->boostsTableName;
 
         $statements = [
             'boosts table' => "CREATE TABLE IF NOT EXISTS {$table} (
@@ -57,20 +55,15 @@ class BoostService extends Component
             'boosts site index' => "CREATE INDEX IF NOT EXISTS \"{$name}_site_idx\" ON {$table} (\"siteId\")",
         ];
 
-        $created = false;
         foreach ($statements as $label => $sql) {
             try {
                 $db->exec($sql);
-                if ($label === 'boosts table') {
-                    $created = true;
-                }
             } catch (PDOException $e) {
                 Logger::warning("Boost schema step skipped: {$label}", ['error' => $e->getMessage()]);
             }
         }
 
         $this->tableExistsCache = null;
-        return $created;
     }
 
     /**
@@ -248,7 +241,7 @@ class BoostService extends Component
             $db = SmartSearch::getInstance()->databaseService->getConnection();
             $schema = SmartSearch::getInstance()->getSettings()->vectorsSchemaName;
             $stmt = $db->prepare("SELECT 1 FROM pg_tables WHERE schemaname = :schema AND tablename = :table");
-            $stmt->execute([':schema' => $schema, ':table' => $this->configuredBoostsTableName()]);
+            $stmt->execute([':schema' => $schema, ':table' => SmartSearch::getInstance()->getSettings()->boostsTableName]);
             return $this->tableExistsCache = (bool)$stmt->fetchColumn();
         } catch (Throwable) {
             return $this->tableExistsCache = false;
@@ -257,13 +250,7 @@ class BoostService extends Component
 
     private function qualifiedBoostsTable(): string
     {
-        $schema = SmartSearch::getInstance()->getSettings()->vectorsSchemaName;
-        return "\"{$schema}\".\"{$this->configuredBoostsTableName()}\"";
-    }
-
-    private function configuredBoostsTableName(): string
-    {
-        $name = SmartSearch::getInstance()->getSettings()->boostsTableName;
-        return $name !== '' ? $name : self::BOOSTS_TABLE;
+        $settings = SmartSearch::getInstance()->getSettings();
+        return "\"{$settings->vectorsSchemaName}\".\"{$settings->boostsTableName}\"";
     }
 }

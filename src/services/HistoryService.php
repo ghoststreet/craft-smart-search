@@ -23,16 +23,7 @@ class HistoryService extends Component
     {
         try {
             $row = new SearchHistoryRecord();
-            $row->requestId = $entry->requestId;
-            $row->type = $entry->type;
-            $row->query = $entry->query;
-            $row->siteId = $entry->siteId;
-            $row->resultsCount = $entry->resultsCount;
-            $row->embeddingModel = $entry->embeddingModel;
-            $row->aiAnswerModel = $entry->aiAnswerModel;
-            $row->embeddingTokens = $entry->embeddingTokens;
-            $row->aiAnswerInputTokens = $entry->aiAnswerInputTokens;
-            $row->aiAnswerOutputTokens = $entry->aiAnswerOutputTokens;
+            $row->setAttributes(get_object_vars($entry), false);
             $row->totalTokens = $entry->embeddingTokens + $entry->aiAnswerInputTokens + $entry->aiAnswerOutputTokens;
             $row->cost = (string)PricingTable::costForUsage(
                 $entry->embeddingModel,
@@ -41,10 +32,7 @@ class HistoryService extends Component
                 $entry->aiAnswerInputTokens,
                 $entry->aiAnswerOutputTokens,
             );
-            $row->durationMs = $entry->durationMs;
-            $row->embeddingCached = $entry->embeddingCached;
             $row->hasError = $entry->errorMessage !== null;
-            $row->errorMessage = $entry->errorMessage;
             $row->save(false);
         } catch (Throwable $e) {
             Logger::exception($e, 'history.record');
@@ -155,15 +143,12 @@ class HistoryService extends Component
             ];
         }
         foreach ($prior as $r) {
-            if (isset($byKey[$r['k']])) {
-                $byKey[$r['k']]['prior'] = (int)$r['hits'];
-            } else {
-                $byKey[$r['k']] = [
-                    'query' => $r['query'],
-                    'recent' => 0,
-                    'prior' => (int)$r['hits'],
-                ];
-            }
+            $byKey[$r['k']] ??= [
+                'query' => $r['query'],
+                'recent' => 0,
+                'prior' => 0,
+            ];
+            $byKey[$r['k']]['prior'] = (int)$r['hits'];
         }
 
         $rows = [];

@@ -23,11 +23,11 @@
     {% set state = 'synced' %}
 {% endif %}
 
-{% set p = { buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' }|merge({
+{% set p = { heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' }|merge({
     'synced':     { pillLabel: 'Healthy',    pillDot: 'on' },
     'needs-sync': { pillLabel: 'Needs sync', pillDot: 'orange' },
     'not-synced': { pillLabel: 'Not synced', pillDot: 'off' },
-    'indexing':   { pillLabel: jobRunning ? 'Indexing' : 'Queued', pillDot: 'blue', buttonClass: '',
+    'indexing':   { pillLabel: jobRunning ? 'Indexing' : 'Queued', pillDot: 'blue',
                     heroPrefix: jobRunning ? 'indexing · ' : 'waiting for worker · ', buttonLabel: 'Cancel' },
 }[state]) %}
 
@@ -74,7 +74,7 @@
             {{ csrfInput() }}
             {{ actionInput('smart-search/index/sync') }}
             <input type="hidden" name="siteId" value="{{ site.siteId }}">
-            <button type="submit" class="btn{{ p.buttonClass }}" data-craftsearch-control="sync-site-btn">
+            <button type="submit" class="btn submit" data-craftsearch-control="sync-site-btn">
                 <span data-craftsearch-target="button-label">{{ p.buttonLabel }}</span>
             </button>
         </form>

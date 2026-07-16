@@ -8,6 +8,7 @@ use ghoststreet\craftsmartsearch\events\FormatSearchResultEvent;
 use ghoststreet\craftsmartsearch\services\SmartSearchService;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use Throwable;
+use yii\helpers\StringHelper;
 
 /**
  * Formats search-result entries into the API payload, with per-type field
@@ -96,12 +97,7 @@ final class SearchResultFormatter
             return '';
         }
 
-        $excerpt = mb_substr($content, 0, $excerptLength);
-        if (mb_strlen($content) > $excerptLength) {
-            $excerpt .= '...';
-        }
-
-        return $excerpt;
+        return StringHelper::truncate($content, $excerptLength);
     }
 
     /** Hybrid payload: fused RRF score + component scores/ranks (each optional). */

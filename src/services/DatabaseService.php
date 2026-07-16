@@ -13,10 +13,10 @@ use yii\base\Component;
 /**
  * Database Service for connecting to the pgvector-backed PostgreSQL database.
  *
- * Handles connection management (including URI parsing and IPv4 resolution
- * for cloud providers) and CRUD/query helpers on the admin-managed vectors
- * table. The plugin does NOT create or modify the schema — the admin runs the
- * SQL from the README before configuring this service.
+ * Handles connection management (including URI parsing) and CRUD/query helpers
+ * on the admin-managed vectors table. The plugin does NOT create or modify the
+ * schema — the admin runs the SQL from the README before configuring this
+ * service.
  */
 class DatabaseService extends Component
 {
@@ -54,7 +54,7 @@ class DatabaseService extends Component
      */
     public function connectWithConfig(array $config): PDO
     {
-        return $this->buildConnection($config, cache: false);
+        return $this->buildConnection($config);
     }
 
     /**
@@ -73,9 +73,12 @@ class DatabaseService extends Component
         return $config;
     }
 
-    private function buildConnection(array $config, bool $cache = true): PDO
+    private function buildConnection(array $config): PDO
     {
-        $missingFields = $this->getMissingConfigFields($config);
+        $missingFields = array_values(array_filter(
+            ['host', 'database', 'user', 'password'],
+            static fn(string $field) => empty($config[$field])
+        ));
 
         if (!empty($missingFields)) {
             throw DatabaseException::configurationIncomplete($missingFields);
@@ -85,7 +88,7 @@ class DatabaseService extends Component
 
         $dsn = $this->buildDsn($config);
 
-        return $this->createConnection($dsn, $config['user'], $config['password'], $cache);
+        return $this->createConnection($dsn, $config['user'], $config['password']);
     }
 
     /**
@@ -155,19 +158,6 @@ class DatabaseService extends Component
     }
 
     /**
-     * Get list of missing required configuration fields.
-     *
-     * @return string[] Missing field names, empty if config is complete
-     */
-    private function getMissingConfigFields(array $config): array
-    {
-        return array_values(array_filter(
-            ['host', 'database', 'user', 'password'],
-            static fn(string $field) => empty($config[$field])
-        ));
-    }
-
-    /**
      * Check if a host string is a full PostgreSQL connection URI.
      */
     private function isConnectionUri(string $host): bool
@@ -177,24 +167,14 @@ class DatabaseService extends Component
 
     /**
      * Build a PDO DSN string from the resolved connection config, preferring
-     * `hostaddr` (IPv4) over `host` (hostname) for cloud provider compatibility.
+     * Always uses `host` (hostname), never `hostaddr`. A hostname lets libpq try
+     * every resolved address in turn; a pre-resolved `hostaddr` pins us to one
+     * address with no failover. Managed pooler endpoints sit behind a load
+     * balancer with several rotating A records, so pinning one turns a single
+     * unhealthy node into a hard failure.
      */
     private function buildDsn(array $config): string
     {
-        $hostaddr = $this->resolveHostAddress($config['host']);
-
-        if ($hostaddr) {
-            return sprintf(
-                'pgsql:hostaddr=%s;port=%d;dbname=%s;sslmode=%s',
-                $hostaddr,
-                $config['port'],
-                $config['database'],
-                $config['sslMode']
-            );
-        }
-
-        Logger::warning('Could not resolve IPv4 address, using hostname', ['host' => $config['host']]);
-
         return sprintf(
             'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s',
             $config['host'],
@@ -205,38 +185,28 @@ class DatabaseService extends Component
     }
 
     /**
-     * Resolve hostname to IPv4 for the PDO DSN `hostaddr` parameter.
+     * Deliberately NOT persistent. Against a transaction-mode pooler the pooler
+     * is the connection pool; a persistent handle outlives the server side that
+     * backs it, and PDO hands the dead socket back without a round-trip, so the
+     * failure surfaces on the next query as an opaque SSL eof.
      *
-     * Some cloud PostgreSQL providers (e.g. Neon, Supabase) require IPv4
-     * addresses instead of hostnames due to libpq SNI/SSL handshake issues.
-     * Returns null if resolution fails, causing buildDsn() to fall back to hostname.
-     */
-    private function resolveHostAddress(string $host): ?string
-    {
-        $resolved = gethostbyname($host);
-
-        return filter_var($resolved, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? $resolved : null;
-    }
-
-    /**
+     * Session `SET` is deliberately absent for the same reason: a pooled backend
+     * is shared, so a SET here leaks into other clients' sessions and is missing
+     * from ours at random. Per-query GUCs are applied with SET LOCAL inside the
+     * querying transaction instead — see SmartSearchService::semanticSearchRaw().
+     *
      * @throws DatabaseException If connection fails
      */
-    private function createConnection(string $dsn, string $user, string $password, bool $cache = true): PDO
+    private function createConnection(string $dsn, string $user, string $password): PDO
     {
         try {
             $pdo = new PDO($dsn, $user, $password, [
-                PDO::ATTR_PERSISTENT => true,
                 PDO::ATTR_EMULATE_PREPARES => true,
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]);
-            $pdo->exec('SET hnsw.ef_search = 20');
 
             Logger::info('Successfully connected to PostgreSQL database');
-
-            if ($cache) {
-                $this->connection = $pdo;
-            }
 
             return $pdo;
         } catch (PDOException $e) {
@@ -358,19 +328,21 @@ class DatabaseService extends Component
             }
             $indexed = $stmt->fetchAll();
 
-            $activeLookup = [];
-            foreach ($activeKeys as $key) {
-                $activeLookup[$key['elementId'] . ':' . $key['siteId']] = true;
-            }
+            $activeLookup = array_flip(array_map(
+                static fn(array $key) => "{$key['elementId']}:{$key['siteId']}",
+                $activeKeys
+            ));
 
-            $orphans = [];
-            foreach ($indexed as $row) {
-                $elementId = (int)$row['elementId'];
-                $siteId = (int)$row['siteId'];
-                if (!isset($activeLookup[$elementId . ':' . $siteId])) {
-                    $orphans[] = ['elementId' => $elementId, 'siteId' => $siteId];
-                }
-            }
+            $orphans = array_values(array_filter(
+                array_map(
+                    static fn(array $row) => [
+                        'elementId' => (int)$row['elementId'],
+                        'siteId' => (int)$row['siteId'],
+                    ],
+                    $indexed
+                ),
+                static fn(array $key) => !isset($activeLookup["{$key['elementId']}:{$key['siteId']}"])
+            ));
 
             if (empty($orphans)) {
                 return 0;
@@ -526,10 +498,10 @@ class DatabaseService extends Component
      * instead of throwing. Use from CP pages that need to render even when
      * the vector DB is unreachable.
      */
-    public function getStatsSafe(bool $useCache = true): array
+    public function getStatsSafe(): array
     {
         try {
-            return $this->getStats($useCache);
+            return $this->getStats();
         } catch (\Throwable $e) {
             return [
                 'entryCount' => 0,

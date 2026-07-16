@@ -19,9 +19,6 @@ use yii\base\Component;
  */
 class OpenAIClientFactory extends Component
 {
-    public const CONNECT_TIMEOUT = 3.0;
-    public const TOTAL_TIMEOUT = 60.0;
-
     private ?Client $client = null;
 
     /**
@@ -56,9 +53,9 @@ class OpenAIClientFactory extends Component
     public function buildClient(string $apiKey): Client
     {
         $http = new GuzzleClient([
-            'connect_timeout' => self::CONNECT_TIMEOUT,
-            'timeout' => self::TOTAL_TIMEOUT,
-            'read_timeout' => self::TOTAL_TIMEOUT,
+            'connect_timeout' => 3.0,
+            'timeout' => 60.0,
+            'read_timeout' => 60.0,
             'http_errors' => false,
         ]);
 

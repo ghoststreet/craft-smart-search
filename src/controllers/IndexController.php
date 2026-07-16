@@ -7,6 +7,7 @@ use craft\db\Query;
 use craft\db\Table;
 use craft\elements\Entry;
 use craft\helpers\UrlHelper;
+use craft\queue\Queue;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
@@ -294,10 +295,7 @@ class IndexController extends BaseApiController
      */
     private function buildCoverageRows(array $perSiteStats, bool $withLabel = false): array
     {
-        $statsBySite = [];
-        foreach ($perSiteStats as $row) {
-            $statsBySite[$row['siteId']] = $row;
-        }
+        $statsBySite = array_column($perSiteStats, null, 'siteId');
         $coverage = SmartSearch::getInstance()->indexInspectionService->getCoverageBySite();
         $formatter = $withLabel ? Craft::$app->getFormatter() : null;
 
@@ -381,7 +379,7 @@ class IndexController extends BaseApiController
      * fires once the step before it passes, so one broken link in the chain doesn't
      * light up every row below it.
      *
-     * @param array $setup Flags from actionIndex: credentials, connection, schema, openaiKey, error.
+     * @param array $setup Flags from actionIndex: credentials, connection, schema, error.
      */
     private function buildSetupSteps(array $setup): array
     {
@@ -408,12 +406,6 @@ class IndexController extends BaseApiController
                     : null,
                 'url' => $postgresUrl,
             ],
-            [
-                'done' => $setup['openaiKey'],
-                'label' => 'Add the OpenAI API key',
-                'hint' => $setup['openaiKey'] ? null : 'Required to generate embeddings during indexing.',
-                'url' => UrlHelper::cpUrl('smart-search/settings/connections/openai'),
-            ],
         ];
     }
 
@@ -438,10 +430,7 @@ class IndexController extends BaseApiController
 
         $perSiteStats = $this->loadPerSiteStats();
         $coverageRows = $this->buildCoverageRows($perSiteStats);
-        $coverageBySite = [];
-        foreach ($coverageRows as $row) {
-            $coverageBySite[$row['siteId']] = $row;
-        }
+        $coverageBySite = array_column($coverageRows, null, 'siteId');
         $rows = [];
         foreach ($sites as $site) {
             $sid = (int)$site->id;
@@ -607,7 +596,7 @@ class IndexController extends BaseApiController
 
         $jobId = (string)Craft::$app->getRequest()->getRequiredQueryParam('id');
         $status = Craft::$app->getQueue()->status($jobId);
-        $done = $status === 3 || $status >= 4;
+        $done = $status >= Queue::STATUS_DONE;
 
         return $this->asJson([
             'success' => true,

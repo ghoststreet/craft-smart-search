@@ -29,7 +29,6 @@
     }
 
     window.SmartSearch.core.ChartTheme = {
-        cssVar: cssVar,
         palette: palette,
         applyChartDefaults: applyChartDefaults
     };

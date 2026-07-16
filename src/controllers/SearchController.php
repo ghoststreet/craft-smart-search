@@ -320,12 +320,6 @@ class SearchController extends BaseApiController
 
             $formattedResults = $this->formatSearchResults($results, SearchType::Search);
 
-            Logger::info('semanticSearch endpoint response', [
-                'requestId' => $this->requestId,
-                'rawResultsFromService' => count($results),
-                'afterFormatting' => count($formattedResults),
-            ]);
-
             $this->recordHistory('smart', $params, count($formattedResults));
 
             return $this->successResponse('semanticSearch', [
@@ -364,17 +358,7 @@ class SearchController extends BaseApiController
                 $params['siteId']
             );
 
-            $formattedSources = $this->formatElementResults(
-                array_column($response['sources'], 'element'),
-                $response['sources'],
-                SearchType::AiAnswer
-            );
-
-            Logger::info('aiAnswer endpoint response', [
-                'requestId' => $this->requestId,
-                'rawSourcesFromService' => count($response['sources'] ?? []),
-                'afterFormatting' => count($formattedSources),
-            ]);
+            $formattedSources = $this->formatSearchResults($response['sources'], SearchType::AiAnswer);
 
             $this->recordHistory('aiAnswer', $params, count($formattedSources));
 
@@ -464,17 +448,8 @@ class SearchController extends BaseApiController
             foreach ($generator as $event) {
                 switch ($event['type']) {
                     case 'sources':
-                        $formatted = $this->formatElementResults(
-                            array_column($event['sources'], 'element'),
-                            $event['sources'],
-                            SearchType::AiAnswerStream
-                        );
+                        $formatted = $this->formatSearchResults($event['sources'], SearchType::AiAnswerStream);
                         $sourceCount = count($formatted);
-                        Logger::info('ragStream sources emit', [
-                            'requestId' => $this->requestId,
-                            'rawSourcesFromService' => count($event['sources'] ?? []),
-                            'afterFormatting' => $sourceCount,
-                        ]);
                         $this->emitSse('sources', ['sources' => $formatted, 'requestId' => $this->requestId]);
                         break;
                     case 'token':
@@ -570,36 +545,22 @@ class SearchController extends BaseApiController
         @flush();
     }
 
-    /** Format pre-fetched Entry objects with parallel-array metadata (AI Answer flow). */
-    private function formatElementResults(array $elements, array $metadataList, SearchType $type): array
-    {
-        $formatted = [];
-        foreach ($elements as $index => $element) {
-            $result = SearchResultFormatter::format($element, $metadataList[$index] ?? [], $type);
-            if ($result !== null) {
-                $formatted[] = $result;
-            }
-        }
-        return $formatted;
-    }
-
     /** Format vector-query rows (`{element, content, ...}`). Generates excerpt from chunk content. */
     private function formatSearchResults(array $results, SearchType $type): array
     {
-        $formatted = [];
-        foreach ($results as $result) {
-            $metadata = $result + [
-                'excerpt' => SearchResultFormatter::getExcerptFromContent(
-                    $result['content'] ?? '',
-                    $result['element']?->title
-                ),
-            ];
-            $item = SearchResultFormatter::format($result['element'], $metadata, $type);
-            if ($item !== null) {
-                $formatted[] = $item;
-            }
-        }
-        return $formatted;
+        return array_values(array_filter(array_map(
+            static fn(array $result): ?array => SearchResultFormatter::format(
+                $result['element'],
+                $result + [
+                    'excerpt' => SearchResultFormatter::getExcerptFromContent(
+                        $result['content'] ?? '',
+                        $result['element']?->title
+                    ),
+                ],
+                $type
+            ),
+            $results
+        )));
     }
 
     private function logRequest(string $action, array $params): void
@@ -625,12 +586,6 @@ class SearchController extends BaseApiController
         ]);
 
         return $this->asJson(['success' => true, 'requestId' => $this->requestId] + $body);
-    }
-
-    /** JSON 400 with the request-id stamped in. */
-    private function badRequest(array $payload): Response
-    {
-        return $this->asJson(['requestId' => $this->requestId] + $payload)->setStatusCode(400);
     }
 
     /**

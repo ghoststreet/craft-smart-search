@@ -92,10 +92,6 @@
     font-weight: 600;
 }
 
-/* Filter modes — hide cards that don't match */
-.ss-field-card-list[data-filter-mode="indexed"] > .ss-field-card--skipped { display: none; }
-.ss-field-card-list[data-filter-mode="skipped"] > .ss-field-card--indexed { display: none; }
-
 /* === Field card ====================================================== */
 .ss-field-card-list {
     display: flex;

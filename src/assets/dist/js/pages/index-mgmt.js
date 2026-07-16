@@ -3,7 +3,6 @@
 
     var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
-    var Utils = ns.core.Utils;
     var escapeHtml = Craft.escapeHtml;
 
     function setText(el, text) { if (el) el.textContent = text; }
@@ -23,26 +22,26 @@
     var STATE_PRESETS = {
         'synced': {
             pillLabel: 'Healthy', pillDot: 'on',
-            showProgress: false, hideGaps: false,
+            showProgress: false,
             heroPrefix: 'entries indexed · ',
         },
         'needs-sync': {
             pillLabel: 'Needs sync', pillDot: 'orange',
-            showProgress: false, hideGaps: false,
+            showProgress: false,
             heroPrefix: 'entries indexed · ',
         },
         'not-synced': {
             pillLabel: 'Not synced', pillDot: 'off',
-            showProgress: false, hideGaps: false,
+            showProgress: false,
             heroPrefix: 'entries indexed · ',
         },
         'indexing': {
             pillDot: 'blue',
-            showProgress: true, hideGaps: true,
+            showProgress: true,
         },
         'error': {
             pillLabel: 'Failed', pillDot: 'red',
-            showProgress: true, hideGaps: true,
+            showProgress: true,
             heroPrefix: 'sync failed · ',
         },
     };
@@ -86,7 +85,6 @@
             ? new Craft.ProgressBar(barContainer, false, { announceProgress: false })
             : null;
         if (this.bar) this.bar.showProgressBar();
-        if (this.els.button) this.els.button.classList.add('submit');
 
         this.state = null;
         this.wasActive = false;
@@ -217,8 +215,8 @@
                 + '<span data-craftsearch-target="hero-percent">' + (ctx.heroPercent || 0) + '</span>%';
         }
 
-        setHidden(els.gaps, preset.hideGaps || !(ctx.stale > 0 || ctx.notIndexed > 0));
-        if (!preset.hideGaps) {
+        setHidden(els.gaps, preset.showProgress || !(ctx.stale > 0 || ctx.notIndexed > 0));
+        if (!preset.showProgress) {
             setHidden(els.gapStale, !(ctx.stale > 0));
             setText(els.gapStaleN, String(ctx.stale || 0));
             setHidden(els.gapNotIdx, !(ctx.notIndexed > 0));
@@ -339,8 +337,6 @@
     function setButtonBusy(button, busy) {
         if (!button) return;
         button.classList.toggle('disabled', !!busy);
-        if (busy) button.setAttribute('aria-disabled', 'true');
-        else button.removeAttribute('aria-disabled');
         button.disabled = !!busy;
     }
 
@@ -441,16 +437,24 @@
         });
     }
 
-    function bindReindexForms() {
+    function bootOverview() {
+        var grid = DOM.find('overview-grid');
+        if (!grid) return;
+
+        blocks = DOM.findAll('site-card', grid).map(function (card) { return new SiteBlock(card); });
+        if (!blocks.length) return;
+
+        bindSyncAllForm();
+        pollNow();
+    }
+
+    function init() {
         bindEntryForm('reindex-form', 'smart-search/index/reindex-entry',
             function (row, data, button) {
                 if (!data.jobId) { setButtonBusy(button, false); return; }
                 Craft.cp.runQueue();
                 pollEntryJob(data.jobId, { button: button, row: row, completionMsg: 'Re-index finished.' });
             });
-    }
-
-    function bindExcludeForms() {
         bindEntryForm('exclude-form', 'smart-search/index/exclude-entry',
             function (row, data, button) {
                 setButtonBusy(button, false);
@@ -462,9 +466,6 @@
                 }
                 Craft.cp.displayNotice(Craft.t('smart-search', 'Entry excluded from index.'));
             });
-    }
-
-    function bindIncludeForms() {
         bindEntryForm('include-form', 'smart-search/index/include-entry',
             function (row, data, button) {
                 setButtonBusy(button, false);
@@ -482,23 +483,6 @@
                     pollEntryJob(data.jobId, { button: reindexButton, row: row });
                 }
             });
-    }
-
-    function bootOverview() {
-        var grid = DOM.find('overview-grid');
-        if (!grid) return;
-
-        blocks = DOM.findAll('site-card', grid).map(function (card) { return new SiteBlock(card); });
-        if (!blocks.length) return;
-
-        bindSyncAllForm();
-        pollNow();
-    }
-
-    function init() {
-        bindReindexForms();
-        bindExcludeForms();
-        bindIncludeForms();
         bootOverview();
     }
 

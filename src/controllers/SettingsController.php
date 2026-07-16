@@ -4,7 +4,6 @@ namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\helpers\App;
-use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use Throwable;
@@ -161,7 +160,7 @@ class SettingsController extends BaseApiController
 
             return $this->asJson($response);
         } catch (Throwable $e) {
-            return ApiResponseHelper::jsonError($this, $e, 'testDatabaseConnection', $this->errorContext());
+            return $this->jsonError($e, 'testDatabaseConnection');
         }
     }
 
@@ -174,28 +173,25 @@ class SettingsController extends BaseApiController
         $raw = trim((string) Craft::$app->getRequest()->getBodyParam('apiKey', ''));
 
         if ($raw === '') {
-            return $this->asJson([
+            return $this->badRequest([
                 'success' => false,
                 'message' => 'Enter an API key reference (e.g. $OPENAI_API_KEY) to test.',
-                'requestId' => $this->requestId,
-            ])->setStatusCode(400);
+            ]);
         }
 
         if (!str_starts_with($raw, '$')) {
-            return $this->asJson([
+            return $this->badRequest([
                 'success' => false,
                 'message' => 'Must be an environment variable reference (e.g. $OPENAI_API_KEY). Plain-text secrets are not allowed.',
-                'requestId' => $this->requestId,
-            ])->setStatusCode(400);
+            ]);
         }
 
         $resolved = App::parseEnv($raw);
         if ($resolved === null || $resolved === '' || $resolved === $raw) {
-            return $this->asJson([
+            return $this->badRequest([
                 'success' => false,
                 'message' => 'Environment variable ' . $raw . ' is not set or is empty.',
-                'requestId' => $this->requestId,
-            ])->setStatusCode(400);
+            ]);
         }
 
         try {
@@ -203,7 +199,7 @@ class SettingsController extends BaseApiController
             $client->models()->list();
             return $this->asJson(['success' => true, 'requestId' => $this->requestId]);
         } catch (Throwable $e) {
-            return ApiResponseHelper::jsonError($this, $e, 'testApiKey', $this->errorContext());
+            return $this->jsonError($e, 'testApiKey');
         }
     }
 }

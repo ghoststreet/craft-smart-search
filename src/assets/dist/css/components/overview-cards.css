@@ -171,8 +171,6 @@
 .ss-card__progress .progressbar .progressbar-inner {
     max-width: 100%;
     box-sizing: border-box;
-}
-.ss-card__progress .progressbar .progressbar-inner {
     background: var(--blue-500, #3b82f6);
 }
 .ss-card[data-craftsearch-state="error"] .ss-card__progress .progressbar .progressbar-inner {

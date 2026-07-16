@@ -117,4 +117,9 @@
             return ns.core.DOM.findAll('chart-canvas', root).map(this.build, this);
         }
     };
+
+    ns.core.DOM.ready(function () {
+        Theme.applyChartDefaults();
+        ns.components.Chart.buildAll();
+    });
 })();

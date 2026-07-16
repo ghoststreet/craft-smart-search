@@ -38,13 +38,10 @@ class AiAnswerService extends Component
     private static function wrapUpstream(Throwable $e): SearchException
     {
         $cause = $e instanceof Exception ? $e : new RuntimeException($e->getMessage(), 0);
-        $isOpenAiError = str_starts_with(get_class($e), 'OpenAI\\Exceptions\\');
 
-        if ($isOpenAiError) {
-            return SearchException::ragLlmFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
-        }
-
-        return SearchException::aiAnswerFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
+        return str_starts_with(get_class($e), 'OpenAI\\Exceptions\\')
+            ? SearchException::ragLlmFailed(get_class($e) . ': ' . $e->getMessage(), $cause)
+            : SearchException::aiAnswerFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
     }
 
     /**
@@ -58,49 +55,44 @@ class AiAnswerService extends Component
      */
     public function search(string $query, int $limit = 5, ?int $siteId = null): array
     {
-        return TimingProfiler::profile('TOTAL AI Answer search', function() use ($query, $limit, $siteId) {
-            try {
-                $settings = SmartSearch::getInstance()->getSettings();
+        try {
+            $settings = SmartSearch::getInstance()->getSettings();
 
-                $searchResults = TimingProfiler::profile(
-                    'Smart search',
-                    fn() => SmartSearch::getInstance()->smartSearchService->search(
-                        $query,
-                        $limit,
-                        $siteId
-                    )
-                );
+            $searchResults = TimingProfiler::profile(
+                'Smart search',
+                fn() => SmartSearch::getInstance()->smartSearchService->search(
+                    $query,
+                    $limit,
+                    $siteId
+                )
+            );
 
-                if (empty($searchResults)) {
-                    return [
-                        'summary' => 'No relevant results found for your query.',
-                        'sources' => [],
-                        'confidence' => 'low',
-                        'aiAnswer' => true,
-                    ];
-                }
-
-                $context = TimingProfiler::profile(
-                    'Context building',
-                    fn() => $this->buildContext($searchResults, $this->contextTokenBudget($settings))
-                );
-
-                Logger::debug('Context built', ['length' => strlen($context)]);
-
-                $llmResponse = TimingProfiler::profile(
-                    'LLM summary generation',
-                    fn() => $this->generateSummary($query, $context, $settings)
-                );
-
-                return $this->parseResponse($llmResponse, $searchResults, $limit);
-            } catch (SmartSearchException $e) {
-                Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
-                throw $e;
-            } catch (Throwable $e) {
-                Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
-                throw self::wrapUpstream($e);
+            if (empty($searchResults)) {
+                return [
+                    'summary' => 'No relevant results found for your query.',
+                    'sources' => [],
+                    'confidence' => 'low',
+                    'aiAnswer' => true,
+                ];
             }
-        });
+
+            $context = $this->buildContext($searchResults, max(500, $settings->maxPromptTokens));
+
+            Logger::debug('Context built', ['length' => strlen($context)]);
+
+            $llmResponse = TimingProfiler::profile(
+                'LLM summary generation',
+                fn() => $this->generateSummary($query, $context, $settings)
+            );
+
+            return $this->parseResponse($llmResponse, $searchResults, $limit);
+        } catch (SmartSearchException $e) {
+            Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
+            throw $e;
+        } catch (Throwable $e) {
+            Logger::exception($e, 'aiAnswer', ['query' => substr($query, 0, 50)]);
+            throw self::wrapUpstream($e);
+        }
     }
 
     /**
@@ -109,6 +101,9 @@ class AiAnswerService extends Component
      *
      * The first source is always included even if it alone exceeds the budget —
      * a single oversized source shouldn't collapse the prompt to nothing.
+     *
+     * Callers clamp $tokenBudget to a 500 floor: Settings validates that minimum,
+     * but a config/smart-search.php override bypasses validation entirely.
      */
     private function buildContext(array $searchResults, int $tokenBudget = PHP_INT_MAX): string
     {
@@ -222,7 +217,7 @@ class AiAnswerService extends Component
                 return;
             }
 
-            $context = $this->buildContext($searchResults, $this->contextTokenBudget($settings));
+            $context = $this->buildContext($searchResults, max(500, $settings->maxPromptTokens));
 
             yield from $this->streamSummary($query, $context, $settings);
 
@@ -394,16 +389,6 @@ PROMPT;
             'confidence' => $parsed['confidence'] ?? 'medium',
             'aiAnswer' => true,
         ];
-    }
-
-    /**
-     * Token budget for the packed source blocks. Settings::maxPromptTokens caps
-     * the context only; the model's context window absorbs the system prompt,
-     * query, and output on top.
-     */
-    private function contextTokenBudget(Settings $settings): int
-    {
-        return max(500, $settings->maxPromptTokens);
     }
 
     /**

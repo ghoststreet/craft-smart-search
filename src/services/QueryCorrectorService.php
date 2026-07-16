@@ -74,19 +74,17 @@ class QueryCorrectorService extends Component
         $anyCorrected = false;
         $parts = [];
         foreach ($tokens as $token) {
-            $info = $perToken[$token] ?? null;
-            $lex = $info === null ? self::cleanLexeme(mb_strtolower($token)) : self::cleanLexeme($info['lex']);
+            $info = $perToken[$token];
+            $lex = self::cleanLexeme($info['lex']);
             if ($lex === '') {
                 continue;
             }
 
             $candidates = [$lex];
-            if ($info !== null) {
-                foreach ($info['variants'] as $variant) {
-                    if ($variant !== $lex && !in_array($variant, $candidates, true)) {
-                        $candidates[] = $variant;
-                        $anyCorrected = true;
-                    }
+            foreach ($info['variants'] as $variant) {
+                if ($variant !== $lex && !in_array($variant, $candidates, true)) {
+                    $candidates[] = $variant;
+                    $anyCorrected = true;
                 }
             }
 

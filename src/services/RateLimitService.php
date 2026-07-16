@@ -108,13 +108,11 @@ class RateLimitService extends Component
             return;
         }
 
-        $rest = substr($token, strlen(self::TOKEN_OK_PREFIX));
-        $colon = strpos($rest, ':');
-        if ($colon === false) {
+        $parts = explode(':', substr($token, strlen(self::TOKEN_OK_PREFIX)), 2);
+        if (count($parts) < 2) {
             return;
         }
-        $nonce = substr($rest, 0, $colon);
-        $ip = substr($rest, $colon + 1);
+        [$nonce, $ip] = $parts;
 
         $nonceKey = self::NONCE_KEY_PREFIX . $nonce;
 
@@ -229,35 +227,13 @@ class RateLimitService extends Component
             $estimated = ($prev * $weight) + $curr;
 
             if ($estimated >= $max) {
-                throw RateLimitException::tooManyRequests($this->retryAfterFor($prev, $curr, $max, $window, $elapsed));
+                throw RateLimitException::tooManyRequests(max(1, $window - $elapsed));
             }
 
             $cache->set($currKey, $curr + 1, $window * 2);
         } finally {
             $this->unlock($mutexKey);
         }
-    }
-
-    /**
-     * Seconds until the sliding estimate drops below the cap, assuming no new
-     * traffic. Bounded by the remaining current window — once we cross it the
-     * previous bucket disappears entirely.
-     */
-    private function retryAfterFor(int $prev, int $curr, int $max, int $window, int $elapsed): int
-    {
-        $windowRemaining = max(1, $window - $elapsed);
-
-        if ($prev <= 0) {
-            return $windowRemaining;
-        }
-
-        $slack = $max - $curr - 1;
-        if ($slack < 0) {
-            return $windowRemaining;
-        }
-
-        $delta = (int)ceil($window - $elapsed - ($slack * $window / $prev));
-        return max(1, min($windowRemaining, $delta));
     }
 
     private function incrementGaugeLocked(string $key, int $max, string $scope): void

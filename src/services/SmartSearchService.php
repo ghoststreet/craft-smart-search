@@ -39,6 +39,12 @@ class SmartSearchService extends Component
     private const MIN_OVERFETCH = 20;
 
     /**
+     * HNSW candidate list size for the vector scan. Higher = better recall, slower.
+     * pgvector's own default is 40; 20 trades some recall for latency.
+     */
+    private const HNSW_EF_SEARCH = 20;
+
+    /**
      * Perform smart search combining semantic similarity and keyword scoring
      * using Reciprocal Rank Fusion (RRF) to merge both signal types.
      *
@@ -61,7 +67,7 @@ class SmartSearchService extends Component
 
         $queryVector = TimingProfiler::profile(
             'Query embedding generation',
-            fn() => SmartSearch::getInstance()->embeddingService->generateEmbedding($query, true, $embeddingModel)
+            fn() => SmartSearch::getInstance()->embeddingService->generateEmbedding($query, $embeddingModel)
         );
 
         $keywordResults = TimingProfiler::profile(
@@ -129,7 +135,7 @@ class SmartSearchService extends Component
      */
     private function fuse(array $semanticLookup, array $keywordLookup, Settings $settings): array
     {
-        $allIds = array_unique([...array_keys($semanticLookup), ...array_keys($keywordLookup)]);
+        $allIds = array_keys($semanticLookup + $keywordLookup);
 
         $scored = [];
         foreach ($allIds as $id) {
@@ -214,9 +220,25 @@ class SmartSearchService extends Component
             $rows = TimingProfiler::profile(
                 'PostgreSQL vector query',
                 function() use ($db, $sql, $params) {
-                    $stmt = $db->prepare($sql);
-                    $stmt->execute($params);
-                    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $db->beginTransaction();
+                    try {
+                        $db->exec('SET LOCAL hnsw.ef_search = ' . self::HNSW_EF_SEARCH);
+                        $stmt = $db->prepare($sql);
+                        $stmt->execute($params);
+                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        $db->commit();
+
+                        return $rows;
+                    } catch (\Throwable $e) {
+                        if ($db->inTransaction()) {
+                            try {
+                                $db->rollBack();
+                            } catch (\Throwable) {
+                            }
+                        }
+
+                        throw $e;
+                    }
                 },
                 ['overFetchLimit' => $overFetchLimit]
             );
@@ -264,17 +286,10 @@ class SmartSearchService extends Component
      */
     private function resolveSectionIds(array $handles): array
     {
-        $entries = Craft::$app->getEntries();
-        $ids = [];
-
-        foreach ($handles as $handle) {
-            $section = $entries->getSectionByHandle($handle);
-            if ($section !== null) {
-                $ids[] = (int)$section->id;
-            }
-        }
-
-        return $ids;
+        return array_values(array_filter(array_map(
+            static fn(string $h) => Craft::$app->getEntries()->getSectionByHandle($h)?->id,
+            $handles,
+        )));
     }
 
     /**

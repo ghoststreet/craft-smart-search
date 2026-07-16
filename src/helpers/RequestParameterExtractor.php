@@ -22,7 +22,7 @@ final class RequestParameterExtractor
      *     must match an existing site id.
      *
      * @param int $defaultLimit Default result limit if not specified in request
-     * @return array{query: string, limit: int, siteId: int|null, allSites: bool, sections: string[], validationError: array|null}
+     * @return array{query: string, limit: int, siteId: int|null, sections: string[], validationError: array|null}
      */
     public static function extractSearchParams(int $defaultLimit = 10): array
     {
@@ -39,14 +39,17 @@ final class RequestParameterExtractor
         $rawSiteId = $request->getParam('siteId');
         $siteResolution = self::resolveSiteId($rawSiteId);
 
-        $validationError = ApiResponseHelper::validateQuery($query)
-            ?? $siteResolution['validationError'];
+        $queryInvalid = TextValidator::isEmpty($query)
+            || mb_strlen($query) > ApiResponseHelper::MAX_QUERY_LENGTH;
+
+        $validationError = $queryInvalid
+            ? ApiResponseHelper::validationErrorBody()
+            : $siteResolution['validationError'];
 
         return [
             'query' => $query,
             'limit' => $limit,
             'siteId' => $siteResolution['siteId'],
-            'allSites' => $siteResolution['allSites'],
             'sections' => $sections,
             'validationError' => $validationError,
         ];
@@ -68,59 +71,25 @@ final class RequestParameterExtractor
     }
 
     /**
-     * @return array{siteId: int|null, allSites: bool, validationError: array|null}
+     * @return array{siteId: int|null, validationError: array|null}
      */
     private static function resolveSiteId(mixed $rawSiteId): array
     {
-        $sites = Craft::$app->getSites();
-        $allSites = $sites->getAllSites();
-        $siteCount = count($allSites);
-
-        $omitted = $rawSiteId === null || $rawSiteId === '';
-
-        if ($siteCount <= 1) {
-            $onlySiteId = $siteCount === 1 ? (int)$allSites[0]->id : null;
-
-            if ($omitted) {
-                return ['siteId' => $onlySiteId, 'allSites' => false, 'validationError' => null];
-            }
-
-            $siteId = (int)$rawSiteId;
-            if ($siteId === 0 || $siteId === $onlySiteId) {
-                return ['siteId' => $onlySiteId, 'allSites' => false, 'validationError' => null];
-            }
-
-            return [
-                'siteId' => null,
-                'allSites' => false,
-                'validationError' => ApiResponseHelper::validationErrorBody(),
-            ];
-        }
-
-        if ($omitted) {
-            return [
-                'siteId' => null,
-                'allSites' => false,
-                'validationError' => ApiResponseHelper::validationErrorBody(),
-            ];
-        }
-
+        $allSites = Craft::$app->getSites()->getAllSites();
         $siteId = (int)$rawSiteId;
 
-        if ($siteId === 0) {
-            return ['siteId' => null, 'allSites' => true, 'validationError' => null];
-        }
-
-        foreach ($allSites as $site) {
-            if ((int)$site->id === $siteId) {
-                return ['siteId' => $siteId, 'allSites' => false, 'validationError' => null];
+        if (count($allSites) <= 1) {
+            $onlySiteId = $allSites === [] ? null : (int)$allSites[0]->id;
+            if ($siteId === 0 || $siteId === $onlySiteId) {
+                return ['siteId' => $onlySiteId, 'validationError' => null];
+            }
+        } elseif ($rawSiteId !== null && $rawSiteId !== '') {
+            $knownIds = array_map(static fn($site): int => (int)$site->id, $allSites);
+            if ($siteId === 0 || in_array($siteId, $knownIds, true)) {
+                return ['siteId' => $siteId ?: null, 'validationError' => null];
             }
         }
 
-        return [
-            'siteId' => null,
-            'allSites' => false,
-            'validationError' => ApiResponseHelper::validationErrorBody(),
-        ];
+        return ['siteId' => null, 'validationError' => ApiResponseHelper::validationErrorBody()];
     }
 }

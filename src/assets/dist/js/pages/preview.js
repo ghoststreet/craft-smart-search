@@ -54,18 +54,6 @@
         return sel ? parseInt(sel.value, 10) : null;
     }
 
-    function csrfParam() {
-        if (!Craft.csrfTokenName || !Craft.csrfTokenValue) return '';
-        return encodeURIComponent(Craft.csrfTokenName) + '=' + encodeURIComponent(Craft.csrfTokenValue);
-    }
-
-    function streamActionUrl(path, params) {
-        var base = (Craft.actionUrl || '/actions/').replace(/\/$/, '');
-        var url = base + '/' + path;
-        if (params) url += (url.indexOf('?') === -1 ? '?' : '&') + params;
-        return url;
-    }
-
     function cloneCard(r) {
         var tpl = DOM.find('result-card-tpl');
         if (!tpl) return null;
@@ -157,13 +145,12 @@
         ragSources = [];
 
         var siteId = getSiteId();
-        var params = 'q=' + encodeURIComponent(query) + '&type=ai-answer-stream';
-        if (siteId) params += '&siteId=' + siteId;
-        var csrf = csrfParam();
-        if (csrf) params += '&' + csrf;
+        var params = { q: query, type: 'ai-answer-stream' };
+        if (siteId) params.siteId = siteId;
+        if (Craft.csrfTokenName && Craft.csrfTokenValue) params[Craft.csrfTokenName] = Craft.csrfTokenValue;
 
         var summaryText = '';
-        ragEventSource = new EventSource(streamActionUrl('smart-search/search', params));
+        ragEventSource = new EventSource(Craft.getActionUrl('smart-search/search', params));
 
         ragEventSource.addEventListener('sources', function (e) {
             var data = parseEventData(e);
@@ -190,22 +177,18 @@
         });
     }
 
-    function runStandardSearch(query, root, opts) {
-        var resultsEl = DOM.find(opts.resultsTarget, root);
-        var errorEl = DOM.find(opts.errorTarget, root);
+    function runStandardSearch(query, root) {
+        var resultsEl = DOM.find('smart-results', root);
+        var errorEl = DOM.find('smart-error', root);
 
         if (!query) { reset(resultsEl, errorEl); return; }
 
         setLoading(resultsEl, errorEl);
-        postSearch(opts.action, query, getSiteId(), opts.type)
+        postSearch('smart-search/search', query, getSiteId(), 'search')
             .then(function (data) {
-                var results = data[opts.dataField] || [];
+                var results = data.semanticResults || [];
                 if (results.length === 0) {
-                    resultsEl.innerHTML = '';
-                    var wrap = document.createElement('div');
-                    wrap.className = 'ss-preview-col__summary';
-                    wrap.appendChild(formatSummary('No relevant results found for your query.', []));
-                    resultsEl.appendChild(wrap);
+                    resultsEl.innerHTML = '<div class="ss-preview-col__summary"><p>No relevant results found for your query.</p></div>';
                     resultsEl.hidden = false;
                 } else {
                     renderCards(resultsEl, results);
@@ -215,12 +198,7 @@
     }
 
     var RUNNERS = {
-        smart: function (q, root) {
-            runStandardSearch(q, root, {
-                resultsTarget: 'smart-results', errorTarget: 'smart-error',
-                action: 'smart-search/search', type: 'search', dataField: 'semanticResults',
-            });
-        },
+        smart: function (q, root) { runStandardSearch(q, root); },
         'ai-answer': function (q, root) { runRagAnswer(q, root); },
     };
 

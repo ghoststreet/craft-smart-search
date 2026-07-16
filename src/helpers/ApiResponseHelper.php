@@ -73,20 +73,6 @@ final class ApiResponseHelper
     }
 
     /**
-     * Validate query parameter; return strict error body if invalid, null if valid.
-     *
-     * @return array{success: false, code: string, message: string}|null
-     */
-    public static function validateQuery(string $query): ?array
-    {
-        if (TextValidator::isEmpty($query) || mb_strlen($query) > self::MAX_QUERY_LENGTH) {
-            return self::validationErrorBody();
-        }
-
-        return null;
-    }
-
-    /**
      * The strict error body for a rejected search request.
      *
      * @return array{success: false, code: string, message: string}
@@ -105,13 +91,11 @@ final class ApiResponseHelper
     /**
      * Clamp a caller-supplied result limit into the safe range [1, MAX_QUERY_LIMIT].
      *
-     * Out-of-range or non-positive values fall back to $default; $default is
-     * itself clamped, so internal callers don't need to pre-sanitize. Never
-     * throws — this is silent normalization, not validation.
+     * Non-positive values fall back to 10. Never throws — this is silent
+     * normalization, not validation.
      */
-    public static function clampLimit(int $limit, int $default = 10): int
+    public static function clampLimit(int $limit): int
     {
-        $effective = $limit < 1 ? $default : $limit;
-        return min(max(1, $effective), self::MAX_QUERY_LIMIT);
+        return $limit < 1 ? 10 : min($limit, self::MAX_QUERY_LIMIT);
     }
 }

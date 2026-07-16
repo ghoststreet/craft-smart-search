@@ -215,17 +215,18 @@ class IndexInspectionService extends Component
         $fields = $plugin->embeddingService->inspectFieldsFromLayout($entry);
         $chunks = $plugin->databaseService->getVectorsForElement($elementId, $siteId);
 
-        foreach ($chunks as &$chunk) {
-            $chunk['estimatedTokens'] = $chunk['content']
-                ? TokenEstimator::estimateTokens($chunk['content'])
-                : 0;
-        }
-        unset($chunk);
-
         return [
             'entry' => $entry,
             'fields' => $fields,
-            'chunks' => $chunks,
+            'chunks' => array_map(
+                static fn(array $chunk) => [
+                    ...$chunk,
+                    'estimatedTokens' => $chunk['content']
+                        ? TokenEstimator::estimateTokens($chunk['content'])
+                        : 0,
+                ],
+                $chunks
+            ),
             'boosts' => $plugin->boostService->getRulesForElement($elementId, $siteId),
         ];
     }

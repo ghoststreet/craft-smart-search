@@ -38,6 +38,12 @@ abstract class BaseApiController extends Controller
         return ApiResponseHelper::jsonError($this, $e, $operation, $this->errorContext($context));
     }
 
+    /** JSON 400 with the request-id stamped in. */
+    protected function badRequest(array $payload): Response
+    {
+        return $this->asJson(['requestId' => $this->requestId] + $payload)->setStatusCode(400);
+    }
+
     /**
      * Log the exception and return its curated message, for the non-JSON
      * surfaces (CP flashes, Twig views) that render a string rather than a body.
