@@ -20,9 +20,6 @@ use yii\base\Component;
  */
 class DatabaseService extends Component
 {
-    /** Cache key used to skip repeated preflight checks within a single deploy. */
-    public const SCHEMA_CACHE_KEY = 'smart_search_schema_initialized';
-
     private const LOCAL_HOSTS = ['127.0.0.1', '::1', 'localhost'];
 
     private ?PDO $connection = null;

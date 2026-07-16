@@ -6,7 +6,6 @@ use Craft;
 use DateTimeImmutable;
 use Exception;
 use Generator;
-use OpenAI\Exceptions\ErrorException;
 use DateTimeZone;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
@@ -38,8 +37,7 @@ class AiAnswerService extends Component
     private static function wrapUpstream(Throwable $e): SearchException
     {
         $cause = $e instanceof Exception ? $e : new RuntimeException($e->getMessage(), 0);
-        $isOpenAiError = $e instanceof ErrorException
-            || str_starts_with(get_class($e), 'OpenAI\\Exceptions\\');
+        $isOpenAiError = str_starts_with(get_class($e), 'OpenAI\\Exceptions\\');
 
         if ($isOpenAiError) {
             return SearchException::ragLlmFailed(get_class($e) . ': ' . $e->getMessage(), $cause);
