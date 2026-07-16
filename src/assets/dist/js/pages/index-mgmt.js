@@ -264,12 +264,7 @@
     };
 
     SiteBlock.prototype._setButtonDisabled = function (disabled) {
-        var btn = this.els.button;
-        if (!btn) return;
-        btn.disabled = !!disabled;
-        btn.classList.toggle('disabled', !!disabled);
-        if (disabled) btn.setAttribute('aria-disabled', 'true');
-        else btn.removeAttribute('aria-disabled');
+        setButtonBusy(this.els.button, disabled);
     };
 
     SiteBlock.prototype._styleButton = function (kind) {
@@ -292,7 +287,7 @@
                 var payload = (r && r.data) || {};
                 if (!payload.success) {
                     clearOptimistic();
-                    craft.error(payload.error || craft.t('smart-search', 'Failed to start sync.'));
+                    craft.error(payload.error || Craft.t('smart-search', 'Failed to start sync.'));
                     return pollNow();
                 }
                 craft.runQueue();
@@ -425,7 +420,7 @@
                     if (data.done) {
                         setButtonBusy(opts.button, false);
                         if (opts.row) {
-                            setRowStatus(opts.row, 'green', craft.t('smart-search', 'Indexed'));
+                            setRowStatus(opts.row, 'green', Craft.t('smart-search', 'Indexed'));
                             refreshRowIndexState(opts.row);
                         }
                         if (opts.completionMsg) craft.notice(opts.completionMsg);
@@ -491,7 +486,7 @@
                 setButtonBusy(button, false);
                 if (row) {
                     setRowExcluded(row, true);
-                    setRowStatus(row, 'grey', craft.t('smart-search', 'Excluded'));
+                    setRowStatus(row, 'grey', Craft.t('smart-search', 'Excluded'));
                     setRowChunks(row, 0);
                     setRowDate(row, null);
                 }
@@ -505,7 +500,7 @@
                 setButtonBusy(button, false);
                 if (row) {
                     setRowExcluded(row, false);
-                    setRowStatus(row, 'off', craft.t('smart-search', 'Not indexed'));
+                    setRowStatus(row, 'off', Craft.t('smart-search', 'Not indexed'));
                     setRowChunks(row, 0);
                     setRowDate(row, null);
                 }

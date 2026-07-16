@@ -18,10 +18,10 @@
         ).appendTo(Garnish.$bod);
 
         var modalEl = $modal[0];
-        DOM.find('error-modal-title', modalEl).textContent = craft.t('smart-search', 'Search error');
+        DOM.find('error-modal-title', modalEl).textContent = Craft.t('smart-search', 'Search error');
         DOM.find('error-modal-message', modalEl).textContent = message || 'No error message recorded.';
         var closeBtn = DOM.findControl('error-modal-close', modalEl);
-        closeBtn.textContent = craft.t('smart-search', 'Close');
+        closeBtn.textContent = Craft.t('smart-search', 'Close');
 
         var modal = new Garnish.Modal($modal, { resizable: false });
         closeBtn.addEventListener('click', function () { modal.hide(); });

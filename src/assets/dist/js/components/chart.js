@@ -3,25 +3,6 @@
     var ns = window.SmartSearch;
     var Theme = ns.core.ChartTheme;
 
-    var canvasCtx = document.createElement('canvas').getContext('2d');
-
-    function withAlpha(color, alpha) {
-        canvasCtx.fillStyle = '#000';
-        canvasCtx.fillStyle = color;
-        var resolved = canvasCtx.fillStyle;
-        if (resolved.charAt(0) === '#') {
-            var hex = resolved.slice(1);
-            var r = parseInt(hex.slice(0, 2), 16);
-            var g = parseInt(hex.slice(2, 4), 16);
-            var b = parseInt(hex.slice(4, 6), 16);
-            return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
-        }
-        return resolved.replace(/^rgba?\(([^)]+)\)$/, function (_, inner) {
-            var nums = inner.split(',').slice(0, 3).map(function (n) { return n.trim(); });
-            return 'rgba(' + nums.join(', ') + ', ' + alpha + ')';
-        });
-    }
-
     function sparklineConfig(series, color) {
         var p = Theme.palette();
         var c = color || p.primary;
@@ -32,7 +13,7 @@
                 datasets: [{
                     data: series.map(function (r) { return r.value; }),
                     borderColor: c,
-                    backgroundColor: withAlpha(c, 0.15),
+                    backgroundColor: c,
                     borderWidth: 1.5,
                     pointRadius: 0,
                     tension: 0.3,

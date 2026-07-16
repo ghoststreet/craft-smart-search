@@ -19,14 +19,6 @@
 
         setHidden: function (el, hidden) {
             if (el) el.hidden = !!hidden;
-        },
-
-        parseQuery: function (qs) {
-            var out = {};
-            if (!qs) return out;
-            var params = new URLSearchParams(qs);
-            params.forEach(function (value, key) { out[key] = value; });
-            return out;
         }
     };
 })();
