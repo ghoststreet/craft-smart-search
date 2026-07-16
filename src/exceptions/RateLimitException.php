@@ -8,7 +8,7 @@ class RateLimitException extends SmartSearchException
 
     public static function tooManyRequests(int $retryAfter): self
     {
-        $e = self::build('Too many requests.', ErrorCode::RATE_LIMIT_REQUESTS);
+        $e = self::build(null, ErrorCode::RATE_LIMIT_REQUESTS);
         $e->retryAfterSeconds = $retryAfter;
         return $e;
     }

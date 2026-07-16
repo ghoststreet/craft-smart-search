@@ -2,7 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
-use ghoststreet\craftsmartsearch\exceptions\ConfigurationException;
+use ghoststreet\craftsmartsearch\exceptions\EmbeddingException;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
@@ -28,7 +28,7 @@ class OpenAIClientFactory extends Component
      * Get the OpenAI client instance.
      * Creates the client on first call and caches it for subsequent calls.
      *
-     * @throws ConfigurationException If API key is not configured
+     * @throws EmbeddingException If API key is not configured
      */
     public function getClient(): Client
     {
@@ -40,7 +40,7 @@ class OpenAIClientFactory extends Component
         $apiKey = $settings->getOpenaiApiKey();
 
         if ($apiKey === null || $apiKey === '') {
-            throw ConfigurationException::missingApiKey('OpenAI');
+            throw EmbeddingException::missingApiKey();
         }
 
         $this->client = $this->buildClient($apiKey);

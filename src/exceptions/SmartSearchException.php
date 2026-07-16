@@ -30,9 +30,9 @@ abstract class SmartSearchException extends RuntimeException
         return $this->errorCode->httpStatus();
     }
 
-    protected static function build(string $message, ErrorCode $code, ?Throwable $previous = null): static
+    protected static function build(?string $message, ErrorCode $code, ?Throwable $previous = null): static
     {
-        $e = new static($message, 0, $previous);
+        $e = new static($message ?? $code->message(), 0, $previous);
         $e->errorCode = $code;
         return $e;
     }

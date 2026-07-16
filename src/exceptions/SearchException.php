@@ -25,10 +25,7 @@ class SearchException extends SmartSearchException
     {
         $detail = trim($previous->getMessage());
         $base = "{$stage}: {$reason}";
-        if ($detail === '' || str_contains($base, $detail)) {
-            return $base;
-        }
-        return "{$base}\n\nUnderlying error: {$detail}";
+        return $detail === '' || str_contains($base, $detail) ? $base : "{$base}\n\nUnderlying error: {$detail}";
     }
 
     public static function vectorQueryFailed(Throwable $previous): self

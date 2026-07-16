@@ -109,7 +109,7 @@ class SearchController extends BaseApiController
             $this->rateLimitToken = SmartSearch::getInstance()->rateLimitService->acquire($type, $ip);
         } catch (RateLimitException $e) {
             $this->emitRateLimitResponse($e);
-            return false;
+            Craft::$app->end();
         }
 
         register_shutdown_function(function(): void {
