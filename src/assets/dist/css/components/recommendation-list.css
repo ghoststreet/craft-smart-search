@@ -1,10 +1,10 @@
-.recommendation-list__items {
+.ss-recommendation-list__items {
     list-style: none;
     padding: 0;
     margin: 0;
 }
-.recommendation-list__items li { margin: 6px 0; }
-.recommendation-list__level {
+.ss-recommendation-list__items li { margin: 6px 0; }
+.ss-recommendation-list__level {
     display: inline-block;
     font-size: 10px;
     text-transform: uppercase;
@@ -13,13 +13,13 @@
     margin-right: 6px;
     vertical-align: 1px;
 }
-.recommendation-list__level--info {
+.ss-recommendation-list__level--info {
     background: var(--smart-search-info-bg);
     color: var(--smart-search-info-fg);
 }
-.recommendation-list__level--warn {
+.ss-recommendation-list__level--warn {
     background: var(--smart-search-warn-bg);
     color: var(--smart-search-warn-fg);
 }
-.recommendation-list__body { color: var(--medium-text-color); }
-.recommendation-list__cta { margin-left: 6px; }
+.ss-recommendation-list__body { color: var(--medium-text-color); }
+.ss-recommendation-list__cta { margin-left: 6px; }

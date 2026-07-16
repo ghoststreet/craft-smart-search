@@ -6,18 +6,18 @@
 {% set expandable = chunk.content is not empty %}
 {% set tag = expandable ? 'details' : 'div' %}
 {% set headTag = expandable ? 'summary' : 'header' %}
-<{{ tag }} class="chunk-row pane{{ expandable ? ' ss-expander' }}">
-    <{{ headTag }} class="chunk-row__header">
-        <span class="chunk-row__index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
-        <span class="chunk-row__tokens">~{{ tokens }} {{ 'tokens'|t('smart-search') }}</span>
-        <div class="chunk-row__token-bar" aria-hidden="true">
+<{{ tag }} class="ss-chunk-row pane{{ expandable ? ' ss-expander' }}">
+    <{{ headTag }} class="ss-chunk-row__header">
+        <span class="ss-chunk-row__index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
+        <span class="ss-chunk-row__tokens">~{{ tokens }} {{ 'tokens'|t('smart-search') }}</span>
+        <div class="ss-chunk-row__token-bar" aria-hidden="true">
             <span style="width: {{ barPct }}%"></span>
         </div>
-        <span class="chunk-row__updated">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
+        <span class="ss-chunk-row__updated">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
     </{{ headTag }}>
     {% if expandable %}
-        <pre class="chunk-row__content">{{ chunk.content }}</pre>
+        <pre class="ss-chunk-row__content">{{ chunk.content }}</pre>
     {% else %}
-        <div class="chunk-row__empty"><span class="light">—</span></div>
+        <div class="ss-chunk-row__empty"><span class="light">—</span></div>
     {% endif %}
 </{{ tag }}>

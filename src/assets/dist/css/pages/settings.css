@@ -1,38 +1,38 @@
-.settings__buttons {
+.ss-settings__buttons {
     margin-bottom: 16px;
 }
 
-.settings__test-result {
+.ss-settings__test-result {
     margin-left: 8px;
 }
 
-.settings__test-result[data-craftsearch-state="ok"] {
+.ss-settings__test-result[data-craftsearch-state="ok"] {
     color: var(--success-color);
 }
 
-.settings__test-result[data-craftsearch-state="error"] {
+.ss-settings__test-result[data-craftsearch-state="error"] {
     color: var(--error-color);
 }
 
-.settings__test-result[data-craftsearch-state="warn"] {
+.ss-settings__test-result[data-craftsearch-state="warn"] {
     color: var(--smart-search-warning);
 }
 
-.settings__db-test {
+.ss-settings__db-test {
     margin-top: 8px;
 }
 
-.settings-connections {
+.ss-settings-connections {
     display: flex;
     gap: 24px;
     align-items: flex-start;
 }
 
-.settings-connections__nav {
+.ss-settings-connections__nav {
     flex: 0 0 200px;
 }
 
-.settings-connections__nav ul {
+.ss-settings-connections__nav ul {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -41,11 +41,11 @@
     gap: 4px;
 }
 
-.settings-connections__nav li {
+.ss-settings-connections__nav li {
     margin: 0;
 }
 
-.settings-connections__nav a {
+.ss-settings-connections__nav a {
     display: block;
     padding: 8px 12px;
     border-radius: 4px;
@@ -53,16 +53,16 @@
     text-decoration: none;
 }
 
-.settings-connections__nav a:hover,
-.settings-connections__nav a.is-active {
+.ss-settings-connections__nav a:hover,
+.ss-settings-connections__nav a.is-active {
     background: var(--gray-050);
 }
 
-.settings-connections__nav a.is-active {
+.ss-settings-connections__nav a.is-active {
     font-weight: 600;
 }
 
-.settings-connections__body {
+.ss-settings-connections__body {
     flex: 1;
     min-width: 0;
 }

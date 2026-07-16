@@ -1,9 +1,9 @@
-.pagination-nav {
+.ss-pagination-nav {
     margin-top: 16px;
     display: flex;
     gap: 4px;
     align-items: center;
 }
-.pagination-nav__label {
+.ss-pagination-nav__label {
     margin: 0 8px;
 }

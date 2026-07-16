@@ -5,8 +5,8 @@
         trendingQueries  iterable of { query, recent, prior, delta, growthPct? }
 #}
 <div class="pane">
-    <h3 class="dash-title">Trending queries</h3>
-    <p class="dash-sub light smalltext">Biggest growth vs the prior period.</p>
+    <h3 class="ss-dash-title">Trending queries</h3>
+    <p class="ss-dash-sub light smalltext">Biggest growth vs the prior period.</p>
     <table class="data fullwidth">
         <thead>
             <tr>
@@ -21,7 +21,7 @@
                     <td>{{ q.query|truncate(80) }}</td>
                     <td class="rightalign">{{ q.recent|number_format }}</td>
                     <td class="rightalign">
-                        <span class="delta-tag delta-tag--up">{{ q.growthPct is null ? 'new' : '▲ ' ~ q.growthPct ~ '%' }}</span>
+                        <span class="ss-delta-tag ss-delta-tag--up">{{ q.growthPct is null ? 'new' : '▲ ' ~ q.growthPct ~ '%' }}</span>
                     </td>
                 </tr>
             {% else %}
@@ -30,6 +30,6 @@
         </tbody>
     </table>
     {% if trendingQueries|length %}
-        <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights/trending') }}">View all trending</a></p>
+        <p class="ss-dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights/trending') }}">View all trending</a></p>
     {% endif %}
 </div>

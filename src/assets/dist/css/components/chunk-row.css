@@ -1,29 +1,29 @@
-.chunk-list {
+.ss-chunk-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.chunk-row {
+.ss-chunk-row {
     margin: 0;
     padding: 0;
     overflow: hidden;
 }
-.chunk-row__header {
+.ss-chunk-row__header {
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 8px 14px;
     background: var(--gray-050, transparent);
 }
-.chunk-row__index { font-weight: 600; }
-.chunk-row__tokens,
-.chunk-row__updated {
+.ss-chunk-row__index { font-weight: 600; }
+.ss-chunk-row__tokens,
+.ss-chunk-row__updated {
     color: var(--medium-text-color);
     font-size: 12px;
 }
 
-.chunk-row__token-bar {
+.ss-chunk-row__token-bar {
     flex: 1;
     min-width: 60px;
     max-width: 180px;
@@ -32,14 +32,14 @@
     background: var(--gray-100, var(--hairline-color));
     overflow: hidden;
 }
-.chunk-row__token-bar > span {
+.ss-chunk-row__token-bar > span {
     display: block;
     height: 100%;
     background: var(--medium-text-color);
     border-radius: 2px;
 }
 
-.chunk-row__content {
+.ss-chunk-row__content {
     margin: 0;
     padding: 12px 14px;
     max-height: 360px;
@@ -53,6 +53,6 @@
     background: var(--gray-050, transparent);
 }
 
-.chunk-row__empty {
+.ss-chunk-row__empty {
     padding: 12px 14px;
 }

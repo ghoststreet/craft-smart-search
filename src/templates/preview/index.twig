@@ -23,8 +23,8 @@
         </div>
     {% endif %}
 
-    <div class="preview-info pane">
-        <div class="preview-info__content">
+    <div class="ss-preview-info pane">
+        <div class="ss-preview-info__content">
             <h2>Test your search setup</h2>
             <p>
                 Run live queries against each search mode side-by-side. Every mode maps to an endpoint you
@@ -35,58 +35,58 @@
         </div>
     </div>
 
-    <div class="preview-grid">
+    <div class="ss-preview-grid">
 
-        <div class="preview-col">
-            <div class="pane preview-col__pane">
-                <h2 class="preview-col__heading">Smart Search <span class="preview-badge preview-badge--smart">Semantic + Keyword</span></h2>
-                <p class="preview-col__desc">Combines semantic (vector) similarity with keyword scoring for the most relevant results.</p>
-                <div class="preview-col__form">
+        <div class="ss-preview-col">
+            <div class="pane ss-preview-col__pane">
+                <h2 class="ss-preview-col__heading">Smart Search <span class="ss-preview-badge ss-preview-badge--smart">Semantic + Keyword</span></h2>
+                <p class="ss-preview-col__desc">Combines semantic (vector) similarity with keyword scoring for the most relevant results.</p>
+                <div class="ss-preview-col__form">
                     <input type="search" class="text" placeholder="Search…" autocomplete="off"
                            data-craftsearch-control="smart-input">
                     <button class="btn" data-craftsearch-control="smart-submit" aria-label="Search">
                         <span data-icon="search" aria-hidden="true"></span>
                     </button>
                 </div>
-                <div class="preview-col__results" data-craftsearch-target="smart-results" role="region" hidden></div>
-                <div class="preview-col__error" data-craftsearch-target="smart-error" role="alert" hidden></div>
+                <div class="ss-preview-col__results" data-craftsearch-target="smart-results" role="region" hidden></div>
+                <div class="ss-preview-col__error" data-craftsearch-target="smart-error" role="alert" hidden></div>
             </div>
         </div>
 
-        <div class="preview-col">
-            <div class="pane preview-col__pane">
-                <h2 class="preview-col__heading">AI Answer <span class="preview-badge preview-badge--ai-answer">Generated</span></h2>
-                <p class="preview-col__desc">Retrieves matching entries then generates a streaming AI summary with inline citations.</p>
-                <div class="preview-col__form">
+        <div class="ss-preview-col">
+            <div class="pane ss-preview-col__pane">
+                <h2 class="ss-preview-col__heading">AI Answer <span class="ss-preview-badge ss-preview-badge--ai-answer">Generated</span></h2>
+                <p class="ss-preview-col__desc">Retrieves matching entries then generates a streaming AI summary with inline citations.</p>
+                <div class="ss-preview-col__form">
                     <input type="search" class="text" placeholder="Search…" autocomplete="off"
                            data-craftsearch-control="ai-answer-input">
                     <button class="btn" data-craftsearch-control="ai-answer-submit" aria-label="Search">
                         <span data-icon="search" aria-hidden="true"></span>
                     </button>
                 </div>
-                <div class="preview-col__summary" data-craftsearch-target="ai-answer-summary" hidden></div>
-                <div class="preview-col__results" data-craftsearch-target="ai-answer-results" role="region" hidden></div>
-                <div class="preview-col__error" data-craftsearch-target="ai-answer-error" role="alert" hidden></div>
+                <div class="ss-preview-col__summary" data-craftsearch-target="ai-answer-summary" hidden></div>
+                <div class="ss-preview-col__results" data-craftsearch-target="ai-answer-results" role="region" hidden></div>
+                <div class="ss-preview-col__error" data-craftsearch-target="ai-answer-error" role="alert" hidden></div>
             </div>
         </div>
 
     </div>
 
     <template data-craftsearch-target="loading-tpl">
-        <div class="preview-col__loading">
-            <span class="preview-col__loading-spinner"></span>
+        <div class="ss-preview-col__loading">
+            <span class="ss-preview-col__loading-spinner"></span>
             Searching…
         </div>
     </template>
 
     <template data-craftsearch-target="cite-tpl">
-        <a class="preview-col__cite" href="" target="_blank" rel="noopener" data-craftsearch-target="field-url"></a>
+        <a class="ss-preview-col__cite" href="" target="_blank" rel="noopener" data-craftsearch-target="field-url"></a>
     </template>
 
     <template data-craftsearch-target="result-card-tpl">
-        <div class="preview-result-card" data-craftsearch-target="result-card">
-            <a class="preview-result-card__title" href="" target="_blank" rel="noopener" data-craftsearch-target="field-url"></a>
-            <p class="preview-result-card__excerpt" data-craftsearch-target="field-excerpt"></p>
+        <div class="ss-preview-result-card" data-craftsearch-target="result-card">
+            <a class="ss-preview-result-card__title" href="" target="_blank" rel="noopener" data-craftsearch-target="field-url"></a>
+            <p class="ss-preview-result-card__excerpt" data-craftsearch-target="field-excerpt"></p>
         </div>
     </template>
 

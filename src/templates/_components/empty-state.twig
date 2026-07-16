@@ -6,8 +6,8 @@
         text     string  supporting line
         variant  string  'neutral' | 'positive' — also picks the icon
 #}
-<div class="empty-state empty-state--{{ variant }}">
-    <span class="empty-state__icon">{{ iconSvg(variant == 'positive' ? 'circle-check' : 'magnifying-glass') }}</span>
-    <div class="empty-state__title">{{ title }}</div>
-    <p class="empty-state__text">{{ text }}</p>
+<div class="ss-empty-state ss-empty-state--{{ variant }}">
+    <span class="ss-empty-state__icon">{{ iconSvg(variant == 'positive' ? 'circle-check' : 'magnifying-glass') }}</span>
+    <div class="ss-empty-state__title">{{ title }}</div>
+    <p class="ss-empty-state__text">{{ text }}</p>
 </div>

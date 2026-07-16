@@ -1,31 +1,40 @@
 /*
-    badge — small pill with a leading status dot and an uppercase label.
+    ss-badge — small pill with a leading status dot and an uppercase label.
     Pair with the _components/badge.twig macro.
 
     Modifiers (variant is kebabed by the macro — history's `aiAnswer` arrives as `ai-answer`):
-      badge--ai-answer  purple dot          (AI Answer searches)
-      badge--smart      blue dot            (Smart searches)
-      badge--success    green pill          (successful rows)
-      badge--error      red pill            (errored rows)
-      badge--cached     gray pill, blue dot (cached embedding)
+      ss-badge--ai-answer  purple dot          (AI Answer searches)
+      ss-badge--smart      blue dot            (Smart searches)
+      ss-badge--success    green pill          (successful rows)
+      ss-badge--error      red pill            (errored rows)
+      ss-badge--cached     gray pill, blue dot (cached embedding)
+
+    height/line-height/min-width/justify-content/text-align used to come free from
+    Craft's own .badge, back when this component squatted on that name. They are
+    declared here now that the name is ours — dropping them shrinks the pill.
 */
-.badge {
+.ss-badge {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    height: 1rem;
+    min-width: 1.1rem;
     padding: 2px 9px;
     border-radius: 999px;
     background: var(--gray-100, rgba(0, 0, 0, .05));
     color: var(--text-color);
     font-size: 11px;
     font-weight: 600;
+    line-height: 1rem;
     letter-spacing: .04em;
+    text-align: center;
     text-transform: uppercase;
     white-space: nowrap;
     vertical-align: middle;
 }
 
-.badge__dot {
+.ss-badge__dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
@@ -33,23 +42,23 @@
     flex-shrink: 0;
 }
 
-.badge--ai-answer .badge__dot { background: var(--smart-search-ai-answer); }
-.badge--smart .badge__dot { background: var(--smart-search-semantic); }
+.ss-badge--ai-answer .ss-badge__dot { background: var(--smart-search-ai-answer); }
+.ss-badge--smart .ss-badge__dot { background: var(--smart-search-semantic); }
 
-.badge--success {
+.ss-badge--success {
     background: var(--smart-search-chip-success-bg);
     color: var(--smart-search-chip-success-fg);
 }
-.badge--success .badge__dot { background: var(--smart-search-success); }
+.ss-badge--success .ss-badge__dot { background: var(--smart-search-success); }
 
-.badge--error {
+.ss-badge--error {
     background: var(--smart-search-danger-bg);
     color: var(--smart-search-danger-fg);
 }
-.badge--error .badge__dot { background: var(--smart-search-danger); }
+.ss-badge--error .ss-badge__dot { background: var(--smart-search-danger); }
 
-.badge--cached {
+.ss-badge--cached {
     background: var(--gray-100, rgba(0, 0, 0, .05));
     color: var(--medium-text-color);
 }
-.badge--cached .badge__dot { background: var(--smart-search-semantic); }
+.ss-badge--cached .ss-badge__dot { background: var(--smart-search-semantic); }

@@ -5,21 +5,21 @@
 
 {% block content %}
 {% if not setupComplete %}
-    <div class="dashboard dashboard--onboarding">
+    <div class="ss-dashboard ss-dashboard--onboarding">
         {% include 'smart-search/_dashboard/_onboarding' with {
             requiredSteps: requiredSteps,
             recommendedSteps: recommendedSteps,
         } only %}
     </div>
 {% else %}
-<div class="dashboard">
+<div class="ss-dashboard">
 
     {# Integrated header bar: status pills (left) + range picker (right) #}
-    <div class="dash-header">
-        <div class="dash-header__status" role="status" aria-label="Smart Search health">
+    <div class="ss-dash-header">
+        <div class="ss-dash-header__status" role="status" aria-label="Smart Search health">
             {% for item in health %}
-                <span class="dash-header__status-item dash-header__status-item--{{ item.state }}">
-                    <span class="dash-header__dot" aria-hidden="true"></span>
+                <span class="ss-dash-header__status-item ss-dash-header__status-item--{{ item.state }}">
+                    <span class="ss-dash-header__dot" aria-hidden="true"></span>
                     <span>{{ item.label }}</span>
                 </span>
             {% endfor %}
@@ -33,9 +33,9 @@
 
     {% set criticals = recommendations|filter(r => r.level == 'crit') %}
     {% if criticals|length %}
-        <div class="dash-alerts">
+        <div class="ss-dash-alerts">
             {% for c in criticals %}
-                <div class="alert" role="alert">
+                <div class="ss-alert" role="alert">
                     <strong>{{ c.title }}.</strong> {{ c.body }}
                     {% if c.cta %} <a href="{{ c.cta.url }}">{{ c.cta.label }} →</a>{% endif %}
                 </div>
@@ -44,7 +44,7 @@
     {% endif %}
 
     {# KPI hero row — 3 cards #}
-    <div class="dash-kpis">
+    <div class="ss-dash-kpis">
         {% include 'smart-search/_dashboard/_kpi-unified' with {
             aggregates: aggregates,
             seriesSearches: seriesSearches,
@@ -61,9 +61,9 @@
     </div>
 
     {# Top queries + Trending queries (50/50) #}
-    <div class="dash-main">
+    <div class="ss-dash-main">
         <div class="pane">
-            <h3 class="dash-title">Top queries ({{ range }}d)</h3>
+            <h3 class="ss-dash-title">Top queries ({{ range }}d)</h3>
             <table class="data fullwidth">
                 <thead>
                     <tr>
@@ -85,7 +85,7 @@
                 </tbody>
             </table>
             {% if topQueries|length %}
-                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights/top-queries') }}">View all queries</a></p>
+                <p class="ss-dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights/top-queries') }}">View all queries</a></p>
             {% endif %}
         </div>
 
@@ -93,9 +93,9 @@
     </div>
 
     {% if recentErrors|length %}
-        <div class="dash-row">
+        <div class="ss-dash-row">
             <div class="pane">
-                <h3 class="dash-title">Recent errors</h3>
+                <h3 class="ss-dash-title">Recent errors</h3>
                 <table class="data fullwidth">
                     <tbody>
                         {% for e in recentErrors %}
@@ -109,13 +109,13 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                <p class="dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights', { errorsOnly: 1 }) }}">View all errors</a></p>
+                <p class="ss-dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights', { errorsOnly: 1 }) }}">View all errors</a></p>
             </div>
         </div>
     {% endif %}
 
     {% if isMultisite %}
-        <div class="dash-row">
+        <div class="ss-dash-row">
             {% include 'smart-search/_dashboard/_coverage-by-site' with { coverage: coverage, coverageTotal: coverageTotal } only %}
         </div>
     {% endif %}
@@ -125,7 +125,7 @@
         { level: 'warn', heading: 'Action required', show: true },
         { level: 'info', heading: 'Suggestions', show: hasSearches },
     ]|filter(c => c.show) %}
-        <div class="dash-row">
+        <div class="ss-dash-row">
             {% include 'smart-search/_dashboard/_recommendations' with { recommendations: recommendations, level: card.level, heading: card.heading } only %}
         </div>
     {% endfor %}

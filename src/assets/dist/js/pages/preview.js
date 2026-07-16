@@ -203,7 +203,7 @@
                 if (results.length === 0) {
                     resultsEl.innerHTML = '';
                     var wrap = document.createElement('div');
-                    wrap.className = 'preview-col__summary';
+                    wrap.className = 'ss-preview-col__summary';
                     wrap.appendChild(formatSummary('No relevant results found for your query.', []));
                     resultsEl.appendChild(wrap);
                     resultsEl.hidden = false;

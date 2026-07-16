@@ -1,4 +1,4 @@
-.index-stats {
+.ss-index-stats {
     display: flex;
     flex-wrap: wrap;
     gap: 24px;
@@ -8,22 +8,22 @@
     border-radius: var(--medium-border-radius, 5px);
     background: var(--gray-050, transparent);
 }
-.index-stats__item {
+.ss-index-stats__item {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.index-stats__item .status {
+.ss-index-stats__item .status {
     margin-right: 0px;
 }
 
-.index-stats__count {
+.ss-index-stats__count {
     font-weight: 600;
     font-size: 14px;
 }
 
-.index-stats__label {
+.ss-index-stats__label {
     color: var(--medium-text-color);
     font-size: 12px;
     text-transform: uppercase;

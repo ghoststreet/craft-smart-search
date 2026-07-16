@@ -5,14 +5,14 @@
         requiredSteps      list<{ done, label, hint, disabled?, cta: { url, label } }>
         recommendedSteps   list<{ done, label, hint, cta: { url, label } }>
 #}
-<div class="pane onboarding-card">
-    <div class="onboarding-card__intro">
-        <div class="onboarding-card__icon" aria-hidden="true">
+<div class="pane ss-onboarding-card">
+    <div class="ss-onboarding-card__intro">
+        <div class="ss-onboarding-card__icon" aria-hidden="true">
             {{ svg('@ghoststreet/craftsmartsearch/icon.svg') }}
         </div>
-        <div class="onboarding-card__intro-body">
-            <h2 class="dash-lede">Welcome to Smart Search</h2>
-            <p class="light dash-lede">
+        <div class="ss-onboarding-card__intro-body">
+            <h2 class="ss-dash-lede">Welcome to Smart Search</h2>
+            <p class="light ss-dash-lede">
                 Smart Search adds semantic search to your Craft site, so visitors get results based on what
                 they meant rather than just what they typed, with typo tolerance and multi-language stemming
                 handled for you. You can also turn on AI Answer to show a short cited summary written from
@@ -22,18 +22,18 @@
         </div>
     </div>
 
-    <h3 class="onboarding-section">1. Connect the services search runs on</h3>
-    <p class="light onboarding-section__hint">
+    <h3 class="ss-onboarding-section">1. Connect the services search runs on</h3>
+    <p class="light ss-onboarding-section__hint">
         Smart Search stores a vector for every entry and asks an AI model to read them at query time.
         These three steps wire up that storage, that model, and the first batch of vectors.
     </p>
-    <ol class="onboarding-list">
+    <ol class="ss-onboarding-list">
         {% for s in requiredSteps %}
-            <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}{% if s.disabled ?? false %} onboarding-list__item--disabled{% endif %}">
-                <span class="onboarding-list__icon">
+            <li class="ss-onboarding-list__item{% if s.done %} ss-onboarding-list__item--done{% endif %}{% if s.disabled ?? false %} ss-onboarding-list__item--disabled{% endif %}">
+                <span class="ss-onboarding-list__icon">
                     {% if s.done %}<span data-icon="check"></span>{% else %}{{ loop.index }}{% endif %}
                 </span>
-                <div class="onboarding-list__body">
+                <div class="ss-onboarding-list__body">
                     <strong>{{ s.label }}</strong>
                     <div class="light">{{ s.hint }}</div>
                 </div>
@@ -49,18 +49,18 @@
     </ol>
 
     {% if recommendedSteps|length %}
-        <h3 class="onboarding-section onboarding-section--muted">2. Tailor it to your site</h3>
-        <p class="light onboarding-section__hint">
+        <h3 class="ss-onboarding-section ss-onboarding-section--muted">2. Tailor it to your site</h3>
+        <p class="light ss-onboarding-section__hint">
             Search will work without these, but they’re the two settings most teams want to change
             before going live. They control how the AI Answer sounds and how much it’s allowed to spend.
         </p>
-        <ol class="onboarding-list onboarding-list--recommended">
+        <ol class="ss-onboarding-list ss-onboarding-list--recommended">
             {% for s in recommendedSteps %}
-                <li class="onboarding-list__item{% if s.done %} onboarding-list__item--done{% endif %}">
-                    <span class="onboarding-list__icon">
+                <li class="ss-onboarding-list__item{% if s.done %} ss-onboarding-list__item--done{% endif %}">
+                    <span class="ss-onboarding-list__icon">
                         {% if s.done %}<span data-icon="check"></span>{% endif %}
                     </span>
-                    <div class="onboarding-list__body">
+                    <div class="ss-onboarding-list__body">
                         <strong>{{ s.label }}</strong>
                         <div class="light">{{ s.hint }}</div>
                     </div>

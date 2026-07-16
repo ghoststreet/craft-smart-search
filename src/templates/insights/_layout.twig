@@ -25,9 +25,9 @@
     {% block kpis %}{% endblock %}
 
     {% if hasFilterableControls and (hasResults or hasActiveFilters) %}
-        <div class="filter-bar" data-craftsearch-target="filter-bar">
-            <form method="get" action="{{ pageUrl }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
-                <div class="filter-bar__group">
+        <div class="ss-filter-bar" data-craftsearch-target="filter-bar">
+            <form method="get" action="{{ pageUrl }}" class="ss-filter-bar__form" data-craftsearch-target="filter-bar-form">
+                <div class="ss-filter-bar__group">
                     {{ f.sitesSelect(sites, siteId) }}
                     {% if showDays %}
                         {{ f.daysSelect(days) }}

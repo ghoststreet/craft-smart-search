@@ -3,9 +3,9 @@
     Params: currentPage int, totalPages int, path string (cpUrl path), params object (preserved across pages).
 #}
 {% if totalPages > 1 %}
-    <nav class="pagination-nav">
+    <nav class="ss-pagination-nav">
         {% if currentPage > 1 %}<a class="btn" href="{{ cpUrl(path, params|merge({ page: currentPage - 1 })) }}">‹ Prev</a>{% endif %}
-        <span class="light pagination-nav__label">Page {{ currentPage }} of {{ totalPages }}</span>
+        <span class="light ss-pagination-nav__label">Page {{ currentPage }} of {{ totalPages }}</span>
         {% if currentPage < totalPages %}<a class="btn" href="{{ cpUrl(path, params|merge({ page: currentPage + 1 })) }}">Next ›</a>{% endif %}
     </nav>
 {% endif %}

@@ -1,22 +1,22 @@
-.craftsearch-overview-actions {
+.ss-overview-actions {
     display: flex;
     align-items: center;
     gap: 12px;
     margin: 16px 0 20px;
 }
 
-.craftsearch-overview-actions p {
+.ss-overview-actions p {
     margin: 0;
 }
 
-.craftsearch-card-grid {
+.ss-card-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 16px;
     margin-top: 12px;
 }
 
-.craftsearch-card {
+.ss-card {
     background: var(--gray-050, #f3f7fc);
     border: 1px solid var(--hairline-color, #cdd8e4);
     border-radius: 10px;
@@ -27,65 +27,65 @@
     transition: border-color 120ms ease;
 }
 
-.craftsearch-card[data-craftsearch-state="synced"] {
+.ss-card[data-craftsearch-state="synced"] {
     border-color: #6cc070;
     background: #f1faf2;
 }
-.craftsearch-card[data-craftsearch-state="synced"] .craftsearch-card__pill {
+.ss-card[data-craftsearch-state="synced"] .ss-card__pill {
     background: #e0f3df;
     color: #2f6f33;
 }
 
-.craftsearch-card[data-craftsearch-state="needs-sync"] {
+.ss-card[data-craftsearch-state="needs-sync"] {
     border-color: #f0b67a;
     background: #fff9f0;
 }
-.craftsearch-card[data-craftsearch-state="needs-sync"] .craftsearch-card__pill {
+.ss-card[data-craftsearch-state="needs-sync"] .ss-card__pill {
     background: #fbe7c8;
     color: #8a5a14;
 }
 
-.craftsearch-card[data-craftsearch-state="not-synced"] {
+.ss-card[data-craftsearch-state="not-synced"] {
     border-color: var(--hairline-color, #cdd8e4);
     background: var(--gray-050, #f6f8fb);
 }
-.craftsearch-card[data-craftsearch-state="not-synced"] .craftsearch-card__pill {
+.ss-card[data-craftsearch-state="not-synced"] .ss-card__pill {
     background: var(--gray-100, #eef1f5);
     color: var(--medium-text-color, #606d7b);
 }
 
-.craftsearch-card[data-craftsearch-state="indexing"] {
+.ss-card[data-craftsearch-state="indexing"] {
     border-color: #6aa6f5;
     background: #f5f9ff;
 }
-.craftsearch-card[data-craftsearch-state="indexing"] .craftsearch-card__pill {
+.ss-card[data-craftsearch-state="indexing"] .ss-card__pill {
     background: #dbeafe;
     color: #1e4a8a;
 }
 
-.craftsearch-card[data-craftsearch-state="error"] {
+.ss-card[data-craftsearch-state="error"] {
     border-color: #cf3b3b;
     background: #fdf2f2;
 }
-.craftsearch-card[data-craftsearch-state="error"] .craftsearch-card__pill {
+.ss-card[data-craftsearch-state="error"] .ss-card__pill {
     background: #f5c2c2;
     color: #8a1f1f;
 }
 
-.craftsearch-card__head {
+.ss-card__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
 }
 
-.craftsearch-card__title {
+.ss-card__title {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
 }
 
-.craftsearch-card__pill {
+.ss-card__pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -99,32 +99,32 @@
     letter-spacing: 0.04em;
 }
 
-.craftsearch-card__hero {
+.ss-card__hero {
     display: flex;
     flex-direction: column;
     gap: 2px;
     padding: 4px 0;
 }
 
-.craftsearch-card__hero-number {
+.ss-card__hero-number {
     font-size: 32px;
     font-weight: 600;
     line-height: 1.1;
     color: var(--text-color, #29323d);
 }
 
-.craftsearch-card__hero-total {
+.ss-card__hero-total {
     font-size: 18px;
     font-weight: 400;
     color: var(--medium-text-color, #606d7b);
 }
 
-.craftsearch-card__hero-label {
+.ss-card__hero-label {
     font-size: 12px;
     color: var(--medium-text-color, #606d7b);
 }
 
-.craftsearch-card__gaps {
+.ss-card__gaps {
     list-style: none;
     margin: 0;
     padding: 10px 12px;
@@ -133,18 +133,18 @@
     font-size: 13px;
 }
 
-.craftsearch-card__gaps li {
+.ss-card__gaps li {
     display: flex;
     align-items: center;
     gap: 6px;
     margin: 0;
 }
 
-.craftsearch-card__gaps li + li {
+.ss-card__gaps li + li {
     margin-top: 4px;
 }
 
-.craftsearch-card__progress {
+.ss-card__progress {
     padding: 0;
     background: transparent;
     border: 0;
@@ -152,13 +152,13 @@
     box-sizing: border-box;
 }
 
-.craftsearch-card__progress p {
+.ss-card__progress p {
     margin: 6px 0 0;
 }
 
 /* Tint Craft's native progress bar per state. The element itself is rendered
    by Craft.ProgressBar — we only override colors and drop the surrounding chrome. */
-.craftsearch-card__progress .progressbar {
+.ss-card__progress .progressbar {
     background: var(--gray-100, #eef1f5);
     border: 0;
     margin: 0;
@@ -168,18 +168,18 @@
     box-sizing: border-box;
     position: relative;
 }
-.craftsearch-card__progress .progressbar .progressbar-inner {
+.ss-card__progress .progressbar .progressbar-inner {
     max-width: 100%;
     box-sizing: border-box;
 }
-.craftsearch-card__progress .progressbar .progressbar-inner {
+.ss-card__progress .progressbar .progressbar-inner {
     background: var(--blue-500, #3b82f6);
 }
-.craftsearch-card[data-craftsearch-state="error"] .craftsearch-card__progress .progressbar .progressbar-inner {
+.ss-card[data-craftsearch-state="error"] .ss-card__progress .progressbar .progressbar-inner {
     background: #cf3b3b;
 }
 
-.craftsearch-card__footer {
+.ss-card__footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -189,7 +189,7 @@
     border-top: 1px solid var(--hairline-color, #cdd8e4);
 }
 
-.craftsearch-card__meta {
+.ss-card__meta {
     font-size: 12px;
     color: var(--medium-text-color, #606d7b);
     display: flex;
@@ -198,7 +198,7 @@
     flex-wrap: wrap;
 }
 
-.craftsearch-card__footer form {
+.ss-card__footer form {
     margin: 0;
 }
 

@@ -10,15 +10,15 @@
 {% set items = recommendations|filter(r => r.level == level) %}
 
 {% if items|length %}
-    <div class="pane recommendation-list">
-        <h3 class="dash-title">{{ heading }}</h3>
-        <ul class="recommendation-list__items">
+    <div class="pane ss-recommendation-list">
+        <h3 class="ss-dash-title">{{ heading }}</h3>
+        <ul class="ss-recommendation-list__items">
             {% for r in items %}
                 <li>
-                    <span class="recommendation-list__level recommendation-list__level--{{ r.level }}">{{ r.levelLabel }}</span>
+                    <span class="ss-recommendation-list__level ss-recommendation-list__level--{{ r.level }}">{{ r.levelLabel }}</span>
                     <strong>{{ r.title }}.</strong>
-                    <span class="recommendation-list__body">{{ r.body }}</span>
-                    {% if r.cta %}<a class="recommendation-list__cta" href="{{ r.cta.url }}">{{ r.cta.label }} →</a>{% endif %}
+                    <span class="ss-recommendation-list__body">{{ r.body }}</span>
+                    {% if r.cta %}<a class="ss-recommendation-list__cta" href="{{ r.cta.url }}">{{ r.cta.label }} →</a>{% endif %}
                 </li>
             {% endfor %}
         </ul>

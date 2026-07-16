@@ -1,9 +1,9 @@
 /*
-    data-table — responsive wrapper for Craft CP `.data` tables.
+    ss-data-table — responsive wrapper for Craft CP `.data` tables.
 
     Wrap the table in the block element:
 
-        <div class="data-table data-table--auto">
+        <div class="ss-data-table ss-data-table--auto">
             <table class="data fullwidth">…</table>
         </div>
 
@@ -12,31 +12,31 @@
     the page layout.
 
     Modifier (on the wrapper):
-      data-table--auto   Every column shrinks to fit its own content, but the
+      ss-data-table--auto   Every column shrinks to fit its own content, but the
                          first column flexes to absorb the remaining width —
                          the common "label column first, metrics after"
                          table. No per-cell classes needed.
 */
-.data-table {
+.ss-data-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
 
-.data-table--auto table th,
-.data-table--auto table td {
+.ss-data-table--auto table th,
+.ss-data-table--auto table td {
     white-space: nowrap;
 }
 
-.data-table--auto table th:first-child,
-.data-table--auto table td:first-child {
+.ss-data-table--auto table th:first-child,
+.ss-data-table--auto table td:first-child {
     width: 100%;
     min-width: 14ch;
     white-space: normal;
     word-break: break-word;
 }
 
-.data-table table.data tbody tr + tr td,
-.data-table table.data tbody tr + tr th {
+.ss-data-table table.data tbody tr + tr td,
+.ss-data-table table.data tbody tr + tr th {
     border-block-start: 1px solid var(--border-hairline);
 }
 

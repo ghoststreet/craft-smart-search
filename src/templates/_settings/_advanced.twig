@@ -13,7 +13,7 @@
     }) }}
 
 {% if settings.getApiToken() and not settings.allowedOrigins %}
-    <p class="light settings__cors-tip">
+    <p class="light">
         Heads up: headless front ends calling from another origin will be blocked by CORS until you add their origin below.
     </p>
 {% endif %}

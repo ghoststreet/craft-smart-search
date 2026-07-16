@@ -13,9 +13,9 @@
         inputAttributes: { 'data-craftsearch-target': 'openai-api-key' },
     }) }}
 
-    <div class="buttons settings__buttons">
+    <div class="buttons ss-settings__buttons">
         <button type="button" class="btn disabled" data-craftsearch-control="test-api-key" disabled>Test API key</button>
-        <span class="settings__test-result" data-craftsearch-target="test-api-key-result"></span>
+        <span class="ss-settings__test-result" data-craftsearch-target="test-api-key-result"></span>
     </div>
 
     {{ forms.selectField({
@@ -30,7 +30,7 @@
         required: true, errors: settings.getErrors('embeddingModel'),
         inputAttributes: { 'data-craftsearch-target': 'smart-embedding-model' },
     }) }}
-    <p class="warning with-icon settings__reindex-warning" data-craftsearch-target="smart-embedding-warning" hidden>
+    <p class="warning with-icon" data-craftsearch-target="smart-embedding-warning" hidden>
         Saving will invalidate the existing vector corpus. A full reindex is required after this change.
     </p>
 

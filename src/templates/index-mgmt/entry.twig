@@ -48,7 +48,7 @@
             <div class="value">
                 {{ entry.dateUpdated|date('M j, Y g:i A') }}
                 {% if isStale %}
-                    <span class="field-card__tag field-card__tag--muted" title="{{ 'Edited after the last index run'|t('smart-search') }}">{{ 'Stale'|t('smart-search') }}</span>
+                    <span class="ss-field-card__tag ss-field-card__tag--muted" title="{{ 'Edited after the last index run'|t('smart-search') }}">{{ 'Stale'|t('smart-search') }}</span>
                 {% endif %}
             </div>
         </div>
@@ -69,40 +69,40 @@
     {% set expandable = hasBlocks or hasText %}
     {% set tag = expandable ? 'details' : 'article' %}
     {% set headTag = expandable ? 'summary' : 'header' %}
-    <{{ tag }} class="field-card field-card--depth-{{ depth }} field-card--{{ state }}{{ expandable ? ' ss-expander' }}" data-state="{{ state }}">
-        <{{ headTag }} class="field-card__head">
+    <{{ tag }} class="ss-field-card ss-field-card--depth-{{ depth }} ss-field-card--{{ state }}{{ expandable ? ' ss-expander' }}" data-state="{{ state }}">
+        <{{ headTag }} class="ss-field-card__head">
             {% if field.indexed %}
                 <span class="status green" aria-label="{{ 'Indexed'|t('smart-search') }}"></span>
             {% else %}
                 <span class="status off" aria-label="{{ 'Not indexed'|t('smart-search') }}"></span>
             {% endif %}
-            <code class="field-card__handle">{{ field.handle }}</code>
-            <span class="field-card__type">{{ field.type }}</span>
-            <span class="field-card__spacer"></span>
+            <code class="ss-field-card__handle">{{ field.handle }}</code>
+            <span class="ss-field-card__type">{{ field.type }}</span>
+            <span class="ss-field-card__spacer"></span>
             {% if not field.searchable %}
-                <span class="field-card__tag field-card__tag--muted">{{ 'Not searchable'|t('smart-search') }}</span>
+                <span class="ss-field-card__tag ss-field-card__tag--muted">{{ 'Not searchable'|t('smart-search') }}</span>
             {% endif %}
             {% if field.indexed %}
                 {% if hasBlocks %}
-                    <span class="field-card__tag field-card__tag--success">{{ field.blocks|length }} {{ 'block(s)'|t('smart-search') }}</span>
+                    <span class="ss-field-card__tag ss-field-card__tag--success">{{ field.blocks|length }} {{ 'block(s)'|t('smart-search') }}</span>
                 {% else %}
-                    <span class="field-card__tag field-card__tag--success">{{ 'Indexed'|t('smart-search') }}</span>
+                    <span class="ss-field-card__tag ss-field-card__tag--success">{{ 'Indexed'|t('smart-search') }}</span>
                 {% endif %}
             {% elseif field.reason %}
-                <span class="field-card__tag field-card__tag--muted">{{ field.reason }}</span>
+                <span class="ss-field-card__tag ss-field-card__tag--muted">{{ field.reason }}</span>
             {% endif %}
         </{{ headTag }}>
 
         {% if hasBlocks %}
-            <div class="field-card__blocks">
+            <div class="ss-field-card__blocks">
                 {% for block in field.blocks %}
-                    <section class="field-card__block">
-                        <h4 class="field-card__block-title">
-                            <span class="field-card__block-handle">{{ block.label }}</span>
+                    <section class="ss-field-card__block">
+                        <h4 class="ss-field-card__block-title">
+                            <span class="ss-field-card__block-handle">{{ block.label }}</span>
                             {% if block.id %}<span class="light">#{{ block.id }}</span>{% endif %}
                         </h4>
                         {% if block.fields|length %}
-                            <div class="field-card__children">
+                            <div class="ss-field-card__children">
                                 {% for sub in block.fields %}
                                     {{ fieldCard(sub, depth + 1) }}
                                 {% endfor %}
@@ -114,8 +114,8 @@
                 {% endfor %}
             </div>
         {% elseif hasText %}
-            <div class="field-card__body">
-                <pre class="field-card__text">{{ field.extractedText }}</pre>
+            <div class="ss-field-card__body">
+                <pre class="ss-field-card__text">{{ field.extractedText }}</pre>
             </div>
         {% endif %}
     </{{ tag }}>
@@ -131,10 +131,10 @@
     {% endif %}
 
     {# Diagnostic summary strip #}
-    <div class="index-entry__summary">
-        <div class="index-entry__stat">
-            <span class="index-entry__stat-label">{{ 'Status'|t('smart-search') }}</span>
-            <span class="index-entry__stat-value">
+    <div class="ss-index-entry__summary">
+        <div class="ss-index-entry__stat">
+            <span class="ss-index-entry__stat-label">{{ 'Status'|t('smart-search') }}</span>
+            <span class="ss-index-entry__stat-value">
                 {% if chunkCount > 0 %}
                     <span class="status green"></span>{{ 'Indexed'|t('smart-search') }}
                 {% else %}
@@ -142,38 +142,38 @@
                 {% endif %}
             </span>
         </div>
-        <div class="index-entry__stat">
-            <span class="index-entry__stat-label">{{ 'Chunks'|t('smart-search') }}</span>
-            <span class="index-entry__stat-value">{{ chunkCount }}</span>
+        <div class="ss-index-entry__stat">
+            <span class="ss-index-entry__stat-label">{{ 'Chunks'|t('smart-search') }}</span>
+            <span class="ss-index-entry__stat-value">{{ chunkCount }}</span>
         </div>
-        <div class="index-entry__stat">
-            <span class="index-entry__stat-label">{{ 'Fields indexed'|t('smart-search') }}</span>
-            <span class="index-entry__stat-value">{{ fieldsIndexed }} <span class="index-entry__stat-sub">/ {{ inspection.fields|length }}</span></span>
+        <div class="ss-index-entry__stat">
+            <span class="ss-index-entry__stat-label">{{ 'Fields indexed'|t('smart-search') }}</span>
+            <span class="ss-index-entry__stat-value">{{ fieldsIndexed }} <span class="ss-index-entry__stat-sub">/ {{ inspection.fields|length }}</span></span>
         </div>
-        <div class="index-entry__stat">
-            <span class="index-entry__stat-label">{{ 'Tokens'|t('smart-search') }}</span>
-            <span class="index-entry__stat-value">~{{ totalTokens }}</span>
+        <div class="ss-index-entry__stat">
+            <span class="ss-index-entry__stat-label">{{ 'Tokens'|t('smart-search') }}</span>
+            <span class="ss-index-entry__stat-value">~{{ totalTokens }}</span>
         </div>
-        <div class="index-entry__stat">
-            <span class="index-entry__stat-label">{{ 'Last indexed'|t('smart-search') }}</span>
-            <span class="index-entry__stat-value index-entry__stat-value--small">{{ lastIndexed ? lastIndexed|date('M j, Y g:i A') : '—' }}</span>
+        <div class="ss-index-entry__stat">
+            <span class="ss-index-entry__stat-label">{{ 'Last indexed'|t('smart-search') }}</span>
+            <span class="ss-index-entry__stat-value ss-index-entry__stat-value--small">{{ lastIndexed ? lastIndexed|date('M j, Y g:i A') : '—' }}</span>
         </div>
     </div>
 
     {# Fields pane #}
-    <div class="pane index-entry__fields">
+    <div class="pane ss-index-entry__fields">
         <header class="pane-header">
             <h2>{{ 'Fields'|t('smart-search') }} <span class="light">({{ inspection.fields|length }})</span></h2>
         </header>
         <p class="instructions">{{ 'Each card shows a field and the exact text contributed to the index. Skipped fields explain why.'|t('smart-search') }}</p>
 
         {% if inspection.fields|length %}
-            <div class="field-card-filters" data-craftsearch-target="field-filters">
+            <div class="ss-field-card-filters" data-craftsearch-target="field-filters">
                 <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-craftsearch-state="active" data-filter-value="all">{{ 'All'|t('smart-search') }} ({{ inspection.fields|length }})</button>
                 <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-filter-value="indexed">{{ 'Indexed'|t('smart-search') }} ({{ fieldsIndexed }})</button>
                 <button type="button" class="btn small" data-craftsearch-control="field-filter-button" data-filter-value="skipped">{{ 'Skipped'|t('smart-search') }} ({{ inspection.fields|length - fieldsIndexed }})</button>
             </div>
-            <div class="field-card-list" data-craftsearch-target="field-card-list" data-filter-mode="all">
+            <div class="ss-field-card-list" data-craftsearch-target="field-card-list" data-filter-mode="all">
                 {% for field in fieldsSorted %}
                     {{ fieldCard(field, 0) }}
                 {% endfor %}
@@ -184,19 +184,19 @@
     </div>
 
     {% if inspection.boosts|length %}
-        <div class="pane index-entry__boosts">
+        <div class="pane ss-index-entry__boosts">
             <header class="pane-header">
                 <h2>{{ 'Search boosts'|t('smart-search') }} <span class="light">({{ inspection.boosts|length }})</span></h2>
             </header>
             <p class="instructions">{{ 'When a search contains one of the phrases below, this entry is moved toward the top of the results. If several boosted entries match the same search, the one with the higher priority appears first. These rules are set in code (indexBoosts event) and can’t be edited here.'|t('smart-search') }}</p>
-            <ul class="index-entry__boost-list">
+            <ul class="ss-index-entry__boost-list">
                 {% for boost in inspection.boosts %}
-                    <li class="boost-rule">
-                        <span class="boost-rule__trigger">
+                    <li class="ss-boost-rule">
+                        <span class="ss-boost-rule__trigger">
                             {{ 'Search for'|t('smart-search') }}
-                            <code class="boost-rule__phrase">{{ boost.label }}</code>
+                            <code class="ss-boost-rule__phrase">{{ boost.label }}</code>
                         </span>
-                        <span class="boost-rule__priority" title="{{ 'Higher priority ranks first among boosted entries'|t('smart-search') }}">{{ 'priority {weight}'|t('smart-search', { weight: boost.weight }) }}</span>
+                        <span class="ss-boost-rule__priority" title="{{ 'Higher priority ranks first among boosted entries'|t('smart-search') }}">{{ 'priority {weight}'|t('smart-search', { weight: boost.weight }) }}</span>
                     </li>
                 {% endfor %}
             </ul>
@@ -204,14 +204,14 @@
     {% endif %}
 
     {# Chunks pane #}
-    <div class="pane index-entry__chunks">
+    <div class="pane ss-index-entry__chunks">
         <header class="pane-header">
             <h2>{{ 'Chunks'|t('smart-search') }} <span class="light">({{ chunkCount }})</span></h2>
         </header>
         <p class="instructions">{{ 'Each chunk is a slice of this entry’s indexed text, embedded for vector search and stored in'|t('smart-search') }} <code>{{ plugin.settings.vectorsTableName }}</code>. {{ 'Read in order, they reconstruct the full indexed text: the entry title, then each field’s text.'|t('smart-search') }}</p>
 
         {% if chunkCount %}
-            <div class="chunk-list">
+            <div class="ss-chunk-list">
                 {% for chunk in inspection.chunks %}
                     {% include 'smart-search/index-mgmt/_chunk-row' with { chunk: chunk, maxTokens: maxChunkTokens } only %}
                 {% endfor %}

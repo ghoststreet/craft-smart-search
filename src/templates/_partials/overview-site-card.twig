@@ -33,27 +33,27 @@
                     heroPrefix: jobRunning ? 'indexing · ' : 'waiting for worker · ', buttonLabel: 'Cancel' },
 }[state]) %}
 
-<div class="craftsearch-card" data-craftsearch-target="site-card" data-craftsearch-state="{{ state }}" data-craftsearch-site-id="{{ site.siteId }}">
-    <div class="craftsearch-card__head">
-        <h3 class="craftsearch-card__title">{{ site.name }}</h3>
-        <span class="craftsearch-card__pill" data-craftsearch-target="pill">
+<div class="ss-card" data-craftsearch-target="site-card" data-craftsearch-state="{{ state }}" data-craftsearch-site-id="{{ site.siteId }}">
+    <div class="ss-card__head">
+        <h3 class="ss-card__title">{{ site.name }}</h3>
+        <span class="ss-card__pill" data-craftsearch-target="pill">
             <span class="status {{ p.pillDot }}" data-craftsearch-target="pill-dot"></span>
             <span data-craftsearch-target="pill-label">{{ p.pillLabel }}</span>
         </span>
     </div>
 
-    <div class="craftsearch-card__hero">
-        <div class="craftsearch-card__hero-number">
-            <span data-craftsearch-target="hero-indexed">{{ site.indexed }}</span><span class="craftsearch-card__hero-total"> / <span data-craftsearch-target="hero-total">{{ site.total }}</span></span>
+    <div class="ss-card__hero">
+        <div class="ss-card__hero-number">
+            <span data-craftsearch-target="hero-indexed">{{ site.indexed }}</span><span class="ss-card__hero-total"> / <span data-craftsearch-target="hero-total">{{ site.total }}</span></span>
         </div>
-        <div class="craftsearch-card__hero-label" data-craftsearch-target="hero-label">{{ p.heroPrefix }}<span data-craftsearch-target="hero-percent">{{ coverage }}</span>%</div>
-        <div class="craftsearch-card__progress" data-craftsearch-target="site-progress"{% if not activeJob %} hidden{% endif %}>
+        <div class="ss-card__hero-label" data-craftsearch-target="hero-label">{{ p.heroPrefix }}<span data-craftsearch-target="hero-percent">{{ coverage }}</span>%</div>
+        <div class="ss-card__progress" data-craftsearch-target="site-progress"{% if not activeJob %} hidden{% endif %}>
             <div data-craftsearch-target="site-progress-bar"></div>
             <p class="error smalltext" data-craftsearch-target="site-progress-error" hidden></p>
         </div>
     </div>
 
-    <ul class="craftsearch-card__gaps" data-craftsearch-target="gaps"{% if not hasGaps or activeJob %} hidden{% endif %}>
+    <ul class="ss-card__gaps" data-craftsearch-target="gaps"{% if not hasGaps or activeJob %} hidden{% endif %}>
         <li data-craftsearch-target="gap-stale"{% if site.stale == 0 %} hidden{% endif %}>
             <span class="status orange"></span> <strong data-craftsearch-target="gap-stale-count">{{ site.stale }}</strong> stale <span class="light">(edited since last sync)</span>
         </li>
@@ -62,8 +62,8 @@
         </li>
     </ul>
 
-    <div class="craftsearch-card__footer">
-        <div class="craftsearch-card__meta">
+    <div class="ss-card__footer">
+        <div class="ss-card__meta">
             <span data-craftsearch-target="last-sync">
                 {% if site.lastIndexed %}
                     Last sync {{ site.lastIndexed|datetime('short') }}

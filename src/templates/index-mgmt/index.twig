@@ -11,7 +11,7 @@
 
     {% else %}
         {% if overview.isMultiSite %}
-            <div class="craftsearch-overview-actions">
+            <div class="ss-overview-actions">
                 <form method="post">
                     {{ csrfInput() }}
                     {{ actionInput('smart-search/index/sync') }}
@@ -21,7 +21,7 @@
             </div>
         {% endif %}
 
-        <div class="craftsearch-card-grid"
+        <div class="ss-card-grid"
              data-craftsearch-target="overview-grid"
              {% if syncStarted %}data-craftsearch-sync-started="1"{% endif %}>
             {% for site in overview.sites %}

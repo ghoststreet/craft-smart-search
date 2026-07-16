@@ -1,31 +1,31 @@
-.filter-bar {
+.ss-filter-bar {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
     gap: 12px;
     margin-bottom: 16px;
 }
-.filter-bar__form {
+.ss-filter-bar__form {
     display: contents;
 }
-.filter-bar__group {
+.ss-filter-bar__group {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
     gap: 12px;
 }
-.filter-bar .field,
-.filter-bar__group .field {
+.ss-filter-bar .field,
+.ss-filter-bar__group .field {
     margin: 0;
 }
-.filter-bar .checkboxfield,
-.filter-bar__group .checkboxfield {
+.ss-filter-bar .checkboxfield,
+.ss-filter-bar__group .checkboxfield {
     padding-bottom: 8px;
 }
-.filter-bar > button.btn,
-.filter-bar__group > button.btn {
+.ss-filter-bar > button.btn,
+.ss-filter-bar__group > button.btn {
     margin-bottom: 0;
 }
-.filter-bar__reset[hidden] {
+.ss-filter-bar__reset[hidden] {
     display: none !important;
 }

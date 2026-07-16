@@ -2,8 +2,8 @@
    error-modal — clickable Error badge + the modal showing the full message.
 */
 
-/* A <button> carrying the .badge classes — strip only the native button
-   chrome so the .badge / .badge--error styles render unchanged. */
+/* A <button> carrying the .ss-badge classes — strip only the native button
+   chrome so the .ss-badge / .ss-badge--error styles render unchanged. */
 button.ss-error-badge {
     cursor: pointer;
     border: none;

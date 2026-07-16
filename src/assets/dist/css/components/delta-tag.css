@@ -1,5 +1,5 @@
-.delta-tag {
+.ss-delta-tag {
     font-size: 12px;
     color: var(--medium-text-color);
 }
-.delta-tag--up { color: var(--smart-search-success); }
+.ss-delta-tag--up { color: var(--smart-search-success); }

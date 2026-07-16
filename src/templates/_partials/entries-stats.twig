@@ -4,7 +4,7 @@
     Params:
         counts  object  { total, indexed, stale, 'not-indexed', excluded }
 #}
-<div class="index-stats">
+<div class="ss-index-stats">
     {% for stat in [
         { label: 'Total',       count: counts.total },
         { label: 'Indexed',     count: counts.indexed,          dot: 'green' },
@@ -12,10 +12,10 @@
         { label: 'Not indexed', count: counts['not-indexed'],   dot: 'off' },
         { label: 'Excluded',    count: counts.excluded ?? 0,    dot: 'grey' },
     ] %}
-        <div class="index-stats__item">
+        <div class="ss-index-stats__item">
             {% if stat.dot is defined %}<span class="status {{ stat.dot }}"></span>{% endif %}
-            <span class="index-stats__count">{{ stat.count }}</span>
-            <span class="index-stats__label">{{ stat.label }}</span>
+            <span class="ss-index-stats__count">{{ stat.count }}</span>
+            <span class="ss-index-stats__label">{{ stat.label }}</span>
         </div>
     {% endfor %}
 </div>

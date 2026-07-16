@@ -10,9 +10,9 @@
 {% import "_includes/forms.twig" as forms %}
 {% import 'smart-search/_components/filter-fields' as f %}
 
-<div class="filter-bar" data-craftsearch-target="filter-bar">
-    <form method="get" action="{{ cpUrl('smart-search/index/entries') }}" class="filter-bar__form" data-craftsearch-target="filter-bar-form">
-        <div class="filter-bar__group">
+<div class="ss-filter-bar" data-craftsearch-target="filter-bar">
+    <form method="get" action="{{ cpUrl('smart-search/index/entries') }}" class="ss-filter-bar__form" data-craftsearch-target="filter-bar-form">
+        <div class="ss-filter-bar__group">
             {{ f.sitesSelect(sites, filters.siteId, false) }}
 
             {{ forms.selectField({

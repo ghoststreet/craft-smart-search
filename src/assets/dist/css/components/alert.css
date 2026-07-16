@@ -1,4 +1,4 @@
-.alert {
+.ss-alert {
     background: var(--smart-search-danger-bg);
     border: 1px solid var(--smart-search-danger-border);
     color: var(--smart-search-danger-fg);

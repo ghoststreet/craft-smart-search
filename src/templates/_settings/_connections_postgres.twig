@@ -25,9 +25,9 @@
         inputAttributes: { 'data-craftsearch-target': 'db-ssl-mode' },
     }) }}
 
-<div class="buttons settings__db-test">
+<div class="buttons ss-settings__db-test">
     <button type="button" class="btn disabled" data-craftsearch-control="test-db" disabled>Test connection</button>
-    <span class="settings__test-result" data-craftsearch-target="test-db-result"></span>
+    <span class="ss-settings__test-result" data-craftsearch-target="test-db-result"></span>
 </div>
 
     {{ forms.textField({ label: 'Schema', instructions: 'Postgres schema that holds the vectors table. Default <code>public</code>.', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, placeholder: 'public', errors: settings.getErrors('vectorsSchemaName'), inputAttributes: { 'data-craftsearch-target': 'db-vectors-schema' } }) }}

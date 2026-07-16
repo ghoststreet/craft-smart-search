@@ -2,62 +2,62 @@
     Unified KPI hero row: Searches · Spend · Index coverage (donut).
 #}
 {% set budgetPct = (budget.ratio * 100)|round %}
-{% set budgetClass = budget.ratio >= 0.9 ? 'budget-bar--crit' : (budget.ratio >= 0.75 ? 'budget-bar--warn' : '') %}
+{% set budgetClass = budget.ratio >= 0.9 ? 'ss-budget-bar--crit' : (budget.ratio >= 0.75 ? 'ss-budget-bar--warn' : '') %}
 
-<div class="kpi-card">
-    <div class="kpi-card__label">Searches · {{ aggregates.rangeDays }}d</div>
-    <div class="kpi-card__value">{{ aggregates.searches|number_format }}</div>
-    <div class="kpi-card__chart">
+<div class="ss-kpi-card">
+    <div class="ss-kpi-card__label">Searches · {{ aggregates.rangeDays }}d</div>
+    <div class="ss-kpi-card__value">{{ aggregates.searches|number_format }}</div>
+    <div class="ss-kpi-card__chart">
         <canvas data-craftsearch-target="chart-canvas" data-craftsearch-chart="sparkline" data-craftsearch-series="{{ seriesSearches|json_encode|e('html_attr') }}"></canvas>
     </div>
 </div>
 
-<div class="kpi-card">
-    <div class="kpi-card__label">Spend · {{ aggregates.rangeDays }}d</div>
-    <div class="kpi-card__value">${{ aggregates.cost > 0 and aggregates.cost < 0.01 ? aggregates.cost|number_format(4) : aggregates.cost|number_format(2) }}</div>
-    <div class="kpi-card__chart">
+<div class="ss-kpi-card">
+    <div class="ss-kpi-card__label">Spend · {{ aggregates.rangeDays }}d</div>
+    <div class="ss-kpi-card__value">${{ aggregates.cost > 0 and aggregates.cost < 0.01 ? aggregates.cost|number_format(4) : aggregates.cost|number_format(2) }}</div>
+    <div class="ss-kpi-card__chart">
         <canvas data-craftsearch-target="chart-canvas" data-craftsearch-chart="area" data-craftsearch-series="{{ seriesCost|json_encode|e('html_attr') }}"></canvas>
     </div>
     {% if budget.cap > 0 %}
-        <div class="budget-block">
-            <div class="budget-block__head">
-                <span class="budget-block__label">Daily budget</span>
-                <span class="budget-block__usage">${{ budget.spent|number_format(2) }} <span class="light">/ ${{ budget.cap|number_format(2) }}</span> · {{ budgetPct }}%</span>
+        <div class="ss-budget-block">
+            <div class="ss-budget-block__head">
+                <span class="ss-budget-block__label">Daily budget</span>
+                <span class="ss-budget-block__usage">${{ budget.spent|number_format(2) }} <span class="light">/ ${{ budget.cap|number_format(2) }}</span> · {{ budgetPct }}%</span>
             </div>
-            <div class="budget-bar{% if budgetClass %} {{ budgetClass }}{% endif %}" title="{{ budgetPct }}% of daily cap used">
-                <span class="budget-bar__fill" style="width: {{ budgetPct < 1 ? 1 : budgetPct }}%"></span>
+            <div class="ss-budget-bar{% if budgetClass %} {{ budgetClass }}{% endif %}" title="{{ budgetPct }}% of daily cap used">
+                <span class="ss-budget-bar__fill" style="width: {{ budgetPct < 1 ? 1 : budgetPct }}%"></span>
             </div>
-            {% if budget.etaDays %}
-                <div class="kpi-card__eta">Projected to hit cap in ~{{ budget.etaDays }} days</div>
+            {% if budget.etaDays is not null %}
+                <div class="ss-kpi-card__eta">Projected to hit cap in ~{{ budget.etaDays }} days</div>
             {% endif %}
         </div>
     {% endif %}
 </div>
 
-<div class="kpi-card kpi-card--coverage">
-    <div class="kpi-card__label">
+<div class="ss-kpi-card ss-kpi-card--coverage">
+    <div class="ss-kpi-card__label">
         {% if isMultisite %}Index coverage · all sites{% else %}Index coverage{% endif %}
     </div>
 
     {% if coverageTotal > 0 %}
-        <div class="kpi-card__donut-wrap">
+        <div class="ss-kpi-card__donut-wrap">
             <canvas data-craftsearch-target="chart-canvas" data-craftsearch-chart="donut" data-craftsearch-series="{{ coverageTotals|json_encode|e('html_attr') }}"></canvas>
-            <div class="kpi-card__donut-center">
-                <span class="kpi-card__donut-pct">{{ coveragePct }}%</span>
-                <span class="kpi-card__donut-sub">Indexed</span>
+            <div class="ss-kpi-card__donut-center">
+                <span class="ss-kpi-card__donut-pct">{{ coveragePct }}%</span>
+                <span class="ss-kpi-card__donut-sub">Indexed</span>
             </div>
         </div>
-        <div class="kpi-card__legend">
-            <span class="kpi-card__legend-item"><span class="kpi-card__legend-swatch" style="background:#2bb673"></span>{{ coverageTotals.indexed|number_format }} indexed</span>
-            {% if coverageTotals.stale > 0 %}<span class="kpi-card__legend-item"><span class="kpi-card__legend-swatch" style="background:#f5a623"></span>{{ coverageTotals.stale|number_format }} stale</span>{% endif %}
-            {% if coverageTotals.notIndexed > 0 %}<span class="kpi-card__legend-item"><span class="kpi-card__legend-swatch" style="background:#d1d5db"></span>{{ coverageTotals.notIndexed|number_format }} pending</span>{% endif %}
+        <div class="ss-kpi-card__legend">
+            <span class="ss-kpi-card__legend-item"><span class="ss-kpi-card__legend-swatch" style="background:#2bb673"></span>{{ coverageTotals.indexed|number_format }} indexed</span>
+            {% if coverageTotals.stale > 0 %}<span class="ss-kpi-card__legend-item"><span class="ss-kpi-card__legend-swatch" style="background:#f5a623"></span>{{ coverageTotals.stale|number_format }} stale</span>{% endif %}
+            {% if coverageTotals.notIndexed > 0 %}<span class="ss-kpi-card__legend-item"><span class="ss-kpi-card__legend-swatch" style="background:#d1d5db"></span>{{ coverageTotals.notIndexed|number_format }} pending</span>{% endif %}
         </div>
-        <div class="kpi-card__meta" style="text-align:center;">
+        <div class="ss-kpi-card__meta" style="text-align:center;">
             {% if isMultisite %}{{ indexedSiteCount }}/{{ siteCount }} sites fully indexed{% endif %}
             {% if stats.lastIndexed %}{% if isMultisite %} · {% endif %}Last sync {{ stats.lastIndexed|date('M j, g:i A') }}{% endif %}
         </div>
     {% else %}
-        <div class="kpi-card__value kpi-card__value--muted">—</div>
-        <div class="kpi-card__meta">Never synced — <a href="{{ cpUrl('smart-search/index') }}">run a sync →</a></div>
+        <div class="ss-kpi-card__value ss-kpi-card__value--muted">—</div>
+        <div class="ss-kpi-card__meta">Never synced — <a href="{{ cpUrl('smart-search/index') }}">run a sync →</a></div>
     {% endif %}
 </div>

@@ -49,8 +49,8 @@
 
 {% block content %}
     {% if connectionsSubPage %}
-        <div class="settings-connections">
-            <nav class="settings-connections__nav">
+        <div class="ss-settings-connections">
+            <nav class="ss-settings-connections__nav">
                 <ul>
                     {% for key, label in { postgres: 'PostgreSQL', openai: 'OpenAI' } %}
                         <li>
@@ -60,7 +60,7 @@
                     {% endfor %}
                 </ul>
             </nav>
-            <div class="settings-connections__body">{{ form }}</div>
+            <div class="ss-settings-connections__body">{{ form }}</div>
         </div>
     {% else %}
         {{ form }}

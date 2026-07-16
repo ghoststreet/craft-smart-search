@@ -4,12 +4,12 @@
 #}
 {# variant is kebabed: callers pass history's camelCase type (aiAnswer) but the CSS modifiers are kebab-case. #}
 {% macro badge(label, variant) %}
-    <span class="badge badge--{{ variant|kebab }}"><span class="badge__dot"></span>{{ label }}</span>
+    <span class="ss-badge ss-badge--{{ variant|kebab }}"><span class="ss-badge__dot"></span>{{ label }}</span>
 {% endmacro %}
 
 {% macro errorBadge(message) %}
-    <button type="button" class="badge badge--error ss-error-badge"
+    <button type="button" class="ss-badge ss-badge--error ss-error-badge"
             data-craftsearch-control="error-modal-trigger"
             data-craftsearch-error-message="{{ message }}"
-            title="{{ message }}"><span class="badge__dot"></span>Error</button>
+            title="{{ message }}"><span class="ss-badge__dot"></span>Error</button>
 {% endmacro %}

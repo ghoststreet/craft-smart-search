@@ -8,7 +8,7 @@
 {% block insightsContent %}
     <p class="light">Queries gaining momentum: searched more in the last 7 days than in the 7 days before. Use it to spot rising interest early.</p>
     {% if page.items|length %}
-        <div class="tableview data-table data-table--auto">
+        <div class="tableview ss-data-table ss-data-table--auto">
             <table class="data fullwidth big">
                 <thead>
                     <tr>
@@ -25,7 +25,7 @@
                             <td class="rightalign">{{ k.recent|number_format }}</td>
                             <td class="rightalign light">{{ k.prior|number_format }}</td>
                             <td class="rightalign">
-                                <span class="delta-tag delta-tag--up">{{ k.growthPct is null ? 'new' : '▲ ' ~ k.growthPct ~ '%' }}</span>
+                                <span class="ss-delta-tag ss-delta-tag--up">{{ k.growthPct is null ? 'new' : '▲ ' ~ k.growthPct ~ '%' }}</span>
                             </td>
                         </tr>
                     {% endfor %}

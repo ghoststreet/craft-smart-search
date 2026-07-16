@@ -40,10 +40,7 @@ class DashboardController extends Controller
 
         $metrics = $this->loadMetrics($history, $range);
         $coverage = $this->loadCachedCoverage();
-        $budget = $this->gateBudgetEta(
-            $plugin->rateLimitService->getBudgetConsumption($metrics['sevenDayBurn']),
-            $metrics['daysWithData']
-        );
+        $budget = $plugin->rateLimitService->getBudgetConsumption($metrics['sevenDayBurn']);
         $aggregates = $this->computeAggregates($metrics['dailySeries'], $range);
         $health = $this->buildHealth($settings, $stats, $budget);
         $coverageTotals = $this->sumCoverage($coverage);
@@ -86,7 +83,7 @@ class DashboardController extends Controller
             'coverageTotals' => $coverageTotals['totals'],
             'coverageTotal' => $coverageTotals['total'],
             'coveragePct' => $coverageTotals['pct'],
-            'budget' => $budget,
+            'budget' => $this->gateBudgetEta($budget, $metrics['daysWithData']),
             'topQueries' => $metrics['topQueries'],
             'trendingQueries' => $metrics['trendingQueries'],
             'recentErrors' => $metrics['recentErrors'],
@@ -188,6 +185,10 @@ class DashboardController extends Controller
     /**
      * Blank the budget ETA unless it's both trustworthy and near enough to act on,
      * so the template can just ask whether there's an ETA to show.
+     *
+     * View-only: apply this to the copy handed to the template, never to the array
+     * passed to RecommendationsService, which keys its own runaway-spend advisory
+     * off etaDays and must still see a short ETA on a site with < 7 days of traffic.
      */
     private function gateBudgetEta(array $budget, int $daysWithData): array
     {
