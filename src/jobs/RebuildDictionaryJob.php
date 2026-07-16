@@ -21,10 +21,7 @@ class RebuildDictionaryJob extends BaseJob
 
         if ($rows === null) {
             Logger::warning('Dictionary rebuild was skipped — see prior log entries for reason');
-            return;
         }
-
-        $this->setProgress($queue, 1.0, "Dictionary rebuilt ({$rows} terms)");
     }
 
     protected function defaultDescription(): ?string

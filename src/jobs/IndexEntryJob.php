@@ -53,16 +53,8 @@ class IndexEntryJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        $entry = Entry::find()
-            ->id($this->entryId)
-            ->siteId($this->siteId)
-            ->status(null)
-            ->one();
-
-        $title = $entry?->title ?: "#{$this->entryId}";
-
-        return Translation::prep('smart-search', 'Smart Search: indexing “{title}”', [
-            'title' => $title,
+        return Translation::prep('smart-search', 'Smart Search: indexing entry #{id}', [
+            'id' => $this->entryId,
         ]);
     }
 }
