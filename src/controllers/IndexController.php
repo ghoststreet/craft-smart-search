@@ -500,21 +500,11 @@ class IndexController extends BaseApiController
         $elementId = (int)$request->getRequiredBodyParam('elementId');
         $siteId = (int)$request->getRequiredBodyParam('siteId');
 
-        $jobId = Craft::$app->getQueue()->push(new IndexEntryJob([
-            'entryId' => $elementId,
-            'siteId' => $siteId,
-        ]));
-
-        if ($request->getAcceptsJson()) {
-            return $this->asJson([
-                'success' => true,
-                'jobId' => (string)$jobId,
-            ]);
-        }
-
-        Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Re-index queued for entry #{id}.', ['id' => $elementId]));
-
-        return $this->redirectToPostedUrl();
+        return $this->queueIndexJob(
+            $elementId,
+            $siteId,
+            Craft::t('smart-search', 'Re-index queued for entry #{id}.', ['id' => $elementId])
+        );
     }
 
     public function actionExcludeEntry(): Response
@@ -548,19 +538,26 @@ class IndexController extends BaseApiController
 
         SmartSearch::getInstance()->exclusionService->include($elementId, $siteId);
 
+        return $this->queueIndexJob(
+            $elementId,
+            $siteId,
+            Craft::t('smart-search', 'Entry #{id} re-included in index.', ['id' => $elementId])
+        );
+    }
+
+    /** Push an IndexEntryJob, then answer JSON (with jobId) or redirect with a notice. */
+    private function queueIndexJob(int $elementId, int $siteId, string $notice): Response
+    {
         $jobId = Craft::$app->getQueue()->push(new IndexEntryJob([
             'entryId' => $elementId,
             'siteId' => $siteId,
         ]));
 
-        if ($request->getAcceptsJson()) {
-            return $this->asJson([
-                'success' => true,
-                'jobId' => (string)$jobId,
-            ]);
+        if (Craft::$app->getRequest()->getAcceptsJson()) {
+            return $this->asJson(['success' => true, 'jobId' => (string)$jobId]);
         }
 
-        Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Entry #{id} re-included in index.', ['id' => $elementId]));
+        Craft::$app->getSession()->setNotice($notice);
 
         return $this->redirectToPostedUrl();
     }

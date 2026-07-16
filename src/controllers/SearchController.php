@@ -287,10 +287,10 @@ class SearchController extends BaseApiController
     {
         $type = SearchType::tryFromParam(Craft::$app->getRequest()->getParam('type'));
         if ($type === null) {
-            return $this->asJson($this->withRequestId([
+            return $this->badRequest([
                 'success' => false,
                 'message' => 'Unknown search type.',
-            ]))->setStatusCode(400);
+            ]);
         }
         return match ($type) {
             SearchType::Search => $this->runHybridSearch(),
@@ -306,7 +306,7 @@ class SearchController extends BaseApiController
         $params = RequestParameterExtractor::extractSearchParams();
 
         if ($params['validationError'] !== null) {
-            return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
+            return $this->badRequest($params['validationError']);
         }
 
         $this->logRequest('semanticSearch', $params);
@@ -336,7 +336,7 @@ class SearchController extends BaseApiController
             ]);
         } catch (Throwable $e) {
             $this->recordHistory('smart', $params, 0, $e->getMessage());
-            return ApiResponseHelper::jsonError($this, $e, 'semanticSearch', $this->errorContext($params));
+            return $this->jsonError($e, 'semanticSearch', $params);
         }
     }
 
@@ -349,7 +349,7 @@ class SearchController extends BaseApiController
         $params = RequestParameterExtractor::extractSearchParams(20);
 
         if ($params['validationError'] !== null) {
-            return $this->asJson($this->withRequestId($params['validationError']))->setStatusCode(400);
+            return $this->badRequest($params['validationError']);
         }
 
         if (RateLimitService::isFallbackToken($this->rateLimitToken)) {
@@ -388,7 +388,7 @@ class SearchController extends BaseApiController
             ]);
         } catch (Throwable $e) {
             $this->recordHistory('aiAnswer', $params, 0, $e->getMessage());
-            return ApiResponseHelper::jsonError($this, $e, 'aiAnswer', $this->errorContext($params));
+            return $this->jsonError($e, 'aiAnswer', $params);
         }
     }
 
@@ -537,7 +537,7 @@ class SearchController extends BaseApiController
             ]);
         } catch (Throwable $e) {
             $this->recordHistory('aiAnswer', $params, 0, $e->getMessage());
-            return ApiResponseHelper::jsonError($this, $e, 'aiAnswer', $this->errorContext($params));
+            return $this->jsonError($e, 'aiAnswer', $params);
         }
     }
 
@@ -644,9 +644,10 @@ class SearchController extends BaseApiController
         return $this->asJson(['success' => true, 'requestId' => $this->requestId] + $body);
     }
 
-    private function withRequestId(array $payload): array
+    /** JSON 400 with the request-id stamped in. */
+    private function badRequest(array $payload): Response
     {
-        return ['requestId' => $this->requestId] + $payload;
+        return $this->asJson(['requestId' => $this->requestId] + $payload)->setStatusCode(400);
     }
 
     /**
