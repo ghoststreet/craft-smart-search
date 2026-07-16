@@ -3,7 +3,6 @@
 namespace ghoststreet\craftsmartsearch\helpers;
 
 use Craft;
-use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 
 /**
  * Helper for extracting and validating common request parameters.
@@ -94,7 +93,7 @@ final class RequestParameterExtractor
             return [
                 'siteId' => null,
                 'allSites' => false,
-                'validationError' => self::validationErrorBody(),
+                'validationError' => ApiResponseHelper::validationErrorBody(),
             ];
         }
 
@@ -102,7 +101,7 @@ final class RequestParameterExtractor
             return [
                 'siteId' => null,
                 'allSites' => false,
-                'validationError' => self::validationErrorBody(),
+                'validationError' => ApiResponseHelper::validationErrorBody(),
             ];
         }
 
@@ -121,20 +120,7 @@ final class RequestParameterExtractor
         return [
             'siteId' => null,
             'allSites' => false,
-            'validationError' => self::validationErrorBody(),
-        ];
-    }
-
-    /**
-     * @return array{success: false, code: string, message: string}
-     */
-    private static function validationErrorBody(): array
-    {
-        $code = ErrorCode::SEARCH_VALIDATION_FAILED;
-        return [
-            'success' => false,
-            'code' => $code->value,
-            'message' => Craft::t('smart-search', $code->message()),
+            'validationError' => ApiResponseHelper::validationErrorBody(),
         ];
     }
 }

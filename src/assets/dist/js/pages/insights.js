@@ -2,14 +2,12 @@
     'use strict';
     var ns = window.SmartSearch;
 
-    ns.pages.insights = {
-        init: function () {
-            if (typeof Chart !== 'undefined' && ns.components.Chart) {
-                ns.core.ChartTheme.applyChartDefaults();
-                ns.components.Chart.buildAll();
-            }
+    function init() {
+        if (typeof Chart !== 'undefined' && ns.components.Chart) {
+            ns.core.ChartTheme.applyChartDefaults();
+            ns.components.Chart.buildAll();
         }
-    };
+    }
 
-    ns.core.DOM.ready(ns.pages.insights.init);
+    ns.core.DOM.ready(init);
 })();

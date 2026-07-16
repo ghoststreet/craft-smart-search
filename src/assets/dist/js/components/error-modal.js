@@ -2,7 +2,6 @@
     'use strict';
     var ns = window.SmartSearch;
     var DOM = ns.core.DOM;
-    var craft = ns.core.craft;
 
     function open(message) {
         var $modal = $(

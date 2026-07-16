@@ -253,7 +253,5 @@
         }
     }
 
-    ns.pages.preview = { init: bindInputs };
-
-    DOM.ready(ns.pages.preview.init);
+    DOM.ready(bindInputs);
 })();

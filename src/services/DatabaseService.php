@@ -20,6 +20,8 @@ use yii\base\Component;
  */
 class DatabaseService extends Component
 {
+    public const STATS_CACHE_KEY = 'smart_search_dashboard_stats';
+
     private const LOCAL_HOSTS = ['127.0.0.1', '::1', 'localhost'];
 
     private ?PDO $connection = null;
@@ -159,15 +161,10 @@ class DatabaseService extends Component
      */
     private function getMissingConfigFields(array $config): array
     {
-        $missing = [];
-
-        foreach (['host', 'database', 'user', 'password'] as $field) {
-            if (empty($config[$field])) {
-                $missing[] = $field;
-            }
-        }
-
-        return $missing;
+        return array_values(array_filter(
+            ['host', 'database', 'user', 'password'],
+            static fn(string $field) => empty($config[$field])
+        ));
     }
 
     /**
@@ -175,7 +172,7 @@ class DatabaseService extends Component
      */
     private function isConnectionUri(string $host): bool
     {
-        return str_starts_with($host, 'postgresql://') || str_starts_with($host, 'postgres://');
+        return in_array(parse_url($host, PHP_URL_SCHEME), ['postgres', 'postgresql'], true);
     }
 
     /**
@@ -216,24 +213,9 @@ class DatabaseService extends Component
      */
     private function resolveHostAddress(string $host): ?string
     {
-        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            return $host;
-        }
-
-        $records = @dns_get_record($host, DNS_A);
-
-        if (!empty($records) && isset($records[0]['ip']) &&
-            filter_var($records[0]['ip'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            return $records[0]['ip'];
-        }
-
         $resolved = gethostbyname($host);
 
-        if ($resolved !== $host && filter_var($resolved, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            return $resolved;
-        }
-
-        return null;
+        return filter_var($resolved, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? $resolved : null;
     }
 
     /**
@@ -481,36 +463,30 @@ class DatabaseService extends Component
     public function getStats(bool $useCache = true): array
     {
         $cache = \Craft::$app->getCache();
-        $cacheKey = 'smart_search_dashboard_stats';
 
-        if ($useCache) {
-            $cached = $cache->get($cacheKey);
-            if ($cached !== false) {
-                return $cached;
-            }
+        if (!$useCache) {
+            $cache->delete(self::STATS_CACHE_KEY);
         }
 
-        $table = $this->getQualifiedTable();
-        $row = $this->executeStatement(
-            "SELECT COUNT(DISTINCT \"elementId\") AS \"entryCount\",
-                    COUNT(*) AS \"chunkCount\",
-                    MAX(\"dateUpdated\") AS \"lastIndexed\"
-             FROM {$table}",
-            [],
-            'getStats'
-        )->fetch();
+        return $cache->getOrSet(self::STATS_CACHE_KEY, function() {
+            $table = $this->getQualifiedTable();
+            $row = $this->executeStatement(
+                "SELECT COUNT(DISTINCT \"elementId\") AS \"entryCount\",
+                        COUNT(*) AS \"chunkCount\",
+                        MAX(\"dateUpdated\") AS \"lastIndexed\"
+                 FROM {$table}",
+                [],
+                'getStats'
+            )->fetch();
 
-        $stats = [
-            'entryCount' => (int)($row['entryCount'] ?? 0),
-            'chunkCount' => (int)($row['chunkCount'] ?? 0),
-            'lastIndexed' => $row['lastIndexed'] ?? null,
-            'isConnected' => true,
-            'error' => null,
-        ];
-
-        $cache->set($cacheKey, $stats, 60);
-
-        return $stats;
+            return [
+                'entryCount' => (int)($row['entryCount'] ?? 0),
+                'chunkCount' => (int)($row['chunkCount'] ?? 0),
+                'lastIndexed' => $row['lastIndexed'] ?? null,
+                'isConnected' => true,
+                'error' => null,
+            ];
+        }, 60);
     }
 
     /**
@@ -573,25 +549,24 @@ class DatabaseService extends Component
      */
     private function parseConnectionUri(string $uri): ?array
     {
-        $rawUri = $uri;
+        $parts = parse_url($uri) ?: [];
+        $database = ltrim($parts['path'] ?? '', '/');
 
-        $uri = preg_replace('/^postgres(ql)?:\/\//', '', $uri);
-
-        if (!preg_match('/^([^:]+):([^@]+)@([^:\/]+):?(\d+)?\/(.+)$/', $uri, $matches)) {
+        if (!isset($parts['user'], $parts['pass'], $parts['host']) || $database === '') {
             Logger::warning('Failed to parse PostgreSQL connection URI', [
                 'expected' => 'postgresql://user:password@host:port/database',
-                'received' => preg_replace('/\/\/[^@]*@/', '//[redacted]@', $rawUri),
+                'received' => preg_replace('/\/\/[^@]*@/', '//[redacted]@', $uri),
             ]);
 
             return null;
         }
 
         return [
-            'user' => urldecode($matches[1]),
-            'password' => urldecode($matches[2]),
-            'host' => $matches[3],
-            'port' => !empty($matches[4]) ? (int)$matches[4] : 5432,
-            'database' => $matches[5],
+            'user' => urldecode($parts['user']),
+            'password' => urldecode($parts['pass']),
+            'host' => trim($parts['host'], '[]'),
+            'port' => (int)($parts['port'] ?? 5432),
+            'database' => $database,
         ];
     }
 }

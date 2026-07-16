@@ -147,7 +147,7 @@ class SettingsController extends BaseApiController
             'selectedSubnavItem' => 'settings',
             'wikiUrl' => SmartSearch::WIKI_URL,
             'insightsAvailable' => SmartSearch::getInstance()->historyService->count() > 0,
-            'trgmInstalled' => $needsTrgm && $dictionary->hasTrgmExtension(),
+            'trgmInstalled' => $needsTrgm && $dictionary->hasExtension('pg_trgm'),
             'termCount' => $needsTrgm ? $dictionary->getTermCount() : 0,
             'partial' => $page['partial'],
             'pageKey' => $page['pageKey'],

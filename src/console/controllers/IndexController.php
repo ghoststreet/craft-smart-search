@@ -4,10 +4,9 @@ namespace ghoststreet\craftsmartsearch\console\controllers;
 
 use Craft;
 use craft\console\Controller;
-use craft\elements\Entry;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
-use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\jobs\SyncSearchIndexJob;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\console\ExitCode;
 use yii\helpers\Console;
@@ -60,46 +59,13 @@ class IndexController extends Controller
             return ExitCode::UNSPECIFIED_ERROR;
         }
 
-        $query = Entry::find();
+        Craft::$app->getQueue()->push(new SyncSearchIndexJob([
+            'siteId' => $this->siteId,
+            'section' => $this->section,
+        ]));
 
-        if ($this->siteId !== null) {
-            $query->siteId($this->siteId);
-        }
-
-        if ($this->section !== null) {
-            $query->section($this->section);
-        }
-
-        $total = $query->count();
-
-        $this->stdout("Found {$total} entries to index.\n");
-
-        if ($total === 0) {
-            $this->stdout("No entries to index.\n", Console::FG_YELLOW);
-            return ExitCode::OK;
-        }
-
-        $queued = 0;
-        $perSection = [];
-
-        foreach ($query->each() as $entry) {
-            Craft::$app->getQueue()->push(new IndexEntryJob([
-                'entryId' => $entry->id,
-                'siteId' => $entry->siteId,
-            ]));
-            $queued++;
-
-            $sectionHandle = $entry->getSection()?->handle ?? 'unknown';
-            $perSection[$sectionHandle] = ($perSection[$sectionHandle] ?? 0) + 1;
-        }
-
-        $this->stdout("Queued {$queued} IndexEntryJob(s).\n", Console::FG_GREEN);
-
-        foreach ($perSection as $handle => $count) {
-            $this->stdout("  {$handle}: {$count}\n");
-        }
-
-        $this->stdout("Run `./craft queue/run` (or your queue runner) to process the jobs.\n");
+        $this->stdout("Queued the index sync job.\n", Console::FG_GREEN);
+        $this->stdout("Run `./craft queue/run` (or your queue runner) to process it.\n");
 
         return ExitCode::OK;
     }

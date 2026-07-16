@@ -81,15 +81,26 @@ final class ApiResponseHelper
     public static function validateQuery(string $query): ?array
     {
         if (TextValidator::isEmpty($query) || mb_strlen($query) > self::MAX_QUERY_LENGTH) {
-            $code = ErrorCode::SEARCH_VALIDATION_FAILED;
-            return [
-                'success' => false,
-                'code' => $code->value,
-                'message' => Craft::t('smart-search', $code->message()),
-            ];
+            return self::validationErrorBody();
         }
 
         return null;
+    }
+
+    /**
+     * The strict error body for a rejected search request.
+     *
+     * @return array{success: false, code: string, message: string}
+     */
+    public static function validationErrorBody(): array
+    {
+        $code = ErrorCode::SEARCH_VALIDATION_FAILED;
+
+        return [
+            'success' => false,
+            'code' => $code->value,
+            'message' => Craft::t('smart-search', $code->message()),
+        ];
     }
 
     /**

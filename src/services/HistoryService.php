@@ -65,7 +65,6 @@ class HistoryService extends Component
         $row = (clone $query)
             ->select([
                 'searches' => 'COUNT(*)',
-                'tokens' => 'COALESCE(SUM(totalTokens), 0)',
                 'embeddingTokens' => 'COALESCE(SUM(embeddingTokens), 0)',
                 'llmTokens' => 'COALESCE(SUM(aiAnswerInputTokens + aiAnswerOutputTokens), 0)',
                 'cost' => 'COALESCE(SUM(cost), 0)',
@@ -74,38 +73,13 @@ class HistoryService extends Component
             ])
             ->one();
 
-        $byType = (clone $query)
-            ->select([
-                'type',
-                'cnt' => 'COUNT(*)',
-                'tokens' => 'COALESCE(SUM(totalTokens), 0)',
-                'cost' => 'COALESCE(SUM(cost), 0)',
-            ])
-            ->groupBy(['type'])
-            ->all();
-
-        $byTypeMap = [];
-        foreach ($byType as $r) {
-            $byTypeMap[$r['type']] = [
-                'count' => (int)$r['cnt'],
-                'tokens' => (int)$r['tokens'],
-                'cost' => (float)$r['cost'],
-            ];
-        }
-
-        $searches = (int)($row['searches'] ?? 0);
-        $cost = (float)($row['cost'] ?? 0);
-
         return [
-            'searches' => $searches,
-            'tokens' => (int)($row['tokens'] ?? 0),
+            'searches' => (int)($row['searches'] ?? 0),
             'embeddingTokens' => (int)($row['embeddingTokens'] ?? 0),
             'llmTokens' => (int)($row['llmTokens'] ?? 0),
-            'cost' => round($cost, 6),
+            'cost' => round((float)($row['cost'] ?? 0), 6),
             'avgDurationMs' => (int)round((float)($row['avgDuration'] ?? 0)),
-            'avgCostPerSearch' => $searches > 0 ? round($cost / $searches, 6) : 0.0,
             'errorCount' => (int)($row['errorCount'] ?? 0),
-            'byType' => $byTypeMap,
         ];
     }
 
@@ -213,7 +187,7 @@ class HistoryService extends Component
      * chronological order, with zero-filled gaps so charts can render contiguous
      * timelines. Grouping is done in PHP to stay portable across MySQL / Postgres.
      *
-     * @return list<array{date: string, searches: int, tokens: int, cost: float, avgMs: int, p95Ms: int, errors: int, cacheHits: int, zeroResults: int}>
+     * @return list<array{date: string, searches: int, cost: float, errors: int}>
      */
     public function getDailySeries(int $days = 30, ?string $type = null, ?int $siteId = null): array
     {
@@ -221,7 +195,7 @@ class HistoryService extends Component
 
         $q = (new Query())
             ->from(SearchHistoryRecord::tableName())
-            ->select(['dateCreated', 'type', 'siteId', 'totalTokens', 'cost', 'durationMs', 'hasError', 'embeddingCached', 'resultsCount'])
+            ->select(['dateCreated', 'type', 'siteId', 'cost', 'hasError'])
             ->andWhere(['>=', 'dateCreated', $this->cutoff($days)]);
 
         if ($type !== null) {
@@ -231,35 +205,14 @@ class HistoryService extends Component
             $q->andWhere(['siteId' => $siteId]);
         }
 
-        $rows = $q->all();
-
         $buckets = [];
-        foreach ($rows as $r) {
+        foreach ($q->all() as $r) {
             $date = substr((string)$r['dateCreated'], 0, 10);
-            if (!isset($buckets[$date])) {
-                $buckets[$date] = [
-                    'date' => $date,
-                    'searches' => 0,
-                    'tokens' => 0,
-                    'cost' => 0.0,
-                    'durations' => [],
-                    'errors' => 0,
-                    'cacheHits' => 0,
-                    'zeroResults' => 0,
-                ];
-            }
+            $buckets[$date] ??= ['searches' => 0, 'cost' => 0.0, 'errors' => 0];
             $buckets[$date]['searches']++;
-            $buckets[$date]['tokens'] += (int)$r['totalTokens'];
             $buckets[$date]['cost'] += (float)$r['cost'];
-            $buckets[$date]['durations'][] = (int)$r['durationMs'];
             if ($r['hasError']) {
                 $buckets[$date]['errors']++;
-            }
-            if ($r['embeddingCached']) {
-                $buckets[$date]['cacheHits']++;
-            }
-            if ((int)$r['resultsCount'] === 0) {
-                $buckets[$date]['zeroResults']++;
             }
         }
 
@@ -269,25 +222,11 @@ class HistoryService extends Component
         while ($cursor <= $end) {
             $key = $cursor->format('Y-m-d');
             $b = $buckets[$key] ?? null;
-            $avg = 0;
-            $p95 = 0;
-            if ($b !== null && $b['durations']) {
-                $avg = (int)round(array_sum($b['durations']) / count($b['durations']));
-                $sorted = $b['durations'];
-                sort($sorted);
-                $idx = (int)floor(0.95 * (count($sorted) - 1));
-                $p95 = $sorted[$idx];
-            }
             $series[] = [
                 'date' => $key,
                 'searches' => $b['searches'] ?? 0,
-                'tokens' => $b['tokens'] ?? 0,
                 'cost' => round($b['cost'] ?? 0.0, 6),
-                'avgMs' => $avg,
-                'p95Ms' => $p95,
                 'errors' => $b['errors'] ?? 0,
-                'cacheHits' => $b['cacheHits'] ?? 0,
-                'zeroResults' => $b['zeroResults'] ?? 0,
             ];
             $cursor->modify('+1 day');
         }
@@ -417,7 +356,7 @@ class HistoryService extends Component
     }
 
     /**
-     * Shared GROUP BY helper. Returns rows: [k, query, hits, zeroHits, lastSeen].
+     * Shared GROUP BY helper. Returns rows: [k, query, hits, avgResults, lastSeen].
      */
     private function groupedCounts(
         ?string $cutoffFrom,
@@ -434,10 +373,7 @@ class HistoryService extends Component
             'hits' => 'COUNT(*)',
         ];
         if (!$minimal) {
-            $select['zeroHits'] = 'SUM(CASE WHEN [[resultsCount]] = 0 THEN 1 ELSE 0 END)';
             $select['avgResults'] = 'AVG([[resultsCount]])';
-            $select['avgDurationMs'] = 'AVG([[durationMs]])';
-            $select['errors'] = 'SUM(CASE WHEN [[hasError]] = 1 THEN 1 ELSE 0 END)';
             $select['lastSeen'] = 'MAX([[dateCreated]])';
         }
 

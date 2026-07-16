@@ -23,7 +23,7 @@ class SmartSearchVariable
      */
     public function search(string $query, int $limit = 10, ?int $siteId = null, array|string|null $sections = null): array
     {
-        return SmartSearch::getInstance()->searchService->search(
+        return SmartSearch::getInstance()->smartSearchService->search(
             $query,
             $limit,
             $siteId,

@@ -26,7 +26,7 @@ class DictionaryService extends Component
 
     private const REQUEST_CACHE_TTL_SECONDS = 60;
 
-    private ?bool $availabilityCache = null;
+    private const AVAILABILITY_CACHE_KEY = 'smart_search_typo_available';
 
     /**
      * Add this entry's lexemes to the terms table without scanning the whole corpus.
@@ -79,39 +79,20 @@ class DictionaryService extends Component
         }
     }
 
-    public function hasTrgmExtension(): bool
-    {
-        return $this->hasExtension('pg_trgm');
-    }
-
     /**
      * True only when pg_trgm is installed and the dictionary table has rows.
-     * Cached per-request and via Craft cache for 60s to avoid hammering pg_extension.
+     * Cached for 60s to avoid hammering pg_extension.
      */
     public function isAvailable(): bool
     {
-        if ($this->availabilityCache !== null) {
-            return $this->availabilityCache;
-        }
-
-        $cache = Craft::$app->getCache();
-        $cacheKey = 'smart_search_typo_available';
-        $cached = $cache->get($cacheKey);
-        if ($cached !== false) {
-            return $this->availabilityCache = (bool)$cached;
-        }
-
-        $available = $this->checkAvailability();
-        $cache->set($cacheKey, $available ? 1 : 0, self::REQUEST_CACHE_TTL_SECONDS);
-        return $this->availabilityCache = $available;
+        return (bool)Craft::$app->getCache()->getOrSet(
+            self::AVAILABILITY_CACHE_KEY,
+            fn() => $this->checkAvailability() ? 1 : 0,
+            self::REQUEST_CACHE_TTL_SECONDS
+        );
     }
 
-    public function hasFuzzyStrMatch(): bool
-    {
-        return $this->hasExtension('fuzzystrmatch');
-    }
-
-    private function hasExtension(string $name): bool
+    public function hasExtension(string $name): bool
     {
         try {
             $db = SmartSearch::getInstance()->databaseService->getConnection();
@@ -257,8 +238,6 @@ class DictionaryService extends Component
 
     private function clearAvailabilityCache(): void
     {
-        $this->availabilityCache = null;
-        Craft::$app->getCache()->delete('smart_search_typo_available');
+        Craft::$app->getCache()->delete(self::AVAILABILITY_CACHE_KEY);
     }
-
 }

@@ -24,19 +24,24 @@ use ghoststreet\craftsmartsearch\SmartSearch;
 class SyncSearchIndexJob extends BaseBatchedJob
 {
     public ?int $siteId = null;
+    public ?string $section = null;
 
     protected function loadData(): Batchable
     {
-        return new QueryBatcher(
-            Entry::find()
-                ->siteId($this->siteId ?? '*')
-                ->unique(false)
-                ->status(Entry::STATUS_ENABLED)
-                ->uri(':notempty:')
-                ->select(['elements.id', 'elements_sites.siteId'])
-                ->orderBy(['elements.id' => SORT_ASC, 'elements_sites.siteId' => SORT_ASC])
-                ->asArray()
-        );
+        $query = Entry::find()
+            ->siteId($this->siteId ?? '*')
+            ->unique(false)
+            ->status(Entry::STATUS_ENABLED)
+            ->uri(':notempty:')
+            ->select(['elements.id', 'elements_sites.siteId'])
+            ->orderBy(['elements.id' => SORT_ASC, 'elements_sites.siteId' => SORT_ASC])
+            ->asArray();
+
+        if ($this->section !== null) {
+            $query->section($this->section);
+        }
+
+        return new QueryBatcher($query);
     }
 
     protected function processItem(mixed $item): void

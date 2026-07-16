@@ -14,10 +14,8 @@ use Pgvector\Vector;
 use yii\base\Component;
 
 /**
- * Search Service — entry point for vector similarity searches.
- * Public search() always runs smart search (semantic + keyword via RRF) for best quality.
- * semanticSearchRaw remains available for internal callers
- * (e.g. SmartSearchService precomputed-vector path).
+ * Search Service — raw vector similarity queries against pgvector.
+ * For a full search (semantic + keyword via RRF), call SmartSearchService::search().
  */
 class SearchService extends Component
 {
@@ -26,14 +24,6 @@ class SearchService extends Component
 
     /** Minimum number of rows to fetch regardless of the requested limit */
     private const MIN_OVERFETCH = 20;
-    /**
-     * @param string[]|null $sections Restrict results to these section handles
-     * @throws SearchException If database query fails
-     */
-    public function search(string $query, int $limit = 10, ?int $siteId = null, ?string $embeddingModel = null, ?array $sections = null): array
-    {
-        return SmartSearch::getInstance()->smartSearchService->search($query, $limit, $siteId, $embeddingModel, $sections);
-    }
 
     /**
      * Perform a raw semantic vector search against pgvector, returning database rows

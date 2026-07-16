@@ -7,7 +7,6 @@ use ghoststreet\craftsmartsearch\enums\SearchType;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use ghoststreet\craftsmartsearch\filters\SmartSearchCors;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
-use ghoststreet\craftsmartsearch\helpers\ErrorMapper;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\PricingTable;
 use ghoststreet\craftsmartsearch\helpers\RequestParameterExtractor;
@@ -312,7 +311,7 @@ class SearchController extends BaseApiController
         $this->logRequest('semanticSearch', $params);
 
         try {
-            $results = SmartSearch::getInstance()->searchService->search(
+            $results = SmartSearch::getInstance()->smartSearchService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId'],
@@ -492,17 +491,7 @@ class SearchController extends BaseApiController
             }
             return [$sourceCount, null];
         } catch (Throwable $e) {
-            $code = ErrorMapper::codeFor($e);
-            Logger::exception($e, 'ragStream', $this->errorContext($params) + ['code' => $code->value]);
-            $payload = [
-                'code' => $code->value,
-                'message' => ErrorMapper::translatedMessage($e) . " (Reference: {$this->requestId})",
-                'requestId' => $this->requestId,
-            ];
-            if ($e instanceof RateLimitException) {
-                $payload['retryAfter'] = $e->retryAfterSeconds;
-            }
-            $this->emitSse('error', $payload);
+            $this->emitSse('error', ApiResponseHelper::error($e, 'ragStream', $this->errorContext($params)));
             return [$sourceCount, $e->getMessage()];
         }
     }
@@ -517,7 +506,7 @@ class SearchController extends BaseApiController
         $this->logRequest('aiAnswerSearchFallback', $params);
 
         try {
-            $results = SmartSearch::getInstance()->searchService->search(
+            $results = SmartSearch::getInstance()->smartSearchService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -554,7 +543,7 @@ class SearchController extends BaseApiController
         $errorMessage = null;
 
         try {
-            $results = SmartSearch::getInstance()->searchService->search(
+            $results = SmartSearch::getInstance()->smartSearchService->search(
                 $params['query'],
                 $params['limit'],
                 $params['siteId']
@@ -568,13 +557,7 @@ class SearchController extends BaseApiController
             $this->emitSse('done', ['requestId' => $this->requestId]);
         } catch (Throwable $e) {
             $errorMessage = $e->getMessage();
-            $code = ErrorMapper::codeFor($e);
-            Logger::exception($e, 'ragStreamFallback', $this->errorContext($params) + ['code' => $code->value]);
-            $this->emitSse('error', [
-                'code' => $code->value,
-                'message' => ErrorMapper::translatedMessage($e) . " (Reference: {$this->requestId})",
-                'requestId' => $this->requestId,
-            ]);
+            $this->emitSse('error', ApiResponseHelper::error($e, 'ragStreamFallback', $this->errorContext($params)));
         }
 
         $this->recordHistory('aiAnswer', $params, count($formattedSources), $errorMessage);

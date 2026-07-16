@@ -140,7 +140,7 @@ class RateLimitService extends Component
     /**
      * Today's spend vs the global daily cap. `cap` is 0 when budgeting is disabled.
      *
-     * @return array{spent: float, cap: float, ratio: float, remaining: float, etaDays: ?float}
+     * @return array{spent: float, cap: float, ratio: float, etaDays: ?float}
      */
     public function getBudgetConsumption(?float $sevenDayBurn = null): array
     {
@@ -152,7 +152,6 @@ class RateLimitService extends Component
         }
 
         $ratio = $cap > 0 ? min(1.0, $spent / $cap) : 0.0;
-        $remaining = max(0.0, $cap - $spent);
 
         $etaDays = null;
         if ($cap > 0 && $sevenDayBurn !== null && $sevenDayBurn > 0) {
@@ -163,7 +162,6 @@ class RateLimitService extends Component
             'spent' => round($spent, 4),
             'cap' => $cap,
             'ratio' => round($ratio, 4),
-            'remaining' => round($remaining, 4),
             'etaDays' => $etaDays,
         ];
     }

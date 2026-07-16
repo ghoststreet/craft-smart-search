@@ -16,7 +16,7 @@
 
     function setResult(el, text, state) {
         if (!el) return;
-        Utils.setText(el, text);
+        el.textContent = text;
         DOM.setState(el, state || '');
     }
 
@@ -74,7 +74,7 @@
         if (!select || !warning) return;
         var original = select.value;
         select.addEventListener('change', function () {
-            Utils.setHidden(warning, select.value === original);
+            warning.hidden = select.value === original;
         });
     }
 
@@ -91,29 +91,27 @@
         };
     }
 
-    ns.pages.settings = {
-        init: function () {
-            setupTest({
-                control: 'test-db',
-                resultTarget: 'test-db-result',
-                action: 'smart-search/settings/test-database-connection',
-                successMessage: 'Connected successfully.',
-                requiredFields: DB_REQUIRED,
-                watchFields: DB_FIELDS,
-                getData: readDbFields,
-            });
-            setupTest({
-                control: 'test-api-key',
-                resultTarget: 'test-api-key-result',
-                action: 'smart-search/settings/test-api-key',
-                successMessage: 'API key is valid.',
-                requiredFields: ['openai-api-key'],
-                watchFields: ['openai-api-key'],
-                getData: function () { return { apiKey: valueOf('openai-api-key') }; },
-            });
-            setupSmartWarning();
-        }
-    };
+    function init() {
+        setupTest({
+            control: 'test-db',
+            resultTarget: 'test-db-result',
+            action: 'smart-search/settings/test-database-connection',
+            successMessage: 'Connected successfully.',
+            requiredFields: DB_REQUIRED,
+            watchFields: DB_FIELDS,
+            getData: readDbFields,
+        });
+        setupTest({
+            control: 'test-api-key',
+            resultTarget: 'test-api-key-result',
+            action: 'smart-search/settings/test-api-key',
+            successMessage: 'API key is valid.',
+            requiredFields: ['openai-api-key'],
+            watchFields: ['openai-api-key'],
+            getData: function () { return { apiKey: valueOf('openai-api-key') }; },
+        });
+        setupSmartWarning();
+    }
 
-    DOM.ready(ns.pages.settings.init);
+    DOM.ready(init);
 })();

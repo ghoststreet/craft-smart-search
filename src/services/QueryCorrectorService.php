@@ -237,7 +237,7 @@ class QueryCorrectorService extends Component
     {
         $db = SmartSearch::getInstance()->databaseService->getConnection();
         $terms = $dictionary->qualifiedTermsTable();
-        $hasFuzzy = $dictionary->hasFuzzyStrMatch();
+        $hasFuzzy = $dictionary->hasExtension('fuzzystrmatch');
 
         $valuesParts = [];
         $params = [':dict' => $stemDict];

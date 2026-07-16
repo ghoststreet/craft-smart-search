@@ -2,9 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\console\controllers;
 
-use Craft;
 use craft\console\Controller;
-use ghoststreet\craftsmartsearch\jobs\RebuildDictionaryJob;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\console\ExitCode;
 use yii\helpers\Console;
@@ -13,7 +11,6 @@ use yii\helpers\Console;
  * Console actions for the typo-tolerance dictionary.
  *
  * - `smart-search/dictionary/rebuild` runs the rebuild inline (blocks until done).
- * - `smart-search/dictionary/queue` pushes a RebuildDictionaryJob onto Craft's queue.
  * - `smart-search/dictionary/status` reports whether typo correction is available.
  */
 class DictionaryController extends Controller
@@ -48,18 +45,11 @@ class DictionaryController extends Controller
         return ExitCode::OK;
     }
 
-    public function actionQueue(): int
-    {
-        Craft::$app->getQueue()->push(new RebuildDictionaryJob());
-        $this->stdout("Queued RebuildDictionaryJob. Run `./craft queue/run` to process it.\n", Console::FG_GREEN);
-        return ExitCode::OK;
-    }
-
     public function actionStatus(): int
     {
         $service = SmartSearch::getInstance()->dictionaryService;
         $available = $service->isAvailable();
-        $hasFuzzy = $service->hasFuzzyStrMatch();
+        $hasFuzzy = $service->hasExtension('fuzzystrmatch');
         $enabled = SmartSearch::getInstance()->getSettings()->enableTypoTolerance;
 
         $this->stdout("Setting enableTypoTolerance: " . ($enabled ? "on\n" : "off\n"));

@@ -238,7 +238,7 @@ class IndexController extends BaseApiController
 
             [$stats, $perSite, $coverage] = Craft::$app->getCache()->getOrSet(
                 'smart_search_index_stats',
-                function () use ($plugin): array {
+                function() use ($plugin): array {
                     $perSite = $this->loadPerSiteStats();
                     return [
                         $plugin->databaseService->getStats(false),
@@ -461,7 +461,7 @@ class IndexController extends BaseApiController
             ];
         }
 
-        usort($rows, static function (array $a, array $b): int {
+        usort($rows, static function(array $a, array $b): int {
             $pctA = $a['total'] > 0 ? $a['indexed'] / $a['total'] : 0;
             $pctB = $b['total'] > 0 ? $b['indexed'] / $b['total'] : 0;
             return $pctB <=> $pctA ?: $b['indexed'] <=> $a['indexed'] ?: strcasecmp($a['name'], $b['name']);

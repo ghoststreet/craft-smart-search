@@ -18,7 +18,6 @@ use ghoststreet\craftsmartsearch\events\IndexBoostsEvent;
 use ghoststreet\craftsmartsearch\events\IndexFieldTextEvent;
 use ghoststreet\craftsmartsearch\exceptions\EmbeddingException;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
-use ghoststreet\craftsmartsearch\helpers\ContentPatterns;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TextValidator;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
@@ -566,7 +565,7 @@ class EmbeddingService extends Component
             return [$text];
         }
 
-        $paragraphs = ContentPatterns::splitParagraphs($text);
+        $paragraphs = preg_split('/\n\s*\n/', $text, -1, PREG_SPLIT_NO_EMPTY);
 
         $chunks = [];
         $currentChunk = '';
@@ -623,7 +622,7 @@ class EmbeddingService extends Component
      */
     private function splitBySentences(string $text, int $targetChunkTokens, int $maxChunkTokens): array
     {
-        $sentences = ContentPatterns::splitSentences($text);
+        $sentences = preg_split('/(?<=[.!?])\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
 
         $chunks = [];
         $currentChunk = '';

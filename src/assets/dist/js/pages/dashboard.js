@@ -13,14 +13,12 @@
         });
     }
 
-    ns.pages.dashboard = {
-        init: function () {
-            bindDismissGuide();
-            if (typeof Chart === 'undefined') return;
-            ns.core.ChartTheme.applyChartDefaults();
-            ns.components.Chart.buildAll();
-        }
-    };
+    function init() {
+        bindDismissGuide();
+        if (typeof Chart === 'undefined') return;
+        ns.core.ChartTheme.applyChartDefaults();
+        ns.components.Chart.buildAll();
+    }
 
-    DOM.ready(ns.pages.dashboard.init);
+    DOM.ready(init);
 })();

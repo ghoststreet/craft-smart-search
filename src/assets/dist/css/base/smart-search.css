@@ -11,15 +11,10 @@
     --smart-search-info-fg: #0958d9;
     --smart-search-warn-bg: #fffbe6;
     --smart-search-warn-fg: #614700;
-    --smart-search-warn-border: #ffe58f;
     --smart-search-danger-bg: #fff1f0;
     --smart-search-danger-fg: #820014;
     --smart-search-danger-border: #ffa39e;
 
     --smart-search-chip-success-bg: #d8f1e0;
     --smart-search-chip-success-fg: #1f7d3c;
-    --smart-search-chip-warn-bg: #ffe6c7;
-    --smart-search-chip-warn-fg: #8a4d00;
-    --smart-search-chip-danger-bg: #fbdcdc;
-    --smart-search-chip-danger-fg: #a3252a;
 }

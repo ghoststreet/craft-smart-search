@@ -4,14 +4,15 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use DateTimeImmutable;
+use DateTimeZone;
 use Exception;
 use Generator;
-use DateTimeZone;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TextValidator;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -103,35 +104,47 @@ class AiAnswerService extends Component
     }
 
     /**
-     * Build a structured context string from search results for LLM consumption.
-     * Delegates the packing math to AiAnswerPromptBuilder so the same logic is unit-
-     * testable in isolation.
+     * Build a structured context string from search results for LLM consumption:
+     * pack source blocks in priority order until $tokenBudget is exhausted.
+     *
+     * The first source is always included even if it alone exceeds the budget —
+     * a single oversized source shouldn't collapse the prompt to nothing.
      */
     private function buildContext(array $searchResults, int $tokenBudget = PHP_INT_MAX): string
     {
-        $sources = [];
-        foreach ($searchResults as $result) {
+        $blocks = [];
+        $used = 0;
+        $droppedAt = null;
+
+        foreach ($searchResults as $i => $result) {
             $element = $result['element'];
-            $sources[] = [
-                'id' => $element->id,
-                'title' => (string)$element->title,
-                'url' => (string)$element->getUrl(),
-                'content' => (string)($result['content'] ?? ''),
-            ];
+            $content = TextValidator::sanitizeQuery((string)($result['content'] ?? ''));
+            $title = str_replace(["\r", "\n"], ' ', (string)$element->title);
+            $url = str_replace(["\r", "\n"], '', (string)$element->getUrl());
+            $block = "---\nOUR PAGE {$element->id}\nTitle: {$title}\nURL: {$url}\nContent:\n{$content}\n---";
+            $blockTokens = TokenEstimator::estimateTokens($block);
+
+            if ($blocks !== [] && $used + $blockTokens > $tokenBudget) {
+                $droppedAt = $i;
+                break;
+            }
+
+            $blocks[] = $block;
+            $used += $blockTokens;
         }
 
-        $packed = (new AiAnswerPromptBuilder())->buildContext($sources, $tokenBudget);
+        $context = implode("\n\n", $blocks);
 
         Logger::debug('AI Answer context breakdown', [
-            'sourceCount' => $packed['includedCount'],
-            'totalChars' => strlen($packed['context']),
-            'estimatedTotalTokens' => $packed['usedTokens'],
+            'sourceCount' => count($blocks),
+            'totalChars' => strlen($context),
+            'estimatedTotalTokens' => $used,
             'tokenBudget' => $tokenBudget,
-            'droppedAtIndex' => $packed['droppedAtIndex'],
+            'droppedAtIndex' => $droppedAt,
             'totalCandidates' => count($searchResults),
         ]);
 
-        return $packed['context'];
+        return $context;
     }
 
     /**
