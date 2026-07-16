@@ -50,6 +50,7 @@ use yii\web\Response;
  * backed by PostgreSQL with pgvector and the OpenAI embeddings API.
  *
  * @method static SmartSearch getInstance()
+ * @method Settings|null getSettings()
  * @author Ghost Street <dev@ghost.st>
  * @copyright Ghost Street
  * @license https://craftcms.github.io/license/ Craft License
@@ -75,8 +76,6 @@ class SmartSearch extends Plugin
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
 
-    private ?Settings $cachedSettings = null;
-
     public function init(): void
     {
         parent::init();
@@ -97,16 +96,6 @@ class SmartSearch extends Plugin
         ]);
 
         $dispatcher->targets['smart-search'] = $logTarget;
-
-        foreach ($dispatcher->targets as $key => $target) {
-            if ($key === 'smart-search') {
-                continue;
-            }
-
-            if ($target instanceof FileTarget) {
-                $target->except = array_merge($target->except ?? [], ['smart-search']);
-            }
-        }
     }
 
     public static function config(): array
@@ -135,18 +124,6 @@ class SmartSearch extends Plugin
     protected function createSettingsModel(): ?Model
     {
         return Craft::createObject(Settings::class);
-    }
-
-    /**
-     * Get plugin settings with request-level caching.
-     */
-    public function getSettings(): ?Settings
-    {
-        if ($this->cachedSettings === null) {
-            $this->cachedSettings = parent::getSettings();
-        }
-
-        return $this->cachedSettings;
     }
 
     public function getCpNavItem(): ?array
