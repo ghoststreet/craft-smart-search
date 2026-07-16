@@ -3,6 +3,7 @@
 namespace ghoststreet\craftsmartsearch\helpers;
 
 use craft\elements\Entry;
+use ghoststreet\craftsmartsearch\enums\SearchType;
 use ghoststreet\craftsmartsearch\events\FormatSearchResultEvent;
 use ghoststreet\craftsmartsearch\services\SmartSearchService;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -10,23 +11,18 @@ use Throwable;
 
 /**
  * Formats search-result entries into the API payload, with per-type field
- * additions (scores for semantic/smart, AI rank for AI Answer).
+ * additions (scores for smart, AI rank for AI Answer).
  */
 final class SearchResultFormatter
 {
-    public const TYPE_SEMANTIC = 'semantic';
-    public const TYPE_SMART = 'smart';
-    public const TYPE_AI_ANSWER = 'aiAnswer';
-
     /**
      * Format a search result for API response.
      *
      * @param Entry $element The entry element
      * @param array $metadata Additional result data (scores, ranks, content, etc.)
-     * @param string $type Result type: semantic, smart, or aiAnswer
      * @return array|null Null if element has no URL
      */
-    public static function format(Entry $element, array $metadata, string $type): ?array
+    public static function format(Entry $element, array $metadata, SearchType $type): ?array
     {
         $url = $element->getUrl();
         if ($url === null) {
@@ -37,18 +33,15 @@ final class SearchResultFormatter
             'id' => $element->id,
             'title' => $element->title,
             'url' => $url,
-            'type' => $type,
+            'type' => $type->value,
             'sectionHandle' => $element->getSection()?->handle,
         ];
 
-        $formatted = match ($type) {
-            self::TYPE_SEMANTIC => self::addSemanticFields($result, $metadata),
-            self::TYPE_SMART => self::addSmartFields($result, $metadata),
-            self::TYPE_AI_ANSWER => self::addAiAnswerFields($result, $metadata),
-            default => $result,
-        };
+        $formatted = $type->isAiAnswer()
+            ? self::addAiAnswerFields($result, $metadata)
+            : self::addSmartFields($result, $metadata);
 
-        return self::applyListenerFields($element, $type, $formatted);
+        return self::applyListenerFields($element, $type->value, $formatted);
     }
 
     /**
@@ -109,15 +102,6 @@ final class SearchResultFormatter
         }
 
         return $excerpt;
-    }
-
-    /** Semantic-only payload: score + excerpt. semanticScore mirrors score when not separated. */
-    private static function addSemanticFields(array $result, array $metadata): array
-    {
-        $result['score'] = round($metadata['score'], 4);
-        $result['semanticScore'] = round($metadata['semanticScore'] ?? $metadata['score'], 4);
-        $result['excerpt'] = $metadata['excerpt'];
-        return $result;
     }
 
     /** Hybrid payload: fused RRF score + component scores/ranks (each optional). */

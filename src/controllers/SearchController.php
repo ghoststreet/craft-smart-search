@@ -3,6 +3,7 @@
 namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
+use ghoststreet\craftsmartsearch\enums\SearchType;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use ghoststreet\craftsmartsearch\filters\SmartSearchCors;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
@@ -12,7 +13,6 @@ use ghoststreet\craftsmartsearch\helpers\PricingTable;
 use ghoststreet\craftsmartsearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftsmartsearch\helpers\SearchResultFormatter;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
-use ghoststreet\craftsmartsearch\enums\SearchType;
 use ghoststreet\craftsmartsearch\models\SearchHistoryEntry;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -103,14 +103,10 @@ class SearchController extends BaseApiController
         $this->enforceOriginAllowlist($request);
 
         $type = SearchType::tryFromParam($request->getParam('type')) ?? SearchType::Search;
-        $kind = $type->isAiAnswer()
-            ? RateLimitService::KIND_AI_ANSWER
-            : RateLimitService::KIND_SEARCH;
-
         $ip = (string)($request->getUserIP() ?? '0.0.0.0');
 
         try {
-            $this->rateLimitToken = SmartSearch::getInstance()->rateLimitService->acquire($kind, $ip);
+            $this->rateLimitToken = SmartSearch::getInstance()->rateLimitService->acquire($type, $ip);
         } catch (RateLimitException $e) {
             $this->emitRateLimitResponse($e);
             return false;
@@ -323,7 +319,7 @@ class SearchController extends BaseApiController
                 sections: $params['sections'],
             );
 
-            $formattedResults = $this->formatSearchResults($results, SearchResultFormatter::TYPE_SMART);
+            $formattedResults = $this->formatSearchResults($results, SearchType::Search);
 
             Logger::info('semanticSearch endpoint response', [
                 'requestId' => $this->requestId,
@@ -377,7 +373,7 @@ class SearchController extends BaseApiController
             $formattedSources = $this->formatElementResults(
                 array_column($response['sources'], 'element'),
                 $response['sources'],
-                SearchResultFormatter::TYPE_AI_ANSWER
+                SearchType::AiAnswer
             );
 
             Logger::info('aiAnswer endpoint response', [
@@ -481,7 +477,7 @@ class SearchController extends BaseApiController
                         $formatted = $this->formatElementResults(
                             array_column($event['sources'], 'element'),
                             $event['sources'],
-                            SearchResultFormatter::TYPE_AI_ANSWER
+                            SearchType::AiAnswerStream
                         );
                         $sourceCount = count($formatted);
                         Logger::info('ragStream sources emit', [
@@ -538,7 +534,7 @@ class SearchController extends BaseApiController
                 $params['siteId']
             );
 
-            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_AI_ANSWER);
+            $formattedSources = $this->formatSearchResults($results, SearchType::AiAnswer);
 
             $this->recordHistory('aiAnswer', $params, count($formattedSources));
 
@@ -574,7 +570,7 @@ class SearchController extends BaseApiController
                 $params['limit'],
                 $params['siteId']
             );
-            $formattedSources = $this->formatSearchResults($results, SearchResultFormatter::TYPE_AI_ANSWER);
+            $formattedSources = $this->formatSearchResults($results, SearchType::AiAnswer);
             $this->emitSse('sources', [
                 'sources' => $formattedSources,
                 'budgetExhausted' => true,
@@ -603,7 +599,7 @@ class SearchController extends BaseApiController
     }
 
     /** Format pre-fetched Entry objects with parallel-array metadata (AI Answer flow). */
-    private function formatElementResults(array $elements, array $metadataList, string $type): array
+    private function formatElementResults(array $elements, array $metadataList, SearchType $type): array
     {
         $formatted = [];
         foreach ($elements as $index => $element) {
@@ -616,7 +612,7 @@ class SearchController extends BaseApiController
     }
 
     /** Format vector-query rows (`{element, content, ...}`). Generates excerpt from chunk content. */
-    private function formatSearchResults(array $results, string $type): array
+    private function formatSearchResults(array $results, SearchType $type): array
     {
         $formatted = [];
         foreach ($results as $result) {

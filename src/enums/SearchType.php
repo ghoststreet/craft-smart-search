@@ -2,7 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\enums;
 
-enum SearchType: string
+enum SearchType : string
 {
     case Search = 'search';
     case AiAnswer = 'ai-answer';
@@ -15,9 +15,6 @@ enum SearchType: string
 
     public static function tryFromParam(?string $value): ?self
     {
-        if ($value === null || $value === '') {
-            return self::Search;
-        }
-        return self::tryFrom($value);
+        return ($value === null || $value === '') ? self::Search : self::tryFrom($value);
     }
 }

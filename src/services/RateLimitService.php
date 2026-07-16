@@ -3,6 +3,7 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
+use ghoststreet\craftsmartsearch\enums\SearchType;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use yii\base\Component;
@@ -15,9 +16,6 @@ use yii\base\Component;
  */
 class RateLimitService extends Component
 {
-    public const KIND_SEARCH = 'search';
-    public const KIND_AI_ANSWER = 'aiAnswer';
-
     private const WINDOW_MINUTE = 60;
     private const WINDOW_HOUR = 3600;
 
@@ -51,13 +49,13 @@ class RateLimitService extends Component
      *
      * @throws RateLimitException when a window cap or concurrency gauge is exceeded.
      */
-    public function acquire(string $kind, string $ip): string
+    public function acquire(SearchType $type, string $ip): string
     {
         $settings = SmartSearch::getInstance()->getSettings();
 
-        if ($kind !== self::KIND_AI_ANSWER) {
-            $this->enforceWindow("rate:{$kind}:m:{$ip}", $settings->rateLimitSearchPerMinute, self::WINDOW_MINUTE);
-            $this->enforceWindow("rate:{$kind}:h:{$ip}", $settings->rateLimitSearchPerHour, self::WINDOW_HOUR);
+        if (!$type->isAiAnswer()) {
+            $this->enforceWindow("rate:{$type->value}:m:{$ip}", $settings->rateLimitSearchPerMinute, self::WINDOW_MINUTE);
+            $this->enforceWindow("rate:{$type->value}:h:{$ip}", $settings->rateLimitSearchPerHour, self::WINDOW_HOUR);
             return '';
         }
 
