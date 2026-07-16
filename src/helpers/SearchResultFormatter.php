@@ -110,10 +110,9 @@ final class SearchResultFormatter
         $result['score'] = round($metadata['score'], 4);
         $result['excerpt'] = $metadata['excerpt'];
 
-        $roundedFields = ['semanticScore' => 4, 'keywordScore' => 4];
-        foreach ($roundedFields as $field => $precision) {
+        foreach (['semanticScore', 'keywordScore'] as $field) {
             if (isset($metadata[$field])) {
-                $result[$field] = round($metadata[$field], $precision);
+                $result[$field] = round($metadata[$field], 4);
             }
         }
 

@@ -4,7 +4,6 @@ namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
 use craft\helpers\App;
-use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 use ghoststreet\craftsmartsearch\helpers\ApiResponseHelper;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;

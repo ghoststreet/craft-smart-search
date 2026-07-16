@@ -127,26 +127,6 @@ class Settings extends Model
         return array_merge(parent::scenarios(), self::SCENARIO_ATTRIBUTES);
     }
 
-    private const TAB_TO_SCENARIO = [
-        'tab-connections' => self::SCENARIO_CONNECTIONS,
-        'tab-indexing' => self::SCENARIO_INDEXING,
-        'tab-smart-search' => self::SCENARIO_SMART_SEARCH,
-        'tab-ai-answer' => self::SCENARIO_AI_ANSWER,
-        'tab-advanced' => self::SCENARIO_ADVANCED,
-    ];
-
-    /**
-     * Flat list of validation errors for every attribute owned by the given tab.
-     * Used by the settings template to drive Craft's native per-tab error badge.
-     *
-     * @return string[]
-     */
-    public function errorsForTab(string $tabId): array
-    {
-        $scenario = self::TAB_TO_SCENARIO[$tabId] ?? null;
-        return $scenario === null ? [] : $this->errorsForScenario($scenario);
-    }
-
     /**
      * Flat list of validation errors for every attribute owned by the given
      * scenario. Used by the per-page settings templates to surface errors.

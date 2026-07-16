@@ -37,7 +37,7 @@ final class PricingTable
         return round($cost, 6);
     }
 
-    public static function calculateCost(?string $model, int $inputTokens, int $outputTokens = 0): float
+    private static function calculateCost(?string $model, int $inputTokens, int $outputTokens = 0): float
     {
         if ($model === null) {
             return 0.0;

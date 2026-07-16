@@ -60,20 +60,11 @@ final class SearchResultDeduplicator
     {
         $deduplicated = self::deduplicateByElement($results, $scoreKey);
 
-        $chunkCounts = [];
-        foreach ($results as $row) {
-            $key = $row['elementId'] . '-' . $row['siteId'];
-            $chunkCounts[$key] = ($chunkCounts[$key] ?? 0) + 1;
-        }
-        $multiChunkEntries = count(array_filter($chunkCounts, fn($n) => $n > 1));
-        $collapsedChunks = count($results) - count($deduplicated);
-
         Logger::debug('SearchResultDeduplicator', [
             'scoreKey' => $scoreKey,
             'rowsIn' => count($results),
             'uniqueElements' => count($deduplicated),
-            'multiChunkEntries' => $multiChunkEntries,
-            'collapsedChunks' => $collapsedChunks,
+            'collapsedChunks' => count($results) - count($deduplicated),
             'limit' => $limit,
         ]);
 
