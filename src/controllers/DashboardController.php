@@ -55,12 +55,10 @@ class DashboardController extends Controller
 
         $sites = Craft::$app->getSites()->getAllSites();
         $siteCount = count($sites);
-        $indexedSiteCount = 0;
-        foreach ($coverage as $c) {
-            if (($c['indexed'] ?? 0) > 0 && ($c['stale'] ?? 0) === 0 && ($c['notIndexed'] ?? 0) === 0) {
-                $indexedSiteCount++;
-            }
-        }
+        $indexedSiteCount = count(array_filter(
+            $coverage,
+            static fn($c) => ($c['indexed'] ?? 0) > 0 && ($c['stale'] ?? 0) === 0 && ($c['notIndexed'] ?? 0) === 0
+        ));
 
         $setupComplete = !empty($settings->getOpenaiApiKey())
             && (bool)($stats['isConnected'] ?? false)

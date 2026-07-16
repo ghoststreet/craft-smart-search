@@ -25,6 +25,9 @@ class IndexController extends BaseApiController
 {
     protected array|int|bool $allowAnonymous = false;
 
+    /** Seconds the polled stats snapshot (totals + per-site + coverage) is cached. */
+    private const STATS_CACHE_TTL = 5;
+
     public function actionIndex(): Response
     {
         $this->requireAdmin();
@@ -260,9 +263,20 @@ class IndexController extends BaseApiController
 
         try {
             $plugin = SmartSearch::getInstance();
-            $stats = $plugin->databaseService->getStats(false);
-            $perSite = $this->loadPerSiteStats();
-            $coverage = $this->buildCoverageRows($perSite, /* withLabel */ true);
+
+            [$stats, $perSite, $coverage] = Craft::$app->getCache()->getOrSet(
+                'smart_search_index_stats',
+                function () use ($plugin): array {
+                    $perSite = $this->loadPerSiteStats();
+                    return [
+                        $plugin->databaseService->getStats(false),
+                        $perSite,
+                        $this->buildCoverageRows($perSite, /* withLabel */ true),
+                    ];
+                },
+                self::STATS_CACHE_TTL
+            );
+
             $jobs = $this->loadSyncJobs();
 
             return $this->asJson([

@@ -20,15 +20,16 @@ class InsightsController extends Controller
             return false;
         }
         $this->requireAdmin();
+        // All actions are empty-history gated; redirect once here instead of per-action.
+        if ($this->history()->count() === 0) {
+            $this->redirect('smart-search')->send();
+            return false;
+        }
         return true;
     }
 
     public function actionIndex(): Response
     {
-        if (($redirect = $this->redirectIfEmpty()) !== null) {
-            return $redirect;
-        }
-
         $common = $this->commonViewData();
         $request = Craft::$app->getRequest();
         $type = $request->getParam('type') ?: null;
@@ -55,10 +56,6 @@ class InsightsController extends Controller
 
     public function actionTopQueries(): Response
     {
-        if (($redirect = $this->redirectIfEmpty()) !== null) {
-            return $redirect;
-        }
-
         $common = $this->commonViewData();
         $history = $this->history();
         $days = $common['filters']['days'];
@@ -72,10 +69,6 @@ class InsightsController extends Controller
 
     public function actionZeroResults(): Response
     {
-        if (($redirect = $this->redirectIfEmpty()) !== null) {
-            return $redirect;
-        }
-
         $common = $this->commonViewData();
         $page = max(1, (int)Craft::$app->getRequest()->getParam('page', 1));
         $days = $common['filters']['days'];
@@ -88,10 +81,6 @@ class InsightsController extends Controller
 
     public function actionTrending(): Response
     {
-        if (($redirect = $this->redirectIfEmpty()) !== null) {
-            return $redirect;
-        }
-
         $common = $this->commonViewData();
         $page = max(1, (int)Craft::$app->getRequest()->getParam('page', 1));
 
@@ -116,14 +105,6 @@ class InsightsController extends Controller
                 'errorsOnly' => false,
             ],
         ];
-    }
-
-    private function redirectIfEmpty(): ?Response
-    {
-        if ($this->history()->count() === 0) {
-            return $this->redirect('smart-search');
-        }
-        return null;
     }
 
     private function history(): HistoryService

@@ -30,17 +30,10 @@ class IndexController extends Controller
      */
     public function options($actionID): array
     {
-        $options = parent::options($actionID);
-
-        switch ($actionID) {
-            case 'index':
-                $options[] = 'siteId';
-                $options[] = 'section';
-                $options[] = 'wipe';
-                break;
-        }
-
-        return $options;
+        return array_merge(
+            parent::options($actionID),
+            $actionID === 'index' ? ['siteId', 'section', 'wipe'] : []
+        );
     }
 
     /**
