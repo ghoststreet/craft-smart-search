@@ -190,7 +190,7 @@ class SearchController extends BaseApiController
 
         if ($candidate === '') {
             $settings = SmartSearch::getInstance()->getSettings();
-            if (empty($settings->getAllowedOriginsList()) || !empty($settings->getApiToken())) {
+            if (empty($settings->getAllowedOriginsList()) || $this->bearerAuthenticated) {
                 return;
             }
             Logger::warning('origin rejected: no Origin/Referer header against configured allowlist', [
@@ -325,11 +325,6 @@ class SearchController extends BaseApiController
                 'requestId' => $this->requestId,
                 'rawResultsFromService' => count($results),
                 'afterFormatting' => count($formattedResults),
-                'firstResultElementId' => $results[0]['element']->id ?? null,
-                'firstResultScore' => $results[0]['score'] ?? null,
-                'firstFormattedKeys' => isset($formattedResults[0]) ? array_keys($formattedResults[0]) : null,
-                'firstFormattedSample' => $formattedResults[0] ?? null,
-                'payloadShape' => ['query', 'semanticResults', 'semanticCount'],
             ]);
 
             $this->recordHistory('smart', $params, count($formattedResults));
@@ -380,10 +375,6 @@ class SearchController extends BaseApiController
                 'requestId' => $this->requestId,
                 'rawSourcesFromService' => count($response['sources'] ?? []),
                 'afterFormatting' => count($formattedSources),
-                'summaryLength' => strlen($response['summary'] ?? ''),
-                'confidence' => $response['confidence'] ?? null,
-                'firstFormattedKeys' => isset($formattedSources[0]) ? array_keys($formattedSources[0]) : null,
-                'firstFormattedSample' => $formattedSources[0] ?? null,
             ]);
 
             $this->recordHistory('aiAnswer', $params, count($formattedSources));
@@ -484,8 +475,6 @@ class SearchController extends BaseApiController
                             'requestId' => $this->requestId,
                             'rawSourcesFromService' => count($event['sources'] ?? []),
                             'afterFormatting' => $sourceCount,
-                            'firstFormattedKeys' => isset($formatted[0]) ? array_keys($formatted[0]) : null,
-                            'firstFormattedSample' => $formatted[0] ?? null,
                         ]);
                         $this->emitSse('sources', ['sources' => $formatted, 'requestId' => $this->requestId]);
                         break;

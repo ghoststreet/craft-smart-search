@@ -50,9 +50,10 @@ class IndexController extends BaseApiController
         ];
         $setup['ready'] = $setup['credentials'] && $setup['connection'] && $setup['schema'] && $setup['openaiKey'];
 
-        $overview = $this->buildOverviewData($setup, $stats);
+        $syncJobs = $this->loadSyncJobs();
+        $overview = $this->buildOverviewData($setup, $stats, $syncJobs['perSite']);
         $syncStarted = Craft::$app->getSession()->getFlash('smart-search-sync-started', false)
-            || $this->hasActiveSyncJob();
+            || !empty($syncJobs['all']);
 
         return $this->renderTemplate('smart-search/index-mgmt/index', array_merge($this->commonViewData(), [
             'setup' => $setup,
@@ -390,18 +391,14 @@ class IndexController extends BaseApiController
         return $out;
     }
 
-    private function hasActiveSyncJob(): bool
-    {
-        $jobs = $this->loadSyncJobs();
-        return !empty($jobs['all']);
-    }
-
     /**
      * Build the data needed by the Overview tab template. Decides between three
      * mutually-exclusive states (onboarding / disconnected / ready) and assembles
      * per-site cards from the vectors-side counters and entry-side coverage.
+     *
+     * @param array $activeJobs In-flight sync jobs by siteId (loadSyncJobs()['perSite']), painted into the "Indexing" state.
      */
-    private function buildOverviewData(array $setup, array $stats): array
+    private function buildOverviewData(array $setup, array $stats, array $activeJobs): array
     {
         $sites = Craft::$app->getSites()->getAllSites();
         $isMultiSite = count($sites) > 1;
@@ -419,10 +416,6 @@ class IndexController extends BaseApiController
         foreach ($coverageRows as $row) {
             $coverageBySite[$row['siteId']] = $row;
         }
-        // Detect in-flight sync jobs at render time so cards can paint
-        // straight into the "Indexing" state — no JS poll round-trip.
-        $activeJobs = $this->loadSyncJobs()['perSite'];
-
         $rows = [];
         foreach ($sites as $site) {
             $sid = (int)$site->id;
@@ -579,7 +572,7 @@ class IndexController extends BaseApiController
             'success' => true,
             'chunkCount' => $row['chunkCount'] ?? 0,
             'lastIndexed' => ($row !== null && !empty($row['lastIndexed']))
-                ? date('M j, Y g:i A', strtotime($row['lastIndexed']))
+                ? Craft::$app->getFormatter()->asDatetime($row['lastIndexed'], Formatter::FORMAT_WIDTH_SHORT)
                 : null,
         ]);
     }

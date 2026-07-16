@@ -240,7 +240,7 @@ class DashboardController extends Controller
         return [
             'key' => 'sync',
             'state' => $ageHours > 72 ? 'warn' : 'ok',
-            'label' => 'Last sync ' . $this->relativeTime($ts),
+            'label' => 'Last sync ' . Craft::$app->getFormatter()->asRelativeTime($ts),
         ];
     }
 
@@ -312,18 +312,4 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function relativeTime(DateTimeInterface $when): string
-    {
-        $secs = max(1, time() - $when->getTimestamp());
-        if ($secs < 60) {
-            return $secs . 's ago';
-        }
-        if ($secs < 3600) {
-            return floor($secs / 60) . 'm ago';
-        }
-        if ($secs < 86400) {
-            return floor($secs / 3600) . 'h ago';
-        }
-        return floor($secs / 86400) . 'd ago';
-    }
 }
