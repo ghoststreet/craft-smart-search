@@ -15,7 +15,7 @@
         <ul class="recommendation-list__items">
             {% for r in items %}
                 <li>
-                    <span class="recommendation-list__level recommendation-list__level--{{ r.level }}">{{ { warn: 'Warning', info: 'Tip' }[r.level] ?? r.level }}</span>
+                    <span class="recommendation-list__level recommendation-list__level--{{ r.level }}">{{ r.levelLabel }}</span>
                     <strong>{{ r.title }}.</strong>
                     <span class="recommendation-list__body">{{ r.body }}</span>
                     {% if r.cta %}<a class="recommendation-list__cta" href="{{ r.cta.url }}">{{ r.cta.label }} →</a>{% endif %}

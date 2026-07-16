@@ -1,7 +1,6 @@
 {% set pageKey = 'trending' %}
 {% set pageUrl = cpUrl('smart-search/insights/trending') %}
 {% set showDays = false %}
-{% set hasFilterableControls = sites|length > 1 %}
 {% set hasResults = page.items|length > 0 %}
 
 {% extends 'smart-search/insights/_layout' %}
@@ -22,7 +21,7 @@
                 <tbody>
                     {% for k in page.items %}
                         <tr>
-                            <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                            <td>{{ k.query|truncate(100) }}</td>
                             <td class="rightalign">{{ k.recent|number_format }}</td>
                             <td class="rightalign light">{{ k.prior|number_format }}</td>
                             <td class="rightalign">

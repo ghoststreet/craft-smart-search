@@ -1,18 +1,6 @@
 {#
     Pagination nav. Renders nothing for a single page.
-
-    Params:
-        currentPage  int    current page number
-        totalPages   int    total number of pages
-        path         string cpUrl path (e.g. 'smart-search/insights')
-        params       object query params to preserve across pages
-
-    Usage:
-        {% include 'smart-search/_components/pagination' with {
-            currentPage: page.page, totalPages: page.pages,
-            path: 'smart-search/insights',
-            params: { type: typeFilter, days: daysFilter },
-        } only %}
+    Params: currentPage int, totalPages int, path string (cpUrl path), params object (preserved across pages).
 #}
 {% if totalPages > 1 %}
     <nav class="pagination-nav">

@@ -1,15 +1,15 @@
 {#
-    Pill badge with a status dot and an uppercase label.
-
-    Usage:
-        {% import 'smart-search/_components/badge' as b %}
-        {{ b.badge('ai-answer', 'ai-answer') }}
-        {{ b.badge('Error', 'error') }}
-
-    Params:
-        label    string  text shown (uppercased via CSS)
-        variant  string  ai-answer | semantic | error
+    Pill badges with a status dot. `badge` is static; `errorBadge` is a button
+    that opens the error modal (see components/error-modal.js).
 #}
+{# variant is kebabed: callers pass history's camelCase type (aiAnswer) but the CSS modifiers are kebab-case. #}
 {% macro badge(label, variant) %}
-    <span class="badge badge--{{ variant }}"><span class="badge__dot"></span>{{ label }}</span>
+    <span class="badge badge--{{ variant|kebab }}"><span class="badge__dot"></span>{{ label }}</span>
+{% endmacro %}
+
+{% macro errorBadge(message) %}
+    <button type="button" class="badge badge--error ss-error-badge"
+            data-craftsearch-control="error-modal-trigger"
+            data-craftsearch-error-message="{{ message }}"
+            title="{{ message }}"><span class="badge__dot"></span>Error</button>
 {% endmacro %}

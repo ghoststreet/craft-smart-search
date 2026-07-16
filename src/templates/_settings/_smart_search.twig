@@ -1,9 +1,9 @@
 {% import '_includes/forms.twig' as forms %}
 
+{% namespace 'settings' %}
 <h2>Ranking</h2>
 <p class="light">Results are scored by meaning (semantic) and exact words (keyword). The weights below decide how the two are mixed and must add up to <code>1.00</code>. <a href="{{ wikiUrl }}/Tuning-Search-Results" target="_blank" rel="noopener">Learn more</a>.</p>
 
-{% namespace 'settings' %}
     {{ forms.textField({
         label: 'Semantic weight',
         instructions: 'How much meaning-based matching counts toward the final ranking. Must add up to <code>1</code> with the keyword weight. Default <code>0.3</code>.',
@@ -35,13 +35,11 @@
         value: settings.maxSemanticResults, type: 'number', min: '10', max: '500',
         required: true, errors: settings.getErrors('maxSemanticResults'),
     }) }}
-{% endnamespace %}
 
 <hr>
 
 <h2>Result display</h2>
 
-{% namespace 'settings' %}
     {{ forms.textField({
         label: 'Excerpt length (characters)',
         instructions: 'Length of the preview snippet shown under each result. Default <code>200</code>.',
@@ -49,7 +47,6 @@
         value: settings.excerptLength, type: 'number', min: '50', max: '500',
         required: true, errors: settings.getErrors('excerptLength'),
     }) }}
-{% endnamespace %}
 
 <hr>
 
@@ -58,7 +55,6 @@
 
 {% set dictionaryService = craft.app.plugins.getPlugin('smart-search').dictionaryService %}
 {% set trgmInstalled = dictionaryService.hasTrgmExtension() %}
-{% set fuzzyInstalled = dictionaryService.hasFuzzyStrMatch() %}
 {% set termCount = dictionaryService.getTermCount() %}
 
 {% if not trgmInstalled %}
@@ -75,7 +71,6 @@
     </p>
 {% endif %}
 
-{% namespace 'settings' %}
     {{ forms.lightswitchField({
         label: 'Enable typo tolerance',
         instructions: trgmInstalled
@@ -87,14 +82,11 @@
         errors: settings.getErrors('enableTypoTolerance'),
     }) }}
 
-{% endnamespace %}
-
 <hr>
 
 <h2>Rate limits</h2>
 <p class="light">Caps how many searches one visitor can run, so a single person or bot cannot overload the API. Set either limit to <code>0</code> to turn it off. Behind a CDN, configure Craft’s <code>request.trustedHosts</code> and <code>ipHeaders</code> so the real visitor IP is read. <a href="{{ wikiUrl }}/Troubleshooting#behind-a-cdn-or-proxy" target="_blank" rel="noopener">Learn more</a>.</p>
 
-{% namespace 'settings' %}
     {{ forms.textField({
         label: 'Searches per minute (per visitor)',
         instructions: 'Set to <code>0</code> to turn off. Default <code>10</code>.',

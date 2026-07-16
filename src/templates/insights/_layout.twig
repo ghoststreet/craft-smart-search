@@ -10,7 +10,7 @@
 {% set showDays = showDays ?? true %}
 {% set showType = showType ?? false %}
 {% set showErrorsOnly = showErrorsOnly ?? false %}
-{% set hasFilterableControls = hasFilterableControls ?? (showDays or showType or showErrorsOnly or sites|length > 1) %}
+{% set hasFilterableControls = showDays or showType or showErrorsOnly or sites|length > 1 %}
 {% set hasActiveFilters = days or siteId or filters.type or filters.errorsOnly %}
 
 {% set tabs = {

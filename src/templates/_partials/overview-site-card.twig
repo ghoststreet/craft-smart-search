@@ -25,17 +25,13 @@
     {% set state = 'synced' %}
 {% endif %}
 
-{% set presets = {
-    'synced':      { pillLabel: 'Healthy',    pillDot: 'on',     buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' },
-    'needs-sync':  { pillLabel: 'Needs sync', pillDot: 'orange', buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' },
-    'not-synced':  { pillLabel: 'Not synced', pillDot: 'off',    buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' },
-    'indexing':    { pillLabel: jobRunning ? 'Indexing' : 'Queued',
-                     pillDot: 'blue',
-                     buttonClass: '',
-                     heroPrefix: jobRunning ? 'indexing · ' : 'waiting for worker · ',
-                     buttonLabel: 'Cancel' },
-} %}
-{% set p = presets[state] %}
+{% set p = { buttonClass: ' submit', heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' }|merge({
+    'synced':     { pillLabel: 'Healthy',    pillDot: 'on' },
+    'needs-sync': { pillLabel: 'Needs sync', pillDot: 'orange' },
+    'not-synced': { pillLabel: 'Not synced', pillDot: 'off' },
+    'indexing':   { pillLabel: jobRunning ? 'Indexing' : 'Queued', pillDot: 'blue', buttonClass: '',
+                    heroPrefix: jobRunning ? 'indexing · ' : 'waiting for worker · ', buttonLabel: 'Cancel' },
+}[state]) %}
 
 <div class="craftsearch-card" data-craftsearch-target="site-card" data-craftsearch-state="{{ state }}" data-craftsearch-site-id="{{ site.siteId }}">
     <div class="craftsearch-card__head">

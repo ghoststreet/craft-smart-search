@@ -55,10 +55,8 @@
     }
 
     function csrfParam() {
-        var name = ns.config.csrfTokenName;
-        var value = ns.config.csrfTokenValue;
-        if (!name || !value) return '';
-        return encodeURIComponent(name) + '=' + encodeURIComponent(value);
+        if (!Craft.csrfTokenName || !Craft.csrfTokenValue) return '';
+        return encodeURIComponent(Craft.csrfTokenName) + '=' + encodeURIComponent(Craft.csrfTokenValue);
     }
 
     function streamActionUrl(path, params) {

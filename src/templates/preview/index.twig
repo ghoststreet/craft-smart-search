@@ -4,12 +4,7 @@
 {% set selectedSubnavItem = 'preview' %}
 
 {% block content %}
-<div data-craftsearch-target="preview-page"
-     data-craftsearch-config="{{ {
-         csrfTokenName: craft.app.config.general.csrfTokenName,
-         csrfTokenValue: craft.app.request.csrfToken,
-         siteId: craft.app.sites.currentSite.id,
-     }|json_encode }}">
+<div data-craftsearch-target="preview-page">
 
     {% if sites|length > 1 %}
         <div class="toolbar">

@@ -20,7 +20,7 @@
                 <tbody>
                     {% for k in page.items %}
                         <tr>
-                            <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                            <td>{{ k.query|truncate(100) }}</td>
                             <td class="rightalign">{{ k.hits|number_format }}</td>
                             <td><span class="light" title="{{ k.lastSeen|date('Y-m-d H:i:s') }}">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
                         </tr>

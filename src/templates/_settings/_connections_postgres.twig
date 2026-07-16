@@ -1,9 +1,9 @@
 {% import '_includes/forms.twig' as forms %}
 
-<h2 id="connection-postgres">PostgreSQL</h2>
+{% namespace 'settings' %}
+<h2>PostgreSQL</h2>
 <p class="light">Smart Search stores its vector index in a Postgres database with <code>pgvector</code>. Any Postgres 14 or later works. <a href="{{ wikiUrl }}/Installation#vectors-table" target="_blank" rel="noopener">Setup guide</a>.</p>
 
-{% namespace 'settings' %}
     {{ forms.autosuggestField({ label: 'Host', instructions: 'Address of your Postgres server. Reference an env var like <code>$SUPABASE_DB_HOST</code> when possible.', id: 'postgresqlHost', name: 'postgresqlHost', value: settings.postgresqlHost, suggestEnvVars: true, required: true, placeholder: 'db.xxxx.supabase.co or $SUPABASE_DB_HOST', errors: settings.getErrors('postgresqlHost'), inputAttributes: { 'data-craftsearch-target': 'db-host' } }) }}
     {{ forms.autosuggestField({ label: 'Port', instructions: 'Default <code>5432</code>.', id: 'postgresqlPort', name: 'postgresqlPort', value: settings.postgresqlPort, suggestEnvVars: true, required: true, placeholder: '5432', errors: settings.getErrors('postgresqlPort'), inputAttributes: { 'data-craftsearch-target': 'db-port' } }) }}
     {{ forms.autosuggestField({ label: 'Database', instructions: 'Name of the database to use. Supabase and most providers default to <code>postgres</code>.', id: 'postgresqlDatabase', name: 'postgresqlDatabase', value: settings.postgresqlDatabase, suggestEnvVars: true, required: true, placeholder: 'postgres', errors: settings.getErrors('postgresqlDatabase'), inputAttributes: { 'data-craftsearch-target': 'db-database' } }) }}
@@ -24,14 +24,12 @@
         required: true, errors: settings.getErrors('postgresqlSslMode'),
         inputAttributes: { 'data-craftsearch-target': 'db-ssl-mode' },
     }) }}
-{% endnamespace %}
 
 <div class="buttons settings__db-test">
     <button type="button" class="btn disabled" data-craftsearch-control="test-db" disabled>Test connection</button>
     <span class="settings__test-result" data-craftsearch-target="test-db-result"></span>
 </div>
 
-{% namespace 'settings' %}
     {{ forms.textField({ label: 'Schema', instructions: 'Postgres schema that holds the vectors table. Default <code>public</code>.', id: 'vectorsSchemaName', name: 'vectorsSchemaName', value: settings.vectorsSchemaName, placeholder: 'public', errors: settings.getErrors('vectorsSchemaName'), inputAttributes: { 'data-craftsearch-target': 'db-vectors-schema' } }) }}
     {{ forms.textField({ label: 'Vectors table', instructions: 'Name of the table that holds your search vectors. You create it once via the install SQL; the plugin will not create it for you.', id: 'vectorsTableName', name: 'vectorsTableName', value: settings.vectorsTableName, required: true, placeholder: 'smart_search_vectors', errors: settings.getErrors('vectorsTableName'), inputAttributes: { 'data-craftsearch-target': 'db-vectors-table' } }) }}
     {% set trgmInstalled = craft.app.plugins.getPlugin('smart-search').dictionaryService.hasTrgmExtension() %}

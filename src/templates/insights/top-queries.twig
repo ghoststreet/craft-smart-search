@@ -22,7 +22,7 @@
                     {% for k in topQueries %}
                         {% set sharePct = totalSearches > 0 ? (k.hits / totalSearches * 100)|round : 0 %}
                         <tr>
-                            <td>{{ k.query|slice(0, 100) }}{% if k.query|length > 100 %}…{% endif %}</td>
+                            <td>{{ k.query|truncate(100) }}</td>
                             <td class="rightalign">{{ k.hits|number_format }} <span class="light">({{ sharePct }}%)</span></td>
                             <td class="rightalign">
                                 {% if k.avgResults < 1 %}<span class="status orange" title="Returns few or no results"></span> {% endif %}

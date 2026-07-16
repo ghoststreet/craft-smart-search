@@ -24,16 +24,11 @@
             <tbody>
                 {% for item in items %}
                     <tr>
-                        <td>
-                            {{ item.query|slice(0, 120) }}{% if item.query|length > 120 %}…{% endif %}
-                        </td>
+                        <td>{{ item.query|truncate(120) }}</td>
                         <td>{{ b.badge(item.type, item.type) }}</td>
                         <td>
                             {% if item.hasError %}
-                                <button type="button" class="badge badge--error ss-error-badge"
-                                        data-craftsearch-control="error-modal-trigger"
-                                        data-craftsearch-error-message="{{ item.errorMessage }}"
-                                        title="{{ item.errorMessage }}"><span class="badge__dot"></span>Error</button>
+                                {{ b.errorBadge(item.errorMessage) }}
                             {% else %}
                                 {{ b.badge('Success', 'success') }}
                             {% endif %}

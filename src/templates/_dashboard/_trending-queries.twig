@@ -18,7 +18,7 @@
         <tbody>
             {% for q in trendingQueries %}
                 <tr>
-                    <td>{{ q.query|slice(0, 80) }}{% if q.query|length > 80 %}…{% endif %}</td>
+                    <td>{{ q.query|truncate(80) }}</td>
                     <td class="rightalign">{{ q.recent|number_format }}</td>
                     <td class="rightalign">
                         <span class="delta-tag delta-tag--up">{{ q.growthPct is null ? 'new' : '▲ ' ~ q.growthPct ~ '%' }}</span>

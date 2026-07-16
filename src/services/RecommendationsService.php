@@ -11,7 +11,7 @@ use yii\base\Component;
  * series, index coverage, and current budget/cache state. Pure read-only.
  *
  * Each advisory is shaped as:
- *   ['level' => 'info'|'warn'|'crit', 'title' => string, 'body' => string, 'cta' => ['label' => string, 'url' => string]|null]
+ *   ['level' => 'info'|'warn'|'crit', 'levelLabel' => string, 'title' => string, 'body' => string, 'cta' => ['label' => string, 'url' => string]|null]
  */
 class RecommendationsService extends Component
 {
@@ -19,11 +19,17 @@ class RecommendationsService extends Component
     public const LEVEL_WARN = 'warn';
     public const LEVEL_CRIT = 'crit';
 
+    private const LEVEL_LABELS = [
+        self::LEVEL_INFO => 'Tip',
+        self::LEVEL_WARN => 'Warning',
+        self::LEVEL_CRIT => 'Critical',
+    ];
+
     /**
      * @param array $context  Pre-computed values the dashboard already has, to avoid duplicate work.
      *                        Keys: dailySeries (list), coverage (list per-site), budget (assoc),
      *                        cacheHitRate (?float), zeroResultRate (?float), totalEntries (int).
-     * @return list<array{level: string, title: string, body: string, cta: ?array{label: string, url: string}}>
+     * @return list<array{level: string, levelLabel: string, title: string, body: string, cta: ?array{label: string, url: string}}>
      */
     public function build(array $context): array
     {
@@ -192,6 +198,7 @@ class RecommendationsService extends Component
     {
         return [
             'level' => $level,
+            'levelLabel' => self::LEVEL_LABELS[$level],
             'title' => $title,
             'body' => $body,
             'cta' => ($ctaLabel && $ctaUrl) ? ['label' => $ctaLabel, 'url' => UrlHelper::cpUrl($ctaUrl)] : null,
