@@ -4,7 +4,6 @@ namespace ghoststreet\craftsmartsearch\jobs;
 
 use craft\i18n\Translation;
 use craft\queue\BaseJob;
-use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
 
 class RebuildDictionaryJob extends BaseJob
@@ -17,11 +16,7 @@ class RebuildDictionaryJob extends BaseJob
         $dictionary->ensureSchema();
 
         $this->setProgress($queue, 0.4, 'Sampling corpus lexemes');
-        $rows = $dictionary->rebuild();
-
-        if ($rows === null) {
-            Logger::warning('Dictionary rebuild was skipped — see prior log entries for reason');
-        }
+        $dictionary->rebuild();
     }
 
     protected function defaultDescription(): ?string
