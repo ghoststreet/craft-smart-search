@@ -103,33 +103,6 @@ class IndexController extends BaseApiController
         ]));
     }
 
-    public function actionCoverage(): Response
-    {
-        $this->requireAdmin();
-        if (($redirect = $this->redirectIfNotConfigured()) !== null) {
-            return $redirect;
-        }
-
-        $common = $this->commonViewData();
-        if (!$common['isMultiSite']) {
-            return $this->redirect('smart-search/index');
-        }
-
-        $plugin = SmartSearch::getInstance();
-        try {
-            $coverage = $plugin->indexInspectionService->getCoverageBySite();
-            $error = null;
-        } catch (DatabaseException $e) {
-            $coverage = [];
-            $error = ErrorMapper::present($e, 'getCoverageBySite', []);
-        }
-
-        return $this->renderTemplate('smart-search/index-mgmt/coverage', array_merge($common, [
-            'coverage' => $coverage,
-            'error' => $error,
-        ]));
-    }
-
     private function commonViewData(): array
     {
         $plugin = SmartSearch::getInstance();
@@ -137,7 +110,6 @@ class IndexController extends BaseApiController
             'plugin' => $plugin,
             'settings' => $plugin->getSettings(),
             'selectedSubnavItem' => 'index',
-            'isMultiSite' => count(Craft::$app->getSites()->getAllSites()) > 1,
         ];
     }
 

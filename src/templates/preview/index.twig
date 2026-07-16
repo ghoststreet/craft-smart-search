@@ -37,38 +37,32 @@
 
     <div class="ss-preview-grid">
 
-        <div class="ss-preview-col">
-            <div class="pane ss-preview-col__pane">
-                <h2 class="ss-preview-col__heading">Smart Search <span class="ss-preview-badge ss-preview-badge--smart">Semantic + Keyword</span></h2>
-                <p class="ss-preview-col__desc">Combines semantic (vector) similarity with keyword scoring for the most relevant results.</p>
-                <div class="ss-preview-col__form">
-                    <input type="search" class="text" placeholder="Search…" autocomplete="off"
-                           data-craftsearch-control="smart-input">
-                    <button class="btn" data-craftsearch-control="smart-submit" aria-label="Search">
-                        <span data-icon="search" aria-hidden="true"></span>
-                    </button>
+        {# `key` drives the badge modifier and every data-craftsearch-* name (see pages/preview.js). #}
+        {% for c in [
+            { key: 'smart', title: 'Smart Search', badge: 'Semantic + Keyword',
+              desc: 'Combines semantic (vector) similarity with keyword scoring for the most relevant results.' },
+            { key: 'ai-answer', title: 'AI Answer', badge: 'Generated', summary: true,
+              desc: 'Retrieves matching entries then generates a streaming AI summary with inline citations.' },
+        ] %}
+            <div class="ss-preview-col">
+                <div class="pane ss-preview-col__pane">
+                    <h2 class="ss-preview-col__heading">{{ c.title }} <span class="ss-preview-badge ss-preview-badge--{{ c.key }}">{{ c.badge }}</span></h2>
+                    <p class="ss-preview-col__desc">{{ c.desc }}</p>
+                    <div class="ss-preview-col__form">
+                        <input type="search" class="text" placeholder="Search…" autocomplete="off"
+                               data-craftsearch-control="{{ c.key }}-input">
+                        <button class="btn" data-craftsearch-control="{{ c.key }}-submit" aria-label="Search">
+                            <span data-icon="search" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                    {% if c.summary is defined %}
+                        <div class="ss-preview-col__summary" data-craftsearch-target="{{ c.key }}-summary" hidden></div>
+                    {% endif %}
+                    <div class="ss-preview-col__results" data-craftsearch-target="{{ c.key }}-results" role="region" hidden></div>
+                    <div class="ss-preview-col__error" data-craftsearch-target="{{ c.key }}-error" role="alert" hidden></div>
                 </div>
-                <div class="ss-preview-col__results" data-craftsearch-target="smart-results" role="region" hidden></div>
-                <div class="ss-preview-col__error" data-craftsearch-target="smart-error" role="alert" hidden></div>
             </div>
-        </div>
-
-        <div class="ss-preview-col">
-            <div class="pane ss-preview-col__pane">
-                <h2 class="ss-preview-col__heading">AI Answer <span class="ss-preview-badge ss-preview-badge--ai-answer">Generated</span></h2>
-                <p class="ss-preview-col__desc">Retrieves matching entries then generates a streaming AI summary with inline citations.</p>
-                <div class="ss-preview-col__form">
-                    <input type="search" class="text" placeholder="Search…" autocomplete="off"
-                           data-craftsearch-control="ai-answer-input">
-                    <button class="btn" data-craftsearch-control="ai-answer-submit" aria-label="Search">
-                        <span data-icon="search" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <div class="ss-preview-col__summary" data-craftsearch-target="ai-answer-summary" hidden></div>
-                <div class="ss-preview-col__results" data-craftsearch-target="ai-answer-results" role="region" hidden></div>
-                <div class="ss-preview-col__error" data-craftsearch-target="ai-answer-error" role="alert" hidden></div>
-            </div>
-        </div>
+        {% endfor %}
 
     </div>
 

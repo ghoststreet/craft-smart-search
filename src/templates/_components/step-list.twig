@@ -1,0 +1,32 @@
+{#
+    Onboarding/guide checklist. Shared by _dashboard/_onboarding (required and
+    recommended lists) and _dashboard/_guide-card (pending recommended).
+
+    Params:
+        steps        list<{ done, label, hint, disabled?, cta: { url, label } }>
+        recommended  bool  secondary styling + button; required steps get the primary submit button
+        numbered     bool  show the step number in the icon slot while not done
+#}
+{% macro stepList(steps, recommended, numbered) %}
+    <ol class="ss-onboarding-list{% if recommended %} ss-onboarding-list--recommended{% endif %}">
+        {% for s in steps %}
+            {% set disabled = s.disabled ?? false %}
+            <li class="ss-onboarding-list__item{% if s.done %} ss-onboarding-list__item--done{% endif %}{% if disabled %} ss-onboarding-list__item--disabled{% endif %}">
+                <span class="ss-onboarding-list__icon">
+                    {%- if s.done %}<span data-icon="check"></span>{% elseif numbered %}{{ loop.index }}{% endif -%}
+                </span>
+                <div class="ss-onboarding-list__body">
+                    <strong>{{ s.label }}</strong>
+                    <div class="light">{{ s.hint }}</div>
+                </div>
+                {% if not s.done %}
+                    {% if disabled %}
+                        <span class="btn submit disabled" aria-disabled="true">{{ s.cta.label }}</span>
+                    {% else %}
+                        <a class="btn{% if not recommended %} submit{% endif %}" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
+                    {% endif %}
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ol>
+{% endmacro %}

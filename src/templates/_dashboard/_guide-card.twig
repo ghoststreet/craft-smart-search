@@ -5,6 +5,7 @@
     Params:
         recommendedSteps  list<{ done, label, hint, cta: { url, label } }>
 #}
+{% import 'smart-search/_components/step-list' as steps %}
 {% set pending = recommendedSteps|filter(s => not s.done) %}
 {% if pending|length %}
 <div class="pane ss-guide-card" data-craftsearch-guide>
@@ -19,17 +20,6 @@
         You’re almost there. These extra steps will give your visitors a better search experience and keep
         AI Answer running the way you want it.
     </p>
-    <ol class="ss-onboarding-list ss-onboarding-list--recommended">
-        {% for s in pending %}
-            <li class="ss-onboarding-list__item">
-                <span class="ss-onboarding-list__icon">{{ loop.index }}</span>
-                <div class="ss-onboarding-list__body">
-                    <strong>{{ s.label }}</strong>
-                    <div class="light">{{ s.hint }}</div>
-                </div>
-                <a class="btn" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
-            </li>
-        {% endfor %}
-    </ol>
+    {{ steps.stepList(pending, true, true) }}
 </div>
 {% endif %}

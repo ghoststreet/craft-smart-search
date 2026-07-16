@@ -5,6 +5,7 @@
         requiredSteps      list<{ done, label, hint, disabled?, cta: { url, label } }>
         recommendedSteps   list<{ done, label, hint, cta: { url, label } }>
 #}
+{% import 'smart-search/_components/step-list' as steps %}
 <div class="pane ss-onboarding-card">
     <div class="ss-onboarding-card__intro">
         <div class="ss-onboarding-card__icon" aria-hidden="true">
@@ -27,26 +28,7 @@
         Smart Search stores a vector for every entry and asks an AI model to read them at query time.
         These three steps wire up that storage, that model, and the first batch of vectors.
     </p>
-    <ol class="ss-onboarding-list">
-        {% for s in requiredSteps %}
-            <li class="ss-onboarding-list__item{% if s.done %} ss-onboarding-list__item--done{% endif %}{% if s.disabled ?? false %} ss-onboarding-list__item--disabled{% endif %}">
-                <span class="ss-onboarding-list__icon">
-                    {% if s.done %}<span data-icon="check"></span>{% else %}{{ loop.index }}{% endif %}
-                </span>
-                <div class="ss-onboarding-list__body">
-                    <strong>{{ s.label }}</strong>
-                    <div class="light">{{ s.hint }}</div>
-                </div>
-                {% if not s.done %}
-                    {% if s.disabled ?? false %}
-                        <span class="btn submit disabled" aria-disabled="true">{{ s.cta.label }}</span>
-                    {% else %}
-                        <a class="btn submit" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
-                    {% endif %}
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ol>
+    {{ steps.stepList(requiredSteps, false, true) }}
 
     {% if recommendedSteps|length %}
         <h3 class="ss-onboarding-section ss-onboarding-section--muted">2. Tailor it to your site</h3>
@@ -54,21 +36,6 @@
             Search will work without these, but they’re the two settings most teams want to change
             before going live. They control how the AI Answer sounds and how much it’s allowed to spend.
         </p>
-        <ol class="ss-onboarding-list ss-onboarding-list--recommended">
-            {% for s in recommendedSteps %}
-                <li class="ss-onboarding-list__item{% if s.done %} ss-onboarding-list__item--done{% endif %}">
-                    <span class="ss-onboarding-list__icon">
-                        {% if s.done %}<span data-icon="check"></span>{% endif %}
-                    </span>
-                    <div class="ss-onboarding-list__body">
-                        <strong>{{ s.label }}</strong>
-                        <div class="light">{{ s.hint }}</div>
-                    </div>
-                    {% if not s.done %}
-                        <a class="btn" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
-                    {% endif %}
-                </li>
-            {% endfor %}
-        </ol>
+        {{ steps.stepList(recommendedSteps, true, false) }}
     {% endif %}
 </div>

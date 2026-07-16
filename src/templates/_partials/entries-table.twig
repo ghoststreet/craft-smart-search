@@ -24,16 +24,13 @@
                         <a href="{{ cpUrl('smart-search/index/entry', { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: '(untitled)' }}</a>
                     </td>
                     <td>{{ row.section }}</td>
+                    {% set s = {
+                        indexed:  { dot: 'green',  label: 'Indexed' },
+                        stale:    { dot: 'orange', label: 'Stale' },
+                        excluded: { dot: 'grey',   label: 'Excluded' },
+                    }[row.status] ?? { dot: 'off', label: 'Not indexed' } %}
                     <td class="thin" data-craftsearch-target="status-cell">
-                        {% if row.status == 'excluded' %}
-                            <span class="status grey"></span> Excluded
-                        {% elseif row.status == 'indexed' %}
-                            <span class="status green"></span> Indexed
-                        {% elseif row.status == 'stale' %}
-                            <span class="status orange"></span> Stale
-                        {% else %}
-                            <span class="status off"></span> Not indexed
-                        {% endif %}
+                        <span class="status {{ s.dot }}"></span> {{ s.label }}
                     </td>
                     <td class="thin" data-craftsearch-target="chunks-cell">{{ row.chunkCount }}</td>
                     <td class="thin" data-craftsearch-target="date-cell">

@@ -9,41 +9,21 @@
 
 {% block kpis %}
     <div class="ss-kpi-grid ss-kpi-grid--compact">
-        <div class="ss-kpi-card ss-kpi-card--compact">
-            <span class="cp-icon ss-kpi-card__icon">{{ iconSvg('magnifying-glass') }}</span>
-            <div class="ss-kpi-card__body">
-                <div class="ss-kpi-card__label">Searches</div>
-                <div class="ss-kpi-card__value">{{ stats.searches|number_format }}</div>
+        {% for c in [
+            { icon: 'magnifying-glass', label: 'Searches',         value: stats.searches|number_format },
+            { icon: 'hashtag',          label: 'Embedding tokens', value: stats.embeddingTokens|number_format },
+            { icon: 'robot',            label: 'LLM tokens',       value: stats.llmTokens|number_format },
+            { icon: 'coin',             label: 'Total cost',       value: '$' ~ stats.cost|number_format(6) },
+            { icon: 'gauge-high',       label: 'Avg duration',     value: stats.avgDurationMs|number_format, unit: ' ms' },
+        ] %}
+            <div class="ss-kpi-card ss-kpi-card--compact">
+                <span class="cp-icon ss-kpi-card__icon">{{ iconSvg(c.icon) }}</span>
+                <div class="ss-kpi-card__body">
+                    <div class="ss-kpi-card__label">{{ c.label }}</div>
+                    <div class="ss-kpi-card__value">{{ c.value }}{% if c.unit is defined %}<span class="ss-kpi-card__value-unit">{{ c.unit }}</span>{% endif %}</div>
+                </div>
             </div>
-        </div>
-        <div class="ss-kpi-card ss-kpi-card--compact">
-            <span class="cp-icon ss-kpi-card__icon">{{ iconSvg('hashtag') }}</span>
-            <div class="ss-kpi-card__body">
-                <div class="ss-kpi-card__label">Embedding tokens</div>
-                <div class="ss-kpi-card__value">{{ stats.embeddingTokens|number_format }}</div>
-            </div>
-        </div>
-        <div class="ss-kpi-card ss-kpi-card--compact">
-            <span class="cp-icon ss-kpi-card__icon">{{ iconSvg('robot') }}</span>
-            <div class="ss-kpi-card__body">
-                <div class="ss-kpi-card__label">LLM tokens</div>
-                <div class="ss-kpi-card__value">{{ stats.llmTokens|number_format }}</div>
-            </div>
-        </div>
-        <div class="ss-kpi-card ss-kpi-card--compact">
-            <span class="cp-icon ss-kpi-card__icon">{{ iconSvg('coin') }}</span>
-            <div class="ss-kpi-card__body">
-                <div class="ss-kpi-card__label">Total cost</div>
-                <div class="ss-kpi-card__value">${{ stats.cost|number_format(6) }}</div>
-            </div>
-        </div>
-        <div class="ss-kpi-card ss-kpi-card--compact">
-            <span class="cp-icon ss-kpi-card__icon">{{ iconSvg('gauge-high') }}</span>
-            <div class="ss-kpi-card__body">
-                <div class="ss-kpi-card__label">Avg duration</div>
-                <div class="ss-kpi-card__value">{{ stats.avgDurationMs|number_format }}<span class="ss-kpi-card__value-unit"> ms</span></div>
-            </div>
-        </div>
+        {% endfor %}
         {% if stats.errorCount > 0 %}
             <a href="{{ cpUrl('smart-search/insights', { errorsOnly: 1, days: filters.days, siteId: filters.siteId }) }}"
                class="ss-kpi-card ss-kpi-card--compact ss-kpi-card--error ss-kpi-card--link" title="View errored searches">

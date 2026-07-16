@@ -25,7 +25,7 @@
              data-craftsearch-target="overview-grid"
              {% if syncStarted %}data-craftsearch-sync-started="1"{% endif %}>
             {% for site in overview.sites %}
-                {% include 'smart-search/_partials/overview-site-card' with { site: site, isMultiSite: overview.isMultiSite } only %}
+                {% include 'smart-search/_partials/overview-site-card' with { site: site } only %}
             {% endfor %}
         </div>
     {% endif %}

@@ -2,10 +2,8 @@
     A single site's index health card on the Overview tab.
 
     Params:
-        site         object  per-site row (siteId, name, indexed, stale, notIndexed, total,
-                             lastIndexed, activeJob?)
-        isMultiSite  bool    when false, the Sync button label is "Sync index"
-                             instead of "Sync this site"
+        site  object  per-site row (siteId, name, indexed, stale, notIndexed, total,
+                      lastIndexed, activeJob?)
 
     State derivation mirrors the JS in index-mgmt.js so initial paint matches
     the first poll response.

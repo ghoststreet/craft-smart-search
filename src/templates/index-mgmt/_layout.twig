@@ -7,9 +7,4 @@
     overview: { label: 'Overview & sync', url: cpUrl('smart-search/index') },
     entries:  { label: 'Entries',         url: cpUrl('smart-search/index/entries') },
 } %}
-{% if isMultiSite %}
-    {% set tabs = tabs|merge({
-        coverage: { label: 'Per-site coverage', url: cpUrl('smart-search/index/coverage') },
-    }) %}
-{% endif %}
 {% set selectedTab = pageKey %}
