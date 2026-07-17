@@ -28,6 +28,10 @@ class DictionaryService extends Component
 
     private const AVAILABILITY_CACHE_KEY = 'smart_search_typo_available';
 
+    private const EXTENSION_CACHE_KEY_PREFIX = 'smart_search_pg_extension_';
+
+    private static array $extensionCache = [];
+
     /**
      * Add this entry's lexemes to the terms table without scanning the whole corpus.
      * df is incremented per term on conflict.
@@ -92,7 +96,21 @@ class DictionaryService extends Component
         );
     }
 
+    /** Cacheable because an installed extension only changes when an admin runs DDL. */
     public function hasExtension(string $name): bool
+    {
+        if (isset(self::$extensionCache[$name])) {
+            return self::$extensionCache[$name];
+        }
+
+        return self::$extensionCache[$name] = (bool)Craft::$app->getCache()->getOrSet(
+            self::EXTENSION_CACHE_KEY_PREFIX . $name,
+            fn() => $this->queryHasExtension($name) ? 1 : 0,
+            self::REQUEST_CACHE_TTL_SECONDS
+        );
+    }
+
+    private function queryHasExtension(string $name): bool
     {
         try {
             $db = SmartSearch::getInstance()->databaseService->getConnection();

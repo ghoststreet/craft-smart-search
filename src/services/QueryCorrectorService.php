@@ -4,7 +4,6 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
-use PDO;
 use PDOException;
 use yii\base\Component;
 
@@ -28,6 +27,8 @@ class QueryCorrectorService extends Component
 
     /** word_similarity threshold; pg_trgm default is 0.6. */
     private const SIMILARITY_THRESHOLD = 0.5;
+
+    private array $variantCache = [];
 
     /**
      * Returns a tsquery expression suitable for `(:expr)::tsquery`, or null if
@@ -233,7 +234,12 @@ class QueryCorrectorService extends Component
      */
     private function lookupVariants(array $tokens, DictionaryService $dictionary, string $stemDict): array
     {
-        $db = SmartSearch::getInstance()->databaseService->getConnection();
+        /* Both the keyword tsquery and the boost tsvector ask this for the same query. */
+        $cacheKey = $stemDict . '|' . implode(' ', $tokens);
+        if (isset($this->variantCache[$cacheKey])) {
+            return $this->variantCache[$cacheKey];
+        }
+
         $terms = $dictionary->qualifiedTermsTable();
         $hasFuzzy = $dictionary->hasExtension('fuzzystrmatch');
 
@@ -286,15 +292,14 @@ class QueryCorrectorService extends Component
             ORDER BY idx, rn
         ";
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
+        $rows = SmartSearch::getInstance()->databaseService->fetchAll($sql, $params, 'lookupVariants');
 
         $results = [];
         foreach ($tokens as $token) {
             $results[$token] = ['lex' => mb_strtolower($token), 'variants' => []];
         }
 
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        foreach ($rows as $row) {
             $raw = (string)$row['raw'];
             if (!isset($results[$raw])) {
                 continue;
@@ -310,6 +315,6 @@ class QueryCorrectorService extends Component
             }
         }
 
-        return $results;
+        return $this->variantCache[$cacheKey] = $results;
     }
 }

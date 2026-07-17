@@ -39,6 +39,13 @@ class SmartSearchService extends Component
     private const MIN_OVERFETCH = 20;
 
     /**
+     * Spare candidates hydrated alongside each page of $limit, covering the few
+     * dropped for being deleted or URL-less. If more than this are dropped, the
+     * next window is fetched — correct either way, just one more query.
+     */
+    private const ELEMENT_WINDOW_SLACK = 5;
+
+    /**
      * HNSW candidate list size for the vector scan. Higher = better recall, slower.
      * pgvector's own default is 40; 20 trades some recall for latency.
      */
@@ -65,6 +72,16 @@ class SmartSearchService extends Component
             }
         }
 
+        /*
+         * Order matters: the keyword scan is dispatched before the embedding call so
+         * Postgres runs it while PHP blocks on OpenAI. Null = no async handle, and the
+         * scan runs inline below instead.
+         */
+        $keywordPrefetch = TimingProfiler::profile(
+            'Keyword prefetch dispatch',
+            fn() => SmartSearch::getInstance()->keywordSearchService->prefetchScores($query, $siteId, $sectionIds)
+        );
+
         $queryVector = TimingProfiler::profile(
             'Query embedding generation',
             fn() => SmartSearch::getInstance()->embeddingService->generateEmbedding($query, $embeddingModel)
@@ -72,8 +89,13 @@ class SmartSearchService extends Component
 
         $keywordResults = TimingProfiler::profile(
             'Keyword scoring',
-            fn() => SmartSearch::getInstance()->keywordSearchService->calculateScores($query, $siteId, $sectionIds)
+            fn() => $keywordPrefetch !== null
+                ? $keywordPrefetch()
+                : SmartSearch::getInstance()->keywordSearchService->calculateScores($query, $siteId, $sectionIds)
         );
+
+        /* Dispatched before the vector query, collected after it. */
+        $boostPrefetch = SmartSearch::getInstance()->boostService->prefetchMatch($query, $siteId);
 
         $semanticResults = $this->semanticSearchRaw(
             $queryVector,
@@ -97,7 +119,12 @@ class SmartSearchService extends Component
             'rrfKeywordWeight' => $settings->rrfKeywordWeight,
         ]);
 
-        $boosts = SmartSearch::getInstance()->boostService->match($query, $siteId);
+        $boosts = TimingProfiler::profile(
+            'Boost match',
+            fn() => $boostPrefetch !== null
+                ? $boostPrefetch()
+                : SmartSearch::getInstance()->boostService->match($query, $siteId)
+        );
         foreach ($boosts as $elementId => $weight) {
             if (isset($scoredResults[$elementId])) {
                 $scoredResults[$elementId]['rrfScore'] += $weight;
@@ -107,13 +134,22 @@ class SmartSearchService extends Component
                     'semanticScore' => 0.0, 'semanticRank' => 0,
                     'keywordScore' => 0.0, 'keywordRank' => 0,
                     'content' => '',
+                    'chunk' => null,
                 ];
             }
         }
 
         uasort($scoredResults, fn($a, $b) => $b['rrfScore'] <=> $a['rrfScore']);
 
-        $finalResults = $this->loadElementsWithScores($scoredResults, $limit);
+        /* Dispatched before the element load, collected after it. Needs ranking settled. */
+        $contentPrefetch = $this->prefetchChunkContent($scoredResults, $limit);
+
+        $finalResults = TimingProfiler::profile('Load elements', fn() => $this->loadElementsWithScores($scoredResults, $limit));
+
+        $finalResults = TimingProfiler::profile(
+            'Attach chunk content',
+            fn() => $this->attachChunkContent($finalResults, $contentPrefetch)
+        );
 
         Logger::debug('Smart search final results', [
             'requestedLimit' => $limit,
@@ -165,7 +201,10 @@ class SmartSearchService extends Component
                 'semanticRank' => $hasSemantic ? $semanticLookup[$id]['rank'] : null,
                 'keywordScore' => $hasKeyword ? $keywordLookup[$id]['score'] : 0.0,
                 'keywordRank' => $hasKeyword ? $keywordLookup[$id]['rank'] : null,
-                'content' => $semanticLookup[$id]['content'] ?? $keywordLookup[$id]['content'] ?? '',
+                /* A semantic hit's text must come from its own winning chunk, fetched by
+                   key later; only a keyword-only hit already carries its text. */
+                'chunk' => $hasSemantic ? $semanticLookup[$id]['chunk'] : null,
+                'content' => $hasSemantic ? '' : ($keywordLookup[$id]['content'] ?? ''),
             ];
         }
 
@@ -183,19 +222,9 @@ class SmartSearchService extends Component
     private function semanticSearchRaw(array $queryVector, int $limit, ?int $siteId, ?array $sectionIds): array
     {
         $databaseService = SmartSearch::getInstance()->databaseService;
-        $db = $databaseService->getConnection();
         $table = $databaseService->getQualifiedTable();
 
         try {
-            $sql = "
-                SELECT
-                    \"elementId\",
-                    \"siteId\",
-                    1 - (vector <=> :queryVector::vector) AS similarity,
-                    body AS content
-                FROM {$table}
-            ";
-
             $conditions = [];
             $params = [':queryVector' => json_encode($queryVector)];
 
@@ -210,40 +239,54 @@ class SmartSearchService extends Component
                 $params += $sectionParams;
             }
 
-            if (!empty($conditions)) {
-                $sql .= " WHERE " . implode(' AND ', $conditions);
-            }
-
+            $where = empty($conditions) ? '' : ' WHERE ' . implode(' AND ', $conditions);
             $overFetchLimit = max(self::MIN_OVERFETCH, $limit * self::OVERFETCH_MULTIPLIER);
-            $sql .= " ORDER BY vector <=> :queryVector::vector ASC LIMIT {$overFetchLimit}";
+
+            /*
+             * Returns chunk identity, never chunk text: only the rows that survive
+             * fusion are ever read, and their text is fetched by chunk key later.
+             *
+             * The vector is bound in a CTE because emulated prepares inline it once
+             * per mention, and it is ~13KB.
+             */
+            $sql = "
+                WITH q AS (SELECT :queryVector::vector AS qv)
+                SELECT \"elementId\", \"siteId\", \"chunkIndex\", similarity
+                FROM (
+                    SELECT DISTINCT ON (\"elementId\", \"siteId\")
+                        \"elementId\", \"siteId\", \"chunkIndex\", similarity
+                    FROM (
+                        SELECT
+                            \"elementId\",
+                            \"siteId\",
+                            \"chunkIndex\",
+                            1 - (vector <=> q.qv) AS similarity
+                        FROM {$table}, q{$where}
+                        ORDER BY vector <=> q.qv ASC
+                        LIMIT {$overFetchLimit}
+                    ) nearest_chunks
+                    ORDER BY \"elementId\", \"siteId\", similarity DESC
+                ) best_per_entry
+                ORDER BY similarity DESC
+                LIMIT {$limit}
+            ";
+
+            /*
+             * SET LOCAL must stay in the same send as the SELECT: Postgres runs a
+             * multi-statement send inside an implicit transaction, which is what scopes
+             * the GUC and reverts it afterwards. Splitting these into separate sends, or
+             * swapping SET LOCAL for a session SET, leaks the setting into other clients
+             * sharing the pooled backend.
+             */
+            $sql = 'SET LOCAL hnsw.ef_search = ' . self::HNSW_EF_SEARCH . '; ' . $sql;
 
             $rows = TimingProfiler::profile(
                 'PostgreSQL vector query',
-                function() use ($db, $sql, $params) {
-                    $db->beginTransaction();
-                    try {
-                        $db->exec('SET LOCAL hnsw.ef_search = ' . self::HNSW_EF_SEARCH);
-                        $stmt = $db->prepare($sql);
-                        $stmt->execute($params);
-                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        $db->commit();
-
-                        return $rows;
-                    } catch (\Throwable $e) {
-                        if ($db->inTransaction()) {
-                            try {
-                                $db->rollBack();
-                            } catch (\Throwable) {
-                            }
-                        }
-
-                        throw $e;
-                    }
-                },
+                fn() => $databaseService->fetchAll($sql, $params, 'semanticSearch'),
                 ['overFetchLimit' => $overFetchLimit]
             );
 
-            return $this->bestChunkPerEntry($rows, $limit);
+            return $rows;
         } catch (PDOException $e) {
             Logger::exception($e, 'semanticSearch');
             throw SearchException::vectorQueryFailed($e);
@@ -251,30 +294,101 @@ class SmartSearchService extends Component
     }
 
     /**
-     * Collapse chunk rows to the highest-similarity row per entry, then sort and limit.
+     * Dispatch a fetch of the chunk text for the best-scoring candidates, returning a
+     * callable that collects `"elementId-siteId-chunkIndex" => body`. Null when there is
+     * nothing to fetch.
+     *
+     * @param array<int, array<string, mixed>> $scoredResults Sorted best-first
      */
-    private function bestChunkPerEntry(array $rows, int $limit): array
+    private function prefetchChunkContent(array $scoredResults, int $limit): ?callable
     {
-        $best = [];
-
-        foreach ($rows as $row) {
-            $key = $row['elementId'] . '-' . $row['siteId'];
-            if (!isset($best[$key]) || (float)$row['similarity'] > (float)$best[$key]['similarity']) {
-                $best[$key] = $row;
+        $chunks = [];
+        foreach ($scoredResults as $data) {
+            if ($data['chunk'] !== null) {
+                $chunks[] = $data['chunk'];
+            }
+            /* Window must match loadElementsWithScores', or a survivor loses its text. */
+            if (count($chunks) >= $limit + self::ELEMENT_WINDOW_SLACK) {
+                break;
             }
         }
 
-        $best = array_values($best);
-        usort($best, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+        if ($chunks === []) {
+            return null;
+        }
 
-        Logger::debug('Vector query', [
-            'rowsIn' => count($rows),
-            'uniqueElements' => count($best),
-            'collapsedChunks' => count($rows) - count($best),
-            'limit' => $limit,
-        ]);
+        $databaseService = SmartSearch::getInstance()->databaseService;
+        $table = $databaseService->getQualifiedTable();
 
-        return array_slice($best, 0, $limit);
+        $tuples = [];
+        $params = [];
+        foreach ($chunks as $i => [$elementId, $siteId, $chunkIndex]) {
+            $tuples[] = "(:e{$i}, :s{$i}, :c{$i})";
+            $params[":e{$i}"] = $elementId;
+            $params[":s{$i}"] = $siteId;
+            $params[":c{$i}"] = $chunkIndex;
+        }
+
+        $sql = "SELECT \"elementId\", \"siteId\", \"chunkIndex\", body
+                FROM {$table}
+                WHERE (\"elementId\", \"siteId\", \"chunkIndex\") IN (" . implode(', ', $tuples) . ')';
+
+        $connection = $databaseService->getAsyncConnection();
+        if ($connection !== null) {
+            [$pgSql, $values] = SqlHelper::toPositional($sql, $params);
+            if (@pg_send_query_params($connection, $pgSql, $values) !== false) {
+                return static function() use ($connection): array {
+                    $bodies = [];
+                    while (($result = pg_get_result($connection)) !== false) {
+                        if (pg_result_error($result) !== '') {
+                            Logger::warning('Chunk content fetch failed', ['error' => pg_result_error($result)]);
+                            continue;
+                        }
+                        foreach (pg_fetch_all($result) ?: [] as $row) {
+                            $bodies["{$row['elementId']}-{$row['siteId']}-{$row['chunkIndex']}"] = (string)$row['body'];
+                        }
+                    }
+                    return $bodies;
+                };
+            }
+        }
+
+        return function() use ($databaseService, $sql, $params): array {
+            $stmt = $databaseService->executeStatement($sql, $params, 'prefetchChunkContent');
+            $bodies = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $bodies["{$row['elementId']}-{$row['siteId']}-{$row['chunkIndex']}"] = (string)$row['body'];
+            }
+            return $bodies;
+        };
+    }
+
+    /**
+     * Fill each result's excerpt source from the fetched chunk text. A result whose chunk
+     * is missing keeps the content it already had, so a failed fetch costs an excerpt
+     * rather than a result.
+     */
+    private function attachChunkContent(array $finalResults, ?callable $contentPrefetch): array
+    {
+        if ($contentPrefetch === null) {
+            return $finalResults;
+        }
+
+        $bodies = $contentPrefetch();
+
+        foreach ($finalResults as &$result) {
+            $chunk = $result['chunk'] ?? null;
+            if ($chunk === null) {
+                continue;
+            }
+            $key = implode('-', $chunk);
+            if (isset($bodies[$key])) {
+                $result['content'] = $bodies[$key];
+            }
+        }
+        unset($result);
+
+        return $finalResults;
     }
 
     /**
@@ -305,7 +419,7 @@ class SmartSearchService extends Component
             $lookup[$elementId] = [
                 'score' => (float)$result['similarity'],
                 'rank' => $rank++,
-                'content' => $result['content'],
+                'chunk' => [(int)$result['elementId'], (int)$result['siteId'], (int)$result['chunkIndex']],
             ];
         }
 
@@ -340,45 +454,56 @@ class SmartSearchService extends Component
     private function loadElementsWithScores(array $scoredResults, int $limit): array
     {
         $allIds = array_keys($scoredResults);
-        $elements = Entry::find()->id($allIds)->indexBy('id')->all();
 
         $missingCount = 0;
         $noUrlCount = 0;
+        $loadedCount = 0;
         $results = [];
 
-        foreach ($allIds as $id) {
-            if (!isset($elements[$id])) {
-                $missingCount++;
-                continue;
-            }
+        /*
+         * Hydrates a window at a time in rank order, stopping at $limit survivors.
+         * Candidates past the window exist only to cover the few dropped as deleted
+         * or URL-less.
+         */
+        foreach (array_chunk($allIds, $limit + self::ELEMENT_WINDOW_SLACK) as $idBatch) {
+            $elements = Entry::find()->id($idBatch)->indexBy('id')->all();
+            $loadedCount += count($elements);
 
-            $element = $elements[$id];
-            if ($element->getUrl() === null) {
-                $noUrlCount++;
-                continue;
-            }
+            foreach ($idBatch as $id) {
+                if (!isset($elements[$id])) {
+                    $missingCount++;
+                    continue;
+                }
 
-            $data = $scoredResults[$id];
+                $element = $elements[$id];
+                if ($element->getUrl() === null) {
+                    $noUrlCount++;
+                    continue;
+                }
 
-            $results[] = [
-                'element' => $element,
-                'score' => $data['rrfScore'],
-                'semanticScore' => $data['semanticScore'],
-                'semanticRank' => $data['semanticRank'],
-                'keywordScore' => $data['keywordScore'],
-                'keywordRank' => $data['keywordRank'],
-                'smartRank' => count($results) + 1,
-                'content' => $data['content'],
-            ];
+                $data = $scoredResults[$id];
 
-            if (count($results) >= $limit) {
-                break;
+                $results[] = [
+                    'element' => $element,
+                    'score' => $data['rrfScore'],
+                    'semanticScore' => $data['semanticScore'],
+                    'semanticRank' => $data['semanticRank'],
+                    'keywordScore' => $data['keywordScore'],
+                    'keywordRank' => $data['keywordRank'],
+                    'smartRank' => count($results) + 1,
+                    'content' => $data['content'],
+                    'chunk' => $data['chunk'],
+                ];
+
+                if (count($results) >= $limit) {
+                    break 2;
+                }
             }
         }
 
         Logger::debug('loadElementsWithScores filtering', [
             'scoredCandidates' => count($allIds),
-            'elementsLoadedFromCraft' => count($elements),
+            'elementsLoadedFromCraft' => $loadedCount,
             'missingInCraft' => $missingCount,
             'noUrl' => $noUrlCount,
             'finalResults' => count($results),

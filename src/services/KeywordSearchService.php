@@ -58,101 +58,173 @@ class KeywordSearchService extends Component
      */
     public function calculateScores(string $query, ?int $siteId = null, ?array $sectionIds = null): array
     {
-        $db = SmartSearch::getInstance()->databaseService->getConnection();
-        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
-        $normalizedQuery = trim($query);
-
-        if ($normalizedQuery === '') {
+        $built = $this->buildScoreQuery($query, $siteId, $sectionIds);
+        if ($built === null) {
             return [];
         }
-
-        $language = self::resolveLanguage($siteId);
+        [$sql, $params] = $built;
 
         try {
-            $tokens = preg_split('/\s+/', $normalizedQuery, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-            $orQuery = implode(' OR ', $tokens);
-
-            $tsQuery = "websearch_to_tsquery('{$language}', :query)";
-            $whereExpr = "tsv @@ {$tsQuery}";
-            $scoreExpr = "ts_rank_cd(" . self::RANK_WEIGHTS . ", tsv, {$tsQuery}, 32)";
-            $params = [':query' => $orQuery];
-
-            $corrected = TimingProfiler::profile(
-                'Keyword corrector lookup',
-                fn() => SmartSearch::getInstance()->queryCorrectorService->rewrite($normalizedQuery, $siteId)
-            );
-            if ($corrected !== null) {
-                $whereExpr = "({$whereExpr} OR tsv @@ (:corrected)::tsquery)";
-                $scoreExpr .= " + (0.5 * ts_rank_cd(" . self::RANK_WEIGHTS . ", tsv, (:corrected)::tsquery, 32))";
-                $params[':corrected'] = $corrected;
-
-                Logger::debug('Keyword typo correction applied', [
-                    'original' => $normalizedQuery,
-                    'tsquery' => $corrected,
-                ]);
-            }
-
-            $siteFilter = '';
-            if ($siteId !== null) {
-                $siteFilter = ' AND "siteId" = :siteId';
-                $params[':siteId'] = $siteId;
-            }
-
-            $sectionFilter = '';
-            if (!empty($sectionIds)) {
-                [$inList, $sectionParams] = SqlHelper::namedInList($sectionIds, 'sectionId');
-                $sectionFilter = " AND \"sectionId\" IN {$inList}";
-                $params += $sectionParams;
-            }
-
-            $maxResults = (int)SmartSearch::getInstance()->getSettings()->maxSemanticResults;
-
-            $sql = "
-                SELECT \"elementId\", \"siteId\", content, keyword_score
-                FROM (
-                    SELECT DISTINCT ON (\"elementId\", \"siteId\")
-                        \"elementId\",
-                        \"siteId\",
-                        body AS content,
-                        {$scoreExpr} AS keyword_score
-                    FROM {$table}
-                    WHERE {$whereExpr}{$siteFilter}{$sectionFilter}
-                    ORDER BY \"elementId\", \"siteId\", {$scoreExpr} DESC
-                ) best_per_entry
-                ORDER BY keyword_score DESC
-                LIMIT {$maxResults}
-            ";
-
-            Logger::debug('Keyword query', [
-                'query' => $normalizedQuery,
-                'siteId' => $siteId,
-                'maxResults' => $maxResults,
-            ]);
-
             $rows = TimingProfiler::profile(
                 'Keyword main SQL',
-                function() use ($db, $sql, $params) {
-                    $stmt = $db->prepare($sql);
-                    $stmt->execute($params);
-                    return $stmt->fetchAll();
-                }
+                fn() => SmartSearch::getInstance()->databaseService->fetchAll($sql, $params, 'calculateScores')
             );
-
-            Logger::debug('Keyword results', ['matchedElements' => count($rows)]);
-
-            $scores = [];
-            foreach ($rows as $row) {
-                $scores[] = [
-                    'elementId' => (int)$row['elementId'],
-                    'siteId' => (int)$row['siteId'],
-                    'keywordScore' => (float)$row['keyword_score'],
-                    'content' => (string)($row['content'] ?? ''),
-                ];
-            }
-            return $scores;
         } catch (PDOException $e) {
             Logger::exception($e, 'calculateScores', ['query' => substr($query, 0, 50)]);
             throw SearchException::semanticSearchFailed('Keyword scoring failed', $e);
         }
+
+        return self::mapRows($rows);
+    }
+
+    /**
+     * Dispatch the keyword scan without waiting for it, returning a callable that
+     * collects the rows later. Null when no async handle is available, so the
+     * caller falls back to calculateScores().
+     *
+     * Needs no embedding, so it may be sent before the embedding call. The corrector
+     * lookup still blocks here — its result is an input to the SQL being sent.
+     *
+     * @param int[]|null $sectionIds
+     * @return null|callable(): list<array{elementId: int, siteId: int, keywordScore: float, content: string}>
+     */
+    public function prefetchScores(string $query, ?int $siteId = null, ?array $sectionIds = null): ?callable
+    {
+        $connection = SmartSearch::getInstance()->databaseService->getAsyncConnection();
+        if ($connection === null) {
+            return null;
+        }
+
+        $built = $this->buildScoreQuery($query, $siteId, $sectionIds);
+        if ($built === null) {
+            return static fn(): array => [];
+        }
+
+        [$sql, $params] = $built;
+        [$pgSql, $values] = SqlHelper::toPositional($sql, $params);
+
+        if (@pg_send_query_params($connection, $pgSql, $values) === false) {
+            Logger::warning('Keyword prefetch dispatch failed; falling back to synchronous scan');
+            return null;
+        }
+
+        return static function() use ($connection, $query): array {
+            $rows = [];
+            $error = null;
+
+            /* Must drain every result, or the handle is left busy for the next dispatch. */
+            while (($result = pg_get_result($connection)) !== false) {
+                if (pg_result_error($result) !== '') {
+                    $error = pg_result_error($result);
+                    continue;
+                }
+                $rows = pg_fetch_all($result) ?: $rows;
+            }
+
+            if ($error !== null) {
+                Logger::error('Keyword prefetch query failed', ['error' => $error, 'query' => substr($query, 0, 50)]);
+                throw SearchException::semanticSearchFailed('Keyword scoring failed');
+            }
+
+            return self::mapRows($rows);
+        };
+    }
+
+    /** @return list<array{elementId: int, siteId: int, keywordScore: float, content: string}> */
+    private static function mapRows(array $rows): array
+    {
+        Logger::debug('Keyword results', ['matchedElements' => count($rows)]);
+
+        $scores = [];
+        foreach ($rows as $row) {
+            $scores[] = [
+                'elementId' => (int)$row['elementId'],
+                'siteId' => (int)$row['siteId'],
+                'keywordScore' => (float)$row['keyword_score'],
+                'content' => (string)($row['content'] ?? ''),
+            ];
+        }
+        return $scores;
+    }
+
+    /**
+     * Build the keyword scan SQL and its bind params, or null when the query is
+     * empty. Shared by the sync and prefetch paths so they cannot drift apart.
+     *
+     * @param int[]|null $sectionIds
+     * @return array{0: string, 1: array<string, scalar|null>}|null
+     */
+    private function buildScoreQuery(string $query, ?int $siteId, ?array $sectionIds): ?array
+    {
+        $table = SmartSearch::getInstance()->databaseService->getQualifiedTable();
+        $normalizedQuery = trim($query);
+
+        if ($normalizedQuery === '') {
+            return null;
+        }
+
+        $language = self::resolveLanguage($siteId);
+
+        $tokens = preg_split('/\s+/', $normalizedQuery, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $orQuery = implode(' OR ', $tokens);
+
+        $tsQuery = "websearch_to_tsquery('{$language}', :query)";
+        $whereExpr = "tsv @@ {$tsQuery}";
+        $scoreExpr = "ts_rank_cd(" . self::RANK_WEIGHTS . ", tsv, {$tsQuery}, 32)";
+        $params = [':query' => $orQuery];
+
+        $corrected = TimingProfiler::profile(
+            'Keyword corrector lookup',
+            fn() => SmartSearch::getInstance()->queryCorrectorService->rewrite($normalizedQuery, $siteId)
+        );
+        if ($corrected !== null) {
+            $whereExpr = "({$whereExpr} OR tsv @@ (:corrected)::tsquery)";
+            $scoreExpr .= " + (0.5 * ts_rank_cd(" . self::RANK_WEIGHTS . ", tsv, (:corrected)::tsquery, 32))";
+            $params[':corrected'] = $corrected;
+
+            Logger::debug('Keyword typo correction applied', [
+                'original' => $normalizedQuery,
+                'tsquery' => $corrected,
+            ]);
+        }
+
+        $siteFilter = '';
+        if ($siteId !== null) {
+            $siteFilter = ' AND "siteId" = :siteId';
+            $params[':siteId'] = $siteId;
+        }
+
+        $sectionFilter = '';
+        if (!empty($sectionIds)) {
+            [$inList, $sectionParams] = SqlHelper::namedInList($sectionIds, 'sectionId');
+            $sectionFilter = " AND \"sectionId\" IN {$inList}";
+            $params += $sectionParams;
+        }
+
+        $maxResults = (int)SmartSearch::getInstance()->getSettings()->maxSemanticResults;
+
+        $sql = "
+            SELECT \"elementId\", \"siteId\", content, keyword_score
+            FROM (
+                SELECT DISTINCT ON (\"elementId\", \"siteId\")
+                    \"elementId\",
+                    \"siteId\",
+                    body AS content,
+                    {$scoreExpr} AS keyword_score
+                FROM {$table}
+                WHERE {$whereExpr}{$siteFilter}{$sectionFilter}
+                ORDER BY \"elementId\", \"siteId\", {$scoreExpr} DESC
+            ) best_per_entry
+            ORDER BY keyword_score DESC
+            LIMIT {$maxResults}
+        ";
+
+        Logger::debug('Keyword query', [
+            'query' => $normalizedQuery,
+            'siteId' => $siteId,
+            'maxResults' => $maxResults,
+        ]);
+
+        return [$sql, $params];
     }
 }

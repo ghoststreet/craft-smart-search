@@ -26,6 +26,72 @@ class DatabaseService extends Component
 
     private ?PDO $connection = null;
 
+    /** ext-pgsql handle used only for dispatching queries ahead of a blocking call. */
+    private mixed $asyncConnection = null;
+
+    private bool $asyncUnavailable = false;
+
+    /**
+     * A second, async-capable handle on the same database, or null when ext-pgsql
+     * is missing or unreachable — callers must fall back to the synchronous path.
+     *
+     * Exists because PDO cannot dispatch a query without waiting for it, and
+     * pg_send_query can.
+     */
+    public function getAsyncConnection(): mixed
+    {
+        if ($this->asyncUnavailable) {
+            return null;
+        }
+        if ($this->asyncConnection !== null) {
+            return $this->asyncConnection;
+        }
+        if (!function_exists('pg_pconnect')) {
+            $this->asyncUnavailable = true;
+            return null;
+        }
+
+        try {
+            $config = $this->resolveConnectionConfig();
+            $this->enforceSslPolicy($config);
+
+            $conn = @pg_pconnect($this->buildPgConnectionString($config));
+            if ($conn === false) {
+                $this->asyncUnavailable = true;
+                Logger::warning('Async pgsql connection unavailable; using synchronous search path');
+                return null;
+            }
+
+            return $this->asyncConnection = $conn;
+        } catch (\Throwable $e) {
+            $this->asyncUnavailable = true;
+            Logger::warning('Async pgsql connection failed; using synchronous search path', [
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /** libpq keyword/value connection string; every value is quoted and escaped. */
+    private function buildPgConnectionString(array $config): string
+    {
+        $pairs = [
+            'host' => (string)$config['host'],
+            'port' => (string)$config['port'],
+            'dbname' => (string)$config['database'],
+            'user' => (string)$config['user'],
+            'password' => (string)$config['password'],
+            'sslmode' => (string)$config['sslMode'],
+        ];
+
+        $parts = [];
+        foreach ($pairs as $key => $value) {
+            $parts[] = $key . "='" . str_replace(['\\', "'"], ['\\\\', "\\'"], $value) . "'";
+        }
+
+        return implode(' ', $parts);
+    }
+
     /**
      * Get database connection, throwing an exception if not configured or connection fails.
      *
@@ -204,6 +270,7 @@ class DatabaseService extends Component
                 PDO::ATTR_EMULATE_PREPARES => true,
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_PERSISTENT => true,
             ]);
 
             Logger::info('Successfully connected to PostgreSQL database');
@@ -298,13 +365,87 @@ class DatabaseService extends Component
     public function executeStatement(string $sql, array $params, string $operation): PDOStatement
     {
         try {
-            $stmt = $this->getConnection()->prepare($sql);
-            $stmt->execute($params);
-            return $stmt;
+            return $this->withRetry(function() use ($sql, $params) {
+                $stmt = $this->getConnection()->prepare($sql);
+                $stmt->execute($params);
+                return $stmt;
+            }, $operation);
         } catch (PDOException $e) {
             Logger::exception($e, $operation);
             throw DatabaseException::queryFailed($operation, $e, $this->getQualifiedTable());
         }
+    }
+
+    /**
+     * Prepare, execute and fetch, retrying once if the connection was found dead.
+     * Reads must use this rather than getConnection()->prepare() so they are covered
+     * by the retry.
+     *
+     * @throws PDOException
+     */
+    public function fetchAll(string $sql, array $params, string $operation): array
+    {
+        return $this->withRetry(function() use ($sql, $params) {
+            $stmt = $this->getConnection()->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }, $operation);
+    }
+
+    /**
+     * What makes ATTR_PERSISTENT safe against a pooler: a pooled server can close an
+     * idle connection without PHP noticing, and PDO hands the dead socket back anyway,
+     * so the failure lands on the next query as an opaque SSL EOF. Clearing the handle
+     * makes PDO re-check the persistent entry, whose liveness check resets it.
+     *
+     * Retries only connection-loss errors. Safe to retry because every statement routed
+     * here is a read or an idempotent upsert.
+     */
+    private function withRetry(callable $run, string $operation): mixed
+    {
+        try {
+            return $run();
+        } catch (PDOException $e) {
+            if (!self::isLostConnection($e)) {
+                throw $e;
+            }
+
+            Logger::warning('Vectors connection was closed; reconnecting and retrying once', [
+                'operation' => $operation,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->connection = null;
+
+            return $run();
+        }
+    }
+
+    /** Distinguish "the socket died" from "the query was wrong". */
+    private static function isLostConnection(PDOException $e): bool
+    {
+        /* 08xxx: connection exceptions. 57P01: server terminated the backend. */
+        $sqlState = (string)$e->getCode();
+        if (str_starts_with($sqlState, '08') || $sqlState === '57P01') {
+            return true;
+        }
+
+        $message = strtolower($e->getMessage());
+        foreach ([
+            'server closed the connection',
+            'no connection to the server',
+            'connection not open',
+            'terminating connection',
+            'ssl syscall error',
+            'eof detected',
+            'broken pipe',
+        ] as $needle) {
+            if (str_contains($message, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

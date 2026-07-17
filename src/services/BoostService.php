@@ -2,7 +2,9 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
+use Craft;
 use ghoststreet\craftsmartsearch\helpers\Logger;
+use ghoststreet\craftsmartsearch\helpers\SqlHelper;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDO;
 use PDOException;
@@ -29,6 +31,10 @@ use yii\base\Component;
  */
 class BoostService extends Component
 {
+    private const TABLE_EXISTS_CACHE_KEY = 'smart_search_boosts_table_exists';
+
+    private const TABLE_EXISTS_CACHE_TTL = 60;
+
     private ?bool $tableExistsCache = null;
 
     /**
@@ -64,6 +70,7 @@ class BoostService extends Component
         }
 
         $this->tableExistsCache = null;
+        Craft::$app->getCache()->delete(self::TABLE_EXISTS_CACHE_KEY);
     }
 
     /**
@@ -159,17 +166,97 @@ class BoostService extends Component
      */
     public function match(string $query, ?int $siteId): array
     {
-        if (!$this->tableExists()) {
+        $built = $this->buildMatchQuery($query, $siteId);
+        if ($built === null) {
             return [];
+        }
+        [$sql, $params] = $built;
+
+        try {
+            $out = [];
+            foreach (SmartSearch::getInstance()->databaseService->fetchAll($sql, $params, 'BoostService::match') as $row) {
+                $out[(int)$row['elementId']] = (float)$row['w'];
+            }
+            return $out;
+        } catch (Throwable $e) {
+            Logger::exception($e, 'BoostService::match', ['siteId' => $siteId]);
+            return [];
+        }
+    }
+
+    /**
+     * Dispatch the boost match without waiting, returning a callable that collects
+     * it later. Null when no async handle is free, so the caller falls back to match().
+     *
+     * Depends only on the query text, so it may be sent before the vector query and
+     * collected after it.
+     *
+     * @return null|callable(): array<int, float>
+     */
+    public function prefetchMatch(string $query, ?int $siteId): ?callable
+    {
+        $connection = SmartSearch::getInstance()->databaseService->getAsyncConnection();
+        if ($connection === null) {
+            return null;
+        }
+
+        $built = $this->buildMatchQuery($query, $siteId);
+        if ($built === null) {
+            return static fn(): array => [];
+        }
+
+        [$sql, $params] = $built;
+        [$pgSql, $values] = SqlHelper::toPositional($sql, $params);
+
+        if (@pg_send_query_params($connection, $pgSql, $values) === false) {
+            return null;
+        }
+
+        return static function() use ($connection, $siteId): array {
+            $out = [];
+            $error = null;
+
+            while (($result = pg_get_result($connection)) !== false) {
+                if (pg_result_error($result) !== '') {
+                    $error = pg_result_error($result);
+                    continue;
+                }
+                foreach (pg_fetch_all($result) ?: [] as $row) {
+                    $out[(int)$row['elementId']] = (float)$row['w'];
+                }
+            }
+
+            /* Boosts only ever add rank, so a failure degrades rather than throws. */
+            if ($error !== null) {
+                Logger::warning('Boost prefetch failed; ranking without boosts', [
+                    'error' => $error,
+                    'siteId' => $siteId,
+                ]);
+                return [];
+            }
+
+            return $out;
+        };
+    }
+
+    /**
+     * Build the boost match SQL and params, or null when boosts cannot apply.
+     * Shared by the sync and prefetch paths so they cannot drift apart.
+     *
+     * @return array{0: string, 1: array<string, scalar|null>}|null
+     */
+    private function buildMatchQuery(string $query, ?int $siteId): ?array
+    {
+        if (!$this->tableExists()) {
+            return null;
         }
 
         try {
             $tsv = SmartSearch::getInstance()->queryCorrectorService->expandedTsvector($query, $siteId);
             if ($tsv === '') {
-                return [];
+                return null;
             }
 
-            $db = SmartSearch::getInstance()->databaseService->getConnection();
             $table = $this->qualifiedBoostsTable();
 
             $where = 'q.tsv @@ b.rule_query';
@@ -179,23 +266,17 @@ class BoostService extends Component
                 $params[':siteId'] = $siteId;
             }
 
-            $stmt = $db->prepare(
+            return [
                 "WITH q AS (SELECT (:tsv)::tsvector AS tsv)
                  SELECT b.\"elementId\" AS \"elementId\", SUM(b.weight) AS w
                  FROM {$table} b, q
                  WHERE {$where}
-                 GROUP BY b.\"elementId\""
-            );
-            $stmt->execute($params);
-
-            $out = [];
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $out[(int)$row['elementId']] = (float)$row['w'];
-            }
-            return $out;
+                 GROUP BY b.\"elementId\"",
+                $params,
+            ];
         } catch (Throwable $e) {
-            Logger::exception($e, 'BoostService::match', ['siteId' => $siteId]);
-            return [];
+            Logger::exception($e, 'BoostService::buildMatchQuery', ['siteId' => $siteId]);
+            return null;
         }
     }
 
@@ -231,20 +312,33 @@ class BoostService extends Component
         }
     }
 
+    /**
+     * The answer only changes when the table is provisioned, so it is cached;
+     * ensureSchema() clears the key so provisioning takes effect immediately.
+     */
     private function tableExists(): bool
     {
         if ($this->tableExistsCache !== null) {
             return $this->tableExistsCache;
         }
 
+        return $this->tableExistsCache = (bool)Craft::$app->getCache()->getOrSet(
+            self::TABLE_EXISTS_CACHE_KEY,
+            fn() => $this->queryTableExists() ? 1 : 0,
+            self::TABLE_EXISTS_CACHE_TTL,
+        );
+    }
+
+    private function queryTableExists(): bool
+    {
         try {
             $db = SmartSearch::getInstance()->databaseService->getConnection();
             $schema = SmartSearch::getInstance()->getSettings()->vectorsSchemaName;
             $stmt = $db->prepare("SELECT 1 FROM pg_tables WHERE schemaname = :schema AND tablename = :table");
             $stmt->execute([':schema' => $schema, ':table' => SmartSearch::getInstance()->getSettings()->boostsTableName]);
-            return $this->tableExistsCache = (bool)$stmt->fetchColumn();
+            return (bool)$stmt->fetchColumn();
         } catch (Throwable) {
-            return $this->tableExistsCache = false;
+            return false;
         }
     }
 
