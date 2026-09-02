@@ -2,6 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
+use Craft;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -21,6 +22,8 @@ use yii\base\Component;
 class DatabaseService extends Component
 {
     public const STATS_CACHE_KEY = 'smart_search_dashboard_stats';
+
+    private const VECTORS_TOKEN_CACHE_KEY = 'smart_search_vectors_token';
 
     private const LOCAL_HOSTS = ['127.0.0.1', '::1', 'localhost'];
 
@@ -438,6 +441,11 @@ class DatabaseService extends Component
             'terminating connection',
             'ssl syscall error',
             'eof detected',
+            /* libpq reports a pooler-closed TLS connection as SQLSTATE HY000 with
+               "SSL error: unexpected eof while reading", which matches none of the
+               connection-exception SQLSTATEs and none of the needles above. Seen in
+               practice against the Supabase transaction pooler, surfacing as a 500. */
+            'unexpected eof',
             'broken pipe',
         ] as $needle) {
             if (str_contains($message, $needle)) {
@@ -513,6 +521,33 @@ class DatabaseService extends Component
     }
 
     /**
+     * Opaque token identifying the current contents of the vectors table. Anything derived
+     * from a search over it keys on this, so a write invalidates those entries immediately
+     * rather than leaving them to expire.
+     *
+     * A random token rather than a counter, so an evicted key cannot resurrect entries
+     * cached under an earlier value.
+     */
+    public function vectorsCacheToken(): string
+    {
+        $cache = Craft::$app->getCache();
+        $token = $cache->get(self::VECTORS_TOKEN_CACHE_KEY);
+
+        if (!is_string($token) || $token === '') {
+            $token = bin2hex(random_bytes(8));
+            $cache->set(self::VECTORS_TOKEN_CACHE_KEY, $token, 0);
+        }
+
+        return $token;
+    }
+
+    /** Called by every path that changes what a search over the vectors table would return. */
+    public function bumpVectorsCacheToken(): void
+    {
+        Craft::$app->getCache()->delete(self::VECTORS_TOKEN_CACHE_KEY);
+    }
+
+    /**
      * Delete all vectors while preserving the table structure and indexes.
      *
      * @return int Number of deleted rows
@@ -522,6 +557,7 @@ class DatabaseService extends Component
     {
         $stmt = $this->executeStatement("DELETE FROM {$this->getQualifiedTable()}", [], 'clearAllVectors');
         $count = $stmt->rowCount();
+        $this->bumpVectorsCacheToken();
         Logger::info('Cleared all vectors', ['count' => $count]);
         return $count;
     }
@@ -575,7 +611,7 @@ class DatabaseService extends Component
 
     public function getStats(bool $useCache = true): array
     {
-        $cache = \Craft::$app->getCache();
+        $cache = Craft::$app->getCache();
 
         if (!$useCache) {
             $cache->delete(self::STATS_CACHE_KEY);

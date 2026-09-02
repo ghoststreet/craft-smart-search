@@ -2,6 +2,7 @@
 
 namespace ghoststreet\craftsmartsearch\services;
 
+use Craft;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDOException;
@@ -28,6 +29,12 @@ class QueryCorrectorService extends Component
     /** word_similarity threshold; pg_trgm default is 0.6. */
     private const SIMILARITY_THRESHOLD = 0.5;
 
+    /** Long-lived: invalidated by the terms token, never by expiry. */
+    private const VARIANT_CACHE_TTL_SECONDS = 2592000;
+
+    private const VARIANT_CACHE_KEY_PREFIX = 'smart_search_variants_';
+
+    /** Per-token, so the keyword and boost callers share entries despite tokenising differently. */
     private array $variantCache = [];
 
     /**
@@ -226,22 +233,49 @@ class QueryCorrectorService extends Component
     /**
      * For each user token, stem it via `ts_lexize` (so the lookup key matches
      * what the dictionary actually stores), then OR in any trigram-similar dict
-     * terms. Single round-trip per token; same number of queries as before but
-     * keyed on the stemmed form instead of the raw surface form.
+     * terms.
+     *
+     * Cached per token rather than per token set. The keyword and boost callers
+     * tokenise differently, so a set-keyed memo missed on any query containing a
+     * number, a short word or punctuation and paid the round trip twice. Per token
+     * they share entries, and the cache survives across requests, so a query costs a
+     * round trip only for vocabulary never looked up before.
      *
      * @param string[] $tokens
      * @return array<string, array{lex: string, variants: string[]}>
      */
     private function lookupVariants(array $tokens, DictionaryService $dictionary, string $stemDict): array
     {
-        /* Both the keyword tsquery and the boost tsvector ask this for the same query. */
-        $cacheKey = $stemDict . '|' . implode(' ', $tokens);
-        if (isset($this->variantCache[$cacheKey])) {
-            return $this->variantCache[$cacheKey];
-        }
-
         $terms = $dictionary->qualifiedTermsTable();
         $hasFuzzy = $dictionary->hasExtension('fuzzystrmatch');
+
+        $cache = Craft::$app->getCache();
+        $scope = $dictionary->termsCacheToken() . '|' . $stemDict . '|' . ($hasFuzzy ? 'f' : '');
+
+        $results = [];
+        $missing = [];
+        foreach ($tokens as $token) {
+            $memoKey = $scope . '|' . $token;
+
+            if (isset($this->variantCache[$memoKey])) {
+                $results[$token] = $this->variantCache[$memoKey];
+                continue;
+            }
+
+            $cached = $cache->get(self::VARIANT_CACHE_KEY_PREFIX . md5($memoKey));
+            if (is_array($cached)) {
+                $results[$token] = $this->variantCache[$memoKey] = $cached;
+                continue;
+            }
+
+            $missing[] = $token;
+        }
+
+        if ($missing === []) {
+            return $results;
+        }
+
+        $tokens = $missing;
 
         $valuesParts = [];
         $params = [':dict' => $stemDict];
@@ -294,7 +328,6 @@ class QueryCorrectorService extends Component
 
         $rows = SmartSearch::getInstance()->databaseService->fetchAll($sql, $params, 'lookupVariants');
 
-        $results = [];
         foreach ($tokens as $token) {
             $results[$token] = ['lex' => mb_strtolower($token), 'variants' => []];
         }
@@ -315,6 +348,17 @@ class QueryCorrectorService extends Component
             }
         }
 
-        return $this->variantCache[$cacheKey] = $results;
+        /* A token with no dictionary match is cached too, or unknown words re-query forever. */
+        foreach ($tokens as $token) {
+            $memoKey = $scope . '|' . $token;
+            $this->variantCache[$memoKey] = $results[$token];
+            $cache->set(
+                self::VARIANT_CACHE_KEY_PREFIX . md5($memoKey),
+                $results[$token],
+                self::VARIANT_CACHE_TTL_SECONDS,
+            );
+        }
+
+        return $results;
     }
 }

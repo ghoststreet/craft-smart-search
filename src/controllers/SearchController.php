@@ -50,8 +50,11 @@ class SearchController extends BaseApiController
     /** Monotonic start time for total-request timing. */
     private float $startTime = 0.0;
 
-    /** Release token from RateLimitService::acquire(); passed to release() in afterAction. */
+    /** Release token from RateLimitService::acquire(); passed to release() at shutdown. */
     private string $rateLimitToken = '';
+
+    /** History row captured during the request, written after the response is sent. */
+    private ?SearchHistoryEntry $pendingHistory = null;
 
     /** Set true once a valid bearer token has been verified for this request. */
     private bool $bearerAuthenticated = false;
@@ -111,17 +114,14 @@ class SearchController extends BaseApiController
             Craft::$app->end();
         }
 
+        /* Both of these cost database round trips and neither shapes the response, so
+           they run at shutdown, after Yii has sent the body. */
         register_shutdown_function(function(): void {
+            $this->flushHistory();
             $this->releaseRateLimit();
         });
 
         return true;
-    }
-
-    public function afterAction($action, $result)
-    {
-        $this->releaseRateLimit();
-        return parent::afterAction($action, $result);
     }
 
     private function releaseRateLimit(): void
@@ -427,6 +427,9 @@ class SearchController extends BaseApiController
         header('X-Accel-Buffering: no');
         header('Connection: keep-alive');
 
+        /* Suppress EventSource's automatic reconnect: a dropped stream would otherwise
+           replay the whole search, including a second paid LLM call. */
+        echo "retry: 86400000\n\n";
         echo ": connected\n\n";
         @flush();
 
@@ -597,7 +600,7 @@ class SearchController extends BaseApiController
         try {
             $usage = UsageTracker::snapshot();
 
-            SmartSearch::getInstance()->historyService->record(new SearchHistoryEntry(
+            $this->pendingHistory = new SearchHistoryEntry(
                 requestId: $this->requestId,
                 type: $type,
                 query: (string)($params['query'] ?? ''),
@@ -611,10 +614,23 @@ class SearchController extends BaseApiController
                 embeddingModel: $usage['embeddingModel'],
                 aiAnswerModel: $usage['aiAnswerModel'],
                 errorMessage: $errorMessage,
-            ));
+            );
         } catch (Throwable $e) {
             Logger::exception($e, 'recordHistory', $this->errorContext($params));
         }
+    }
+
+    /** Write the captured history row. Runs at shutdown, so the INSERT is off the response path. */
+    private function flushHistory(): void
+    {
+        if ($this->pendingHistory === null) {
+            return;
+        }
+
+        $entry = $this->pendingHistory;
+        $this->pendingHistory = null;
+
+        SmartSearch::getInstance()->historyService->record($entry);
     }
 
     protected function errorContext(array $extra = []): array

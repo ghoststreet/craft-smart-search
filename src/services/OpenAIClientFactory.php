@@ -52,9 +52,15 @@ class OpenAIClientFactory extends Component
      */
     public function buildClient(string $apiKey): Client
     {
+        /*
+         * timeout bounds time-to-headers, which is the whole call for an embedding and
+         * just the wait for the first chunk when streaming. 60 s let a stalled endpoint
+         * hold a rate-limit slot for a minute; no embedding is ever legitimately that
+         * slow. read_timeout stays generous because it governs streamed body reads.
+         */
         $http = new GuzzleClient([
             'connect_timeout' => 3.0,
-            'timeout' => 60.0,
+            'timeout' => 15.0,
             'read_timeout' => 60.0,
             'http_errors' => false,
         ]);

@@ -82,6 +82,9 @@ class SettingsController extends BaseApiController
             return $this->renderScenario($scenario, $settings);
         }
 
+        $plugin->dictionaryService->clearCapabilityCache();
+        $plugin->boostService->clearCapabilityCache();
+
         Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Settings saved.'));
         return $this->redirect(Settings::SCENARIOS[$scenario]['url']);
     }

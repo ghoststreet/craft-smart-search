@@ -8,6 +8,7 @@ use ghoststreet\craftsmartsearch\exceptions\SearchException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\SqlHelper;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
+use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDO;
@@ -22,8 +23,9 @@ use yii\base\Component;
  * receive a configurable penalty. Semantic-only results below a minimum threshold
  * are excluded entirely.
  *
- * @phpstan-type SignalEntry array{score: float, rank: int, content: string}
- * @phpstan-type ScoredEntry array{rrfScore: float, semanticScore: float, semanticRank: ?int, keywordScore: float, keywordRank: ?int, content: string}
+ * @phpstan-type ChunkKey array{0: int, 1: int, 2: int}
+ * @phpstan-type SignalEntry array{score: float, rank: int, chunk?: ChunkKey, content?: string}
+ * @phpstan-type ScoredEntry array{rrfScore: float, semanticScore: float, semanticRank: ?int, keywordScore: float, keywordRank: ?int, content: string, chunk: ?ChunkKey}
  */
 class SmartSearchService extends Component
 {
@@ -44,6 +46,14 @@ class SmartSearchService extends Component
      * next window is fetched — correct either way, just one more query.
      */
     private const ELEMENT_WINDOW_SLACK = 5;
+
+    /**
+     * Ranking cache lifetime. Short, because it is the window in which a freshly
+     * indexed entry can be missing from results.
+     */
+    private const RANKING_CACHE_TTL_SECONDS = 60;
+
+    private const RANKING_CACHE_KEY_PREFIX = 'smart_search_ranking_';
 
     /**
      * HNSW candidate list size for the vector scan. Higher = better recall, slower.
@@ -72,19 +82,108 @@ class SmartSearchService extends Component
             }
         }
 
+        $cacheKey = self::RANKING_CACHE_KEY_PREFIX . md5(implode('|', [
+            $query,
+            (string)$limit,
+            (string)($siteId ?? ''),
+            (string)($embeddingModel ?? ''),
+            $sectionIds === null ? '' : implode(',', $sectionIds),
+            self::rankingSettingsFingerprint($settings),
+            SmartSearch::getInstance()->databaseService->vectorsCacheToken(),
+        ]));
+
         /*
-         * Order matters: the keyword scan is dispatched before the embedding call so
-         * Postgres runs it while PHP blocks on OpenAI. Null = no async handle, and the
-         * scan runs inline below instead.
+         * Only the ranking is cached, never the payload: elements are still hydrated
+         * fresh below, so a title or URL edit shows up immediately. The requesting site
+         * is absent from the key on purpose, since it affects hydration, not ranking.
+         *
+         * The vectors token is in the key so indexing an entry invalidates every cached
+         * ranking at once. Without it a newly indexed entry stayed missing from results
+         * until the TTL expired, which is the one behaviour change this cache would
+         * otherwise impose. The TTL now only bounds staleness from writes made by another
+         * server that shares the store but not this cache.
          */
+        $cache = Craft::$app->getCache();
+        $scoredResults = $cache->get($cacheKey);
+
+        if (is_array($scoredResults)) {
+            /* No embedding call happened, so say so or Insights reports the search
+               against no model at all. */
+            UsageTracker::markEmbeddingCached($embeddingModel ?? $settings->embeddingModel);
+        } else {
+            $scoredResults = TimingProfiler::profile(
+                'Ranking',
+                fn() => $this->rankResults($query, $limit, $siteId, $embeddingModel, $sectionIds, $settings)
+            );
+            $cache->set($cacheKey, $scoredResults, self::RANKING_CACHE_TTL_SECONDS);
+        }
+
+        /* Dispatched before the element load, collected after it. Needs ranking settled. */
+        $contentPrefetch = $this->prefetchChunkContent($scoredResults, $limit);
+
+        $finalResults = TimingProfiler::profile('Load elements', fn() => $this->loadElementsWithScores($scoredResults, $limit, $siteId));
+
+        $finalResults = TimingProfiler::profile(
+            'Attach chunk content',
+            fn() => $this->attachChunkContent($finalResults, $contentPrefetch)
+        );
+
+        Logger::debug('Smart search final results', [
+            'requestedLimit' => $limit,
+            'returnedResults' => count($finalResults),
+        ]);
+
+        return $finalResults;
+    }
+
+    /**
+     * Everything that produces the ranked candidate map: both signals, RRF fusion,
+     * boosts and the sort. Split out of search() so it can be cached without caching
+     * the hydrated elements.
+     *
+     * @param int[]|null $sectionIds
+     * @return array<int, ScoredEntry> Sorted best-first
+     */
+    private function rankResults(
+        string $query,
+        int $limit,
+        ?int $siteId,
+        ?string $embeddingModel,
+        ?array $sectionIds,
+        Settings $settings,
+    ): array {
+        /*
+         * Every wait here is arranged to cover another one. There is exactly one async
+         * Postgres handle, so only one statement is in flight on it at a time, and the two
+         * long waits available as cover are the embedding call and the vector query.
+         *
+         *   1. write the embedding request (longest wait, so it starts first)
+         *   2. corrector lookup, then dispatch the keyword scan
+         *   3. collect the embedding
+         *   4. run the vector query, which keeps covering the keyword scan
+         *   5. collect the keyword scan, then dispatch and collect the boost match
+         *
+         * The keyword scan is dispatched first of the two Postgres statements because it is
+         * much the slower, so it needs both cover windows. Dispatching the boost match first
+         * instead measured 50 ms worse.
+         */
+        $embeddingPrefetch = TimingProfiler::profile(
+            'Embedding dispatch',
+            fn() => SmartSearch::getInstance()->embeddingService->dispatchEmbedding($query, $embeddingModel)
+        );
+
         $keywordPrefetch = TimingProfiler::profile(
             'Keyword prefetch dispatch',
             fn() => SmartSearch::getInstance()->keywordSearchService->prefetchScores($query, $siteId, $sectionIds)
         );
 
-        $queryVector = TimingProfiler::profile(
-            'Query embedding generation',
-            fn() => SmartSearch::getInstance()->embeddingService->generateEmbedding($query, $embeddingModel)
+        $queryVector = TimingProfiler::profile('Query embedding wait', $embeddingPrefetch);
+
+        $semanticResults = $this->semanticSearchRaw(
+            $queryVector,
+            min($settings->maxSemanticResults, $limit * 10),
+            $siteId,
+            $sectionIds,
         );
 
         $keywordResults = TimingProfiler::profile(
@@ -94,14 +193,14 @@ class SmartSearchService extends Component
                 : SmartSearch::getInstance()->keywordSearchService->calculateScores($query, $siteId, $sectionIds)
         );
 
-        /* Dispatched before the vector query, collected after it. */
+        /* Only now is the single async handle free again. */
         $boostPrefetch = SmartSearch::getInstance()->boostService->prefetchMatch($query, $siteId);
 
-        $semanticResults = $this->semanticSearchRaw(
-            $queryVector,
-            min($settings->maxSemanticResults, $limit * 10),
-            $siteId,
-            $sectionIds,
+        $boosts = TimingProfiler::profile(
+            'Boost match',
+            fn() => $boostPrefetch !== null
+                ? $boostPrefetch()
+                : SmartSearch::getInstance()->boostService->match($query, $siteId)
         );
 
         $semanticLookup = $this->buildSemanticLookup($semanticResults);
@@ -119,12 +218,6 @@ class SmartSearchService extends Component
             'rrfKeywordWeight' => $settings->rrfKeywordWeight,
         ]);
 
-        $boosts = TimingProfiler::profile(
-            'Boost match',
-            fn() => $boostPrefetch !== null
-                ? $boostPrefetch()
-                : SmartSearch::getInstance()->boostService->match($query, $siteId)
-        );
         foreach ($boosts as $elementId => $weight) {
             if (isset($scoredResults[$elementId])) {
                 $scoredResults[$elementId]['rrfScore'] += $weight;
@@ -141,22 +234,23 @@ class SmartSearchService extends Component
 
         uasort($scoredResults, fn($a, $b) => $b['rrfScore'] <=> $a['rrfScore']);
 
-        /* Dispatched before the element load, collected after it. Needs ranking settled. */
-        $contentPrefetch = $this->prefetchChunkContent($scoredResults, $limit);
+        return $scoredResults;
+    }
 
-        $finalResults = TimingProfiler::profile('Load elements', fn() => $this->loadElementsWithScores($scoredResults, $limit));
-
-        $finalResults = TimingProfiler::profile(
-            'Attach chunk content',
-            fn() => $this->attachChunkContent($finalResults, $contentPrefetch)
-        );
-
-        Logger::debug('Smart search final results', [
-            'requestedLimit' => $limit,
-            'returnedResults' => count($finalResults),
+    /**
+     * Identity of every setting the ranking depends on, so a tuning change cannot be
+     * served from a ranking cached under the old weights.
+     */
+    private static function rankingSettingsFingerprint(Settings $settings): string
+    {
+        return implode(',', [
+            $settings->rrfSemanticWeight,
+            $settings->rrfKeywordWeight,
+            $settings->minSemanticThreshold,
+            $settings->maxSemanticResults,
+            $settings->embeddingModel,
+            $settings->enableTypoTolerance ? '1' : '0',
         ]);
-
-        return $finalResults;
     }
 
     /**
@@ -202,7 +296,9 @@ class SmartSearchService extends Component
                 'keywordScore' => $hasKeyword ? $keywordLookup[$id]['score'] : 0.0,
                 'keywordRank' => $hasKeyword ? $keywordLookup[$id]['rank'] : null,
                 /* A semantic hit's text must come from its own winning chunk, fetched by
-                   key later; only a keyword-only hit already carries its text. */
+                   key later; only a keyword-only hit already carries its text. Returning
+                   keys for keyword hits too was measured twice and lost both times: it moves
+                   cost out of a covered phase into the uncovered chunk fetch. */
                 'chunk' => $hasSemantic ? $semanticLookup[$id]['chunk'] : null,
                 'content' => $hasSemantic ? '' : ($keywordLookup[$id]['content'] ?? ''),
             ];
@@ -450,8 +546,11 @@ class SmartSearchService extends Component
     /**
      * Load Craft Entry elements for the top-scored results and build the
      * final response array with all score dimensions attached.
+     *
+     * Scoped to the searched site: without siteId() the query resolves against the
+     * *requesting* site, so a search scoped to one site could hydrate another's rows.
      */
-    private function loadElementsWithScores(array $scoredResults, int $limit): array
+    private function loadElementsWithScores(array $scoredResults, int $limit, ?int $siteId = null): array
     {
         $allIds = array_keys($scoredResults);
 
@@ -466,7 +565,11 @@ class SmartSearchService extends Component
          * or URL-less.
          */
         foreach (array_chunk($allIds, $limit + self::ELEMENT_WINDOW_SLACK) as $idBatch) {
-            $elements = Entry::find()->id($idBatch)->indexBy('id')->all();
+            $query = Entry::find()->id($idBatch)->indexBy('id');
+            if ($siteId !== null) {
+                $query->siteId($siteId);
+            }
+            $elements = $query->all();
             $loadedCount += count($elements);
 
             foreach ($idBatch as $id) {
@@ -476,7 +579,10 @@ class SmartSearchService extends Component
                 }
 
                 $element = $elements[$id];
-                if ($element->getUrl() === null) {
+                /* getUrl() fires the define-url events every call, so keep the one we
+                   already computed and hand it to the formatter. */
+                $url = $element->getUrl();
+                if ($url === null) {
                     $noUrlCount++;
                     continue;
                 }
@@ -485,6 +591,7 @@ class SmartSearchService extends Component
 
                 $results[] = [
                     'element' => $element,
+                    'url' => $url,
                     'score' => $data['rrfScore'],
                     'semanticScore' => $data['semanticScore'],
                     'semanticRank' => $data['semanticRank'],

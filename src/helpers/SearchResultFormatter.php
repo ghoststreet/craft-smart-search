@@ -25,7 +25,7 @@ final class SearchResultFormatter
      */
     public static function format(Entry $element, array $metadata, SearchType $type): ?array
     {
-        $url = $element->getUrl();
+        $url = $metadata['url'] ?? $element->getUrl();
         if ($url === null) {
             return null;
         }

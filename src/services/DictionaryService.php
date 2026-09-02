@@ -24,7 +24,16 @@ class DictionaryService extends Component
 {
     public const TERMS_TABLE = 'smart_search_terms';
 
-    private const REQUEST_CACHE_TTL_SECONDS = 60;
+    /**
+     * Capability probes answer questions that only change when an admin runs DDL,
+     * and every such path calls clearCapabilityCache(), so this can be long.
+     */
+    private const CAPABILITY_CACHE_TTL_SECONDS = 86400;
+
+    /** Every extension hasExtension() is asked about, so all can be invalidated together. */
+    private const PROBED_EXTENSIONS = ['pg_trgm', 'fuzzystrmatch'];
+
+    private const TERMS_TOKEN_CACHE_KEY = 'smart_search_terms_token';
 
     private const AVAILABILITY_CACHE_KEY = 'smart_search_typo_available';
 
@@ -66,7 +75,7 @@ class DictionaryService extends Component
                 'lexemesUpserted' => $rows,
             ]);
 
-            $this->clearAvailabilityCache();
+            $this->clearCapabilityCache();
         } catch (Throwable $e) {
             Logger::exception($e, 'DictionaryService::syncEntry');
         }
@@ -92,7 +101,7 @@ class DictionaryService extends Component
         return (bool)Craft::$app->getCache()->getOrSet(
             self::AVAILABILITY_CACHE_KEY,
             fn() => $this->checkAvailability() ? 1 : 0,
-            self::REQUEST_CACHE_TTL_SECONDS
+            self::CAPABILITY_CACHE_TTL_SECONDS
         );
     }
 
@@ -106,7 +115,7 @@ class DictionaryService extends Component
         return self::$extensionCache[$name] = (bool)Craft::$app->getCache()->getOrSet(
             self::EXTENSION_CACHE_KEY_PREFIX . $name,
             fn() => $this->queryHasExtension($name) ? 1 : 0,
-            self::REQUEST_CACHE_TTL_SECONDS
+            self::CAPABILITY_CACHE_TTL_SECONDS
         );
     }
 
@@ -185,7 +194,7 @@ class DictionaryService extends Component
             }
         }
 
-        $this->clearAvailabilityCache();
+        $this->clearCapabilityCache();
         return $tableExists;
     }
 
@@ -228,7 +237,7 @@ class DictionaryService extends Component
             ");
             $db->commit();
 
-            $this->clearAvailabilityCache();
+            $this->clearCapabilityCache();
 
             Logger::info('Dictionary rebuilt', ['rows' => (int)$written]);
 
@@ -254,8 +263,41 @@ class DictionaryService extends Component
         return $name !== '' ? $name : self::TERMS_TABLE;
     }
 
-    private function clearAvailabilityCache(): void
+    /**
+     * Opaque token identifying the current contents of the terms table. Anything
+     * derived from the dictionary can key on it and be invalidated for free when
+     * clearCapabilityCache() drops it. A random token rather than a counter, so an
+     * evicted key cannot resurrect entries cached under an earlier value.
+     */
+    public function termsCacheToken(): string
     {
-        Craft::$app->getCache()->delete(self::AVAILABILITY_CACHE_KEY);
+        $cache = Craft::$app->getCache();
+        $token = $cache->get(self::TERMS_TOKEN_CACHE_KEY);
+
+        if (!is_string($token) || $token === '') {
+            $token = bin2hex(random_bytes(8));
+            $cache->set(self::TERMS_TOKEN_CACHE_KEY, $token, self::CAPABILITY_CACHE_TTL_SECONDS);
+        }
+
+        return $token;
+    }
+
+    /**
+     * Forget every cached capability answer. Called after DDL and after a settings
+     * save, since the probes depend on the configured connection and table names.
+     */
+    public function clearCapabilityCache(): void
+    {
+        $cache = Craft::$app->getCache();
+        $cache->delete(self::AVAILABILITY_CACHE_KEY);
+        $cache->delete(self::TERMS_TOKEN_CACHE_KEY);
+
+        /* checkAvailability() reads hasExtension('pg_trgm'), so leaving the extension
+           keys behind would keep a pre-DDL "no" alive for the whole TTL. */
+        foreach (self::PROBED_EXTENSIONS as $name) {
+            $cache->delete(self::EXTENSION_CACHE_KEY_PREFIX . $name);
+        }
+
+        self::$extensionCache = [];
     }
 }

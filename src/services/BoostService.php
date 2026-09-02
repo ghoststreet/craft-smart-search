@@ -33,7 +33,7 @@ class BoostService extends Component
 {
     private const TABLE_EXISTS_CACHE_KEY = 'smart_search_boosts_table_exists';
 
-    private const TABLE_EXISTS_CACHE_TTL = 60;
+    private const TABLE_EXISTS_CACHE_TTL = 86400;
 
     private ?bool $tableExistsCache = null;
 
@@ -69,6 +69,15 @@ class BoostService extends Component
             }
         }
 
+        $this->clearCapabilityCache();
+    }
+
+    /**
+     * Forget the cached table-exists answer. Called after DDL and after a settings
+     * save, since the probe depends on the configured connection and table name.
+     */
+    public function clearCapabilityCache(): void
+    {
         $this->tableExistsCache = null;
         Craft::$app->getCache()->delete(self::TABLE_EXISTS_CACHE_KEY);
     }

@@ -25,7 +25,10 @@ use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use OpenAI\Exceptions\ErrorException;
+use OpenAI\Exceptions\RateLimitException;
+use OpenAI\Exceptions\TransporterException;
 use ReflectionClass;
+use RuntimeException;
 use Throwable;
 use verbb\supertable\elements\SuperTableBlockElement;
 use yii\base\Component;
@@ -44,6 +47,13 @@ class EmbeddingService extends Component
 
     public const EVENT_INDEX_BOOSTS = 'indexBoosts';
 
+    private const EMBEDDINGS_ENDPOINT = 'https://api.openai.com/v1/embeddings';
+
+    private const CONNECT_TIMEOUT_MS = 3000;
+
+    /** Bounds the whole call. No embedding is ever legitimately slower than this. */
+    private const REQUEST_TIMEOUT_MS = 15000;
+
     /**
      * Request-level cache for query embeddings.
      * Prevents duplicate API calls when agent calls multiple semantic-based tools with the same query.
@@ -51,11 +61,21 @@ class EmbeddingService extends Component
     private static array $requestEmbeddingCache = [];
 
     /**
-     * Map OpenAI error responses to specific EmbeddingException subtypes
-     * for rate limits, quota, and auth issues.
+     * Map OpenAI SDK failures to specific EmbeddingException subtypes.
+     *
+     * Takes Throwable, not ErrorException: the SDK's RateLimitException and
+     * TransporterException extend Exception directly, so catching only
+     * ErrorException let a 429 and every transport timeout escape as a bare 500.
      */
-    private function mapOpenAIException(ErrorException $e): EmbeddingException
+    private function mapOpenAIException(Throwable $e): EmbeddingException
     {
+        if ($e instanceof RateLimitException) {
+            return EmbeddingException::rateLimited($e);
+        }
+        if ($e instanceof TransporterException) {
+            return EmbeddingException::apiError('transport: ' . $e->getMessage(), $e);
+        }
+
         $message = $e->getMessage();
 
         if (stripos($message, 'rate limit') !== false) {
@@ -84,6 +104,29 @@ class EmbeddingService extends Component
      */
     public function generateEmbedding(string $text, ?string $model = null): array
     {
+        return ($this->dispatchEmbedding($text, $model))();
+    }
+
+    /**
+     * Write the embeddings request now and return a callable that reads the reply later.
+     *
+     * The embedding call is the longest wait in a search, yet it used to be issued last,
+     * behind the vector-store connection ping and the corrector lookup. Getting the request
+     * onto the wire first lets that Postgres work happen while the reply is in flight.
+     *
+     * This bypasses the openai-php SDK for this one endpoint because the SDK is strictly
+     * synchronous: its transporter calls sendRequest() and Guzzle's async path cannot be
+     * stopped at "request written". The surface being taken over is one JSON POST with three
+     * headers, of which only data[0].embedding and usage.prompt_tokens are read. Every other
+     * OpenAI call still goes through the SDK.
+     *
+     * Returns an already-resolved callable on a cache hit, so a warm query never opens a socket.
+     *
+     * @return callable(): array
+     * @throws EmbeddingException If the text is empty or the API key is missing
+     */
+    public function dispatchEmbedding(string $text, ?string $model = null): callable
+    {
         if (TextValidator::isEmpty($text)) {
             throw EmbeddingException::emptyText();
         }
@@ -95,6 +138,7 @@ class EmbeddingService extends Component
         if (TextValidator::isEmpty($normalizedText)) {
             throw EmbeddingException::emptyText();
         }
+
         $requestCacheKey = md5($normalizedText . '_' . $model);
         $persistentCacheKey = 'smart_search_embedding_' . $requestCacheKey;
 
@@ -103,7 +147,9 @@ class EmbeddingService extends Component
                 'textPreview' => substr($normalizedText, 0, 50) . '...',
             ]);
             UsageTracker::markEmbeddingCached($model);
-            return self::$requestEmbeddingCache[$requestCacheKey];
+            $hit = self::$requestEmbeddingCache[$requestCacheKey];
+
+            return static fn(): array => $hit;
         }
 
         $cache = Craft::$app->getCache();
@@ -112,23 +158,181 @@ class EmbeddingService extends Component
         if ($cachedEmbedding !== false && is_array($cachedEmbedding)) {
             self::$requestEmbeddingCache[$requestCacheKey] = $cachedEmbedding;
             UsageTracker::markEmbeddingCached($model);
-            return $cachedEmbedding;
+
+            return static fn(): array => $cachedEmbedding;
         }
 
+        $apiKey = $settings->getOpenaiApiKey();
+        if ($apiKey === null || $apiKey === '') {
+            throw EmbeddingException::missingApiKey();
+        }
+
+        $params = ['model' => $model, 'input' => $normalizedText];
+        if (str_starts_with($model, 'text-embedding-3')) {
+            $params['dimensions'] = Settings::VECTOR_DIMENSIONS;
+        }
+
+        $handles = $this->sendEmbeddingRequest($apiKey, $params);
+        if ($handles === null) {
+            /* curl_multi unavailable: fall back to the SDK's blocking call. */
+            return fn(): array => $this->generateEmbeddingSync($normalizedText, $model, $params, $requestCacheKey, $persistentCacheKey);
+        }
+
+        return fn(): array => $this->collectEmbedding($handles, $model, $requestCacheKey, $persistentCacheKey);
+    }
+
+    /**
+     * Open the request and pump it only until the bytes are written. Past that point the
+     * reply lands in the kernel socket buffer without PHP, which is what makes the caller's
+     * Postgres work free. Returns null when curl_multi is unavailable.
+     *
+     * @param array<string, mixed> $params
+     * @return array{0: \CurlMultiHandle, 1: \CurlHandle}|null
+     */
+    private function sendEmbeddingRequest(string $apiKey, array $params): ?array
+    {
+        if (!function_exists('curl_multi_init')) {
+            return null;
+        }
+
+        $ch = @curl_init(self::EMBEDDINGS_ENDPOINT);
+        if ($ch === false) {
+            return null;
+        }
+
+        $mh = curl_multi_init();
+
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($params, JSON_UNESCAPED_UNICODE),
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . $apiKey,
+                'Content-Type: application/json',
+                'Accept: application/json',
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => 'gzip',
+            CURLOPT_CONNECTTIMEOUT_MS => self::CONNECT_TIMEOUT_MS,
+            CURLOPT_TIMEOUT_MS => self::REQUEST_TIMEOUT_MS,
+        ]);
+
+        if (@curl_multi_add_handle($mh, $ch) !== 0) {
+            curl_close($ch);
+            curl_multi_close($mh);
+            return null;
+        }
+
+        $active = null;
+        do {
+            curl_multi_exec($mh, $active);
+            if (curl_getinfo($ch, CURLINFO_PRETRANSFER_TIME) > 0 || !$active) {
+                break;
+            }
+            curl_multi_select($mh, 0.05);
+        } while (true);
+
+        return [$mh, $ch];
+    }
+
+    /**
+     * Drain the dispatched request and turn it into a vector, recording usage and caching.
+     *
+     * @param array{0: \CurlMultiHandle, 1: \CurlHandle} $handles
+     * @throws EmbeddingException
+     */
+    private function collectEmbedding(array $handles, string $model, string $requestCacheKey, string $persistentCacheKey): array
+    {
+        [$mh, $ch] = $handles;
+
+        try {
+            $active = null;
+            do {
+                curl_multi_exec($mh, $active);
+                if ($active) {
+                    curl_multi_select($mh, 0.5);
+                }
+            } while ($active);
+
+            $body = curl_multi_getcontent($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $errno = curl_errno($ch);
+            $error = curl_error($ch);
+        } finally {
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+            curl_multi_close($mh);
+        }
+
+        if ($errno !== 0) {
+            $e = EmbeddingException::apiError('transport: ' . $error, new RuntimeException($error));
+            Logger::exception($e, 'dispatchEmbedding', ['model' => $model, 'curlErrno' => $errno]);
+            throw $e;
+        }
+
+        $decoded = json_decode((string)$body, true);
+
+        if ($status !== 200 || !is_array($decoded)) {
+            $e = $this->mapHttpError($status, is_array($decoded) ? $decoded : []);
+            Logger::exception($e, 'dispatchEmbedding', ['model' => $model, 'status' => $status]);
+            throw $e;
+        }
+
+        $embedding = $decoded['data'][0]['embedding'] ?? null;
+        if (!is_array($embedding)) {
+            $e = EmbeddingException::apiError('response contained no embedding', new RuntimeException('malformed response'));
+            Logger::exception($e, 'dispatchEmbedding', ['model' => $model]);
+            throw $e;
+        }
+
+        $promptTokens = (int)($decoded['usage']['prompt_tokens'] ?? $decoded['usage']['total_tokens'] ?? 0);
+        UsageTracker::addEmbedding($model, $promptTokens);
+
+        self::$requestEmbeddingCache[$requestCacheKey] = $embedding;
+
+        $ttlDays = SmartSearch::getInstance()->getSettings()->embeddingCacheTtlDays;
+        if ($ttlDays > 0) {
+            Craft::$app->getCache()->set($persistentCacheKey, $embedding, $ttlDays * 86400);
+        }
+
+        return $embedding;
+    }
+
+    /**
+     * Map an OpenAI HTTP error to the same exception subtypes the SDK path produces, so
+     * callers and the API's error codes do not depend on which transport was used.
+     *
+     * @param array<string, mixed> $decoded
+     */
+    private function mapHttpError(int $status, array $decoded): EmbeddingException
+    {
+        $code = (string)($decoded['error']['code'] ?? '');
+        $message = (string)($decoded['error']['message'] ?? 'HTTP ' . $status);
+        $previous = new RuntimeException($message);
+
+        if ($status === 429) {
+            return EmbeddingException::rateLimited($previous);
+        }
+        if ($status === 401 || $code === 'invalid_api_key') {
+            return EmbeddingException::invalidApiKey($previous);
+        }
+        if ($code === 'insufficient_quota') {
+            return EmbeddingException::quotaExceeded($previous);
+        }
+
+        return EmbeddingException::apiError($message, $previous);
+    }
+
+    /**
+     * Blocking fallback over the SDK, for when curl_multi is unavailable.
+     *
+     * @param array<string, mixed> $params
+     * @throws EmbeddingException
+     */
+    private function generateEmbeddingSync(string $normalizedText, string $model, array $params, string $requestCacheKey, string $persistentCacheKey): array
+    {
         try {
             $client = SmartSearch::getInstance()->openAIClientFactory->getClient();
-
-            $params = [
-                'model' => $model,
-                'input' => $normalizedText,
-            ];
-
-            if (str_starts_with($model, 'text-embedding-3')) {
-                $params['dimensions'] = Settings::VECTOR_DIMENSIONS;
-            }
-
             $response = $client->embeddings()->create($params);
-
             $embedding = $response->embeddings[0]->embedding;
 
             $promptTokens = (int)($response->usage->promptTokens ?? $response->usage->totalTokens ?? 0);
@@ -136,12 +340,13 @@ class EmbeddingService extends Component
 
             self::$requestEmbeddingCache[$requestCacheKey] = $embedding;
 
-            if ($settings->embeddingCacheTtlDays > 0) {
-                $cache->set($persistentCacheKey, $embedding, $settings->embeddingCacheTtlDays * 86400);
+            $ttlDays = SmartSearch::getInstance()->getSettings()->embeddingCacheTtlDays;
+            if ($ttlDays > 0) {
+                Craft::$app->getCache()->set($persistentCacheKey, $embedding, $ttlDays * 86400);
             }
 
             return $embedding;
-        } catch (ErrorException $e) {
+        } catch (ErrorException | RateLimitException | TransporterException $e) {
             Logger::exception($e, 'generateEmbedding', ['model' => $model]);
             throw $this->mapOpenAIException($e);
         }
@@ -808,6 +1013,8 @@ class EmbeddingService extends Component
             ],
             'storeVector'
         );
+
+        $databaseService->bumpVectorsCacheToken();
     }
 
     /**
@@ -849,6 +1056,8 @@ class EmbeddingService extends Component
             [':elementId' => $elementId, ':siteId' => $siteId, ':sectionId' => $sectionId],
             'touchVectors'
         );
+
+        SmartSearch::getInstance()->databaseService->bumpVectorsCacheToken();
     }
 
     public function deleteVector(int $elementId, int $siteId): void
@@ -863,5 +1072,7 @@ class EmbeddingService extends Component
             [':elementId' => $elementId, ':siteId' => $siteId],
             'deleteVector'
         );
+
+        SmartSearch::getInstance()->databaseService->bumpVectorsCacheToken();
     }
 }
