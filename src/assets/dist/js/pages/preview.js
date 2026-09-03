@@ -69,7 +69,8 @@
     }
 
     function postSearch(action, query, siteId, type) {
-        var data = { q: query, type: type || 'search' };
+        var data = { q: query };
+        if (type) data.type = type;
         if (siteId) data.siteId = siteId;
         return Craft.sendActionRequest('POST', action, { data: data })
             .then(function (r) { return r.data; })
@@ -177,16 +178,16 @@
         });
     }
 
-    function runStandardSearch(query, root) {
-        var resultsEl = DOM.find('smart-results', root);
-        var errorEl = DOM.find('smart-error', root);
+    function runStandardSearch(query, root, opts) {
+        var resultsEl = DOM.find(opts.resultsTarget, root);
+        var errorEl = DOM.find(opts.errorTarget, root);
 
         if (!query) { reset(resultsEl, errorEl); return; }
 
         setLoading(resultsEl, errorEl);
-        postSearch('smart-search/search', query, getSiteId(), 'search')
+        postSearch(opts.action, query, getSiteId(), opts.type)
             .then(function (data) {
-                var results = data.semanticResults || [];
+                var results = data[opts.dataField] || [];
                 if (results.length === 0) {
                     resultsEl.innerHTML = '<div class="ss-preview-col__summary"><p>No relevant results found for your query.</p></div>';
                     resultsEl.hidden = false;
@@ -198,7 +199,18 @@
     }
 
     var RUNNERS = {
-        smart: function (q, root) { runStandardSearch(q, root); },
+        craft: function (q, root) {
+            runStandardSearch(q, root, {
+                resultsTarget: 'craft-results', errorTarget: 'craft-error',
+                action: 'smart-search/preview/craft-search', dataField: 'results',
+            });
+        },
+        smart: function (q, root) {
+            runStandardSearch(q, root, {
+                resultsTarget: 'smart-results', errorTarget: 'smart-error',
+                action: 'smart-search/search', dataField: 'semanticResults', type: 'search',
+            });
+        },
         'ai-answer': function (q, root) { runRagAnswer(q, root); },
     };
 
@@ -206,27 +218,24 @@
         var root = getRoot();
         if (!root) return;
 
-        Object.keys(RUNNERS).forEach(function (type) {
-            var input = DOM.findControl(type + '-input', root);
-            var btn = DOM.findControl(type + '-submit', root);
-            if (!input) return;
+        var input = DOM.findControl('query-input', root);
+        var btn = DOM.findControl('search-submit', root);
+        if (!input) return;
 
-            function submit() { RUNNERS[type](input.value.trim(), root); }
+        function submit() {
+            var q = input.value.trim();
+            Object.keys(RUNNERS).forEach(function (type) { RUNNERS[type](q, root); });
+        }
 
-            if (btn) btn.addEventListener('click', submit);
-            input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') submit();
-            });
+        if (btn) btn.addEventListener('click', submit);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') submit();
         });
 
-        var siteSelect = DOM.findControl('site-select');
+        var siteSelect = DOM.findControl('site-select', root);
         if (siteSelect) {
             siteSelect.addEventListener('change', function () {
-                Object.keys(RUNNERS).forEach(function (type) {
-                    var input = DOM.findControl(type + '-input', root);
-                    var q = input && input.value.trim();
-                    if (q) RUNNERS[type](q, root);
-                });
+                if (input.value.trim()) submit();
             });
         }
     }

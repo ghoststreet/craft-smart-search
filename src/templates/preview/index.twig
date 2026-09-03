@@ -6,9 +6,20 @@
 {% block content %}
 <div data-craftsearch-target="preview-page">
 
-    {% if sites|length > 1 %}
-        <div class="toolbar">
-            <div class="flex">
+    <div class="ss-preview-info pane">
+        <div class="ss-preview-info__content">
+            <h2>Test your search setup</h2>
+            <p>
+                Run one query against all three search modes at once and compare the results
+                side by side. Every mode maps to an endpoint you can call from your front end
+                &mdash; see
+                <a href="{{ wikiUrl }}/Using-the-API" target="_blank" rel="noopener">Using the API</a>
+                for the request and response shapes.
+            </p>
+        </div>
+
+        <div class="ss-preview-search">
+            {% if sites|length > 1 %}
                 <label for="preview-site" class="visually-hidden">Site</label>
                 <div class="select">
                     <select id="preview-site" data-craftsearch-control="site-select">
@@ -19,19 +30,12 @@
                         {% endfor %}
                     </select>
                 </div>
-            </div>
-        </div>
-    {% endif %}
+            {% endif %}
 
-    <div class="ss-preview-info pane">
-        <div class="ss-preview-info__content">
-            <h2>Test your search setup</h2>
-            <p>
-                Run live queries against each search mode side-by-side. Every mode maps to an endpoint you
-                can call from your front end — see
-                <a href="{{ wikiUrl }}/Using-the-API" target="_blank" rel="noopener">Using the API</a>
-                for the request and response shapes.
-            </p>
+            <label for="preview-query" class="visually-hidden">Search query</label>
+            <input type="search" id="preview-query" class="text" placeholder="Search&hellip;" autocomplete="off"
+                   data-craftsearch-control="query-input">
+            <button class="btn submit" data-craftsearch-control="search-submit">Search</button>
         </div>
     </div>
 
@@ -39,22 +43,21 @@
 
         {# `key` drives the badge modifier and every data-craftsearch-* name (see pages/preview.js). #}
         {% for c in [
+            { key: 'craft', title: 'Default Craft Response', badge: 'Native',
+              desc: 'Craft\'s built-in keyword search, untouched. The baseline everything else is compared against.' },
             { key: 'smart', title: 'Smart Search', badge: 'Semantic + Keyword',
               desc: 'Combines semantic (vector) similarity with keyword scoring for the most relevant results.' },
             { key: 'ai-answer', title: 'AI Answer', badge: 'Generated', summary: true,
-              desc: 'Retrieves matching entries then generates a streaming AI summary with inline citations.' },
+              desc: 'Retrieves matching entries then generates a streaming AI summary with inline citations.',
+              note: 'Each run spends AI credits on your provider account.' },
         ] %}
             <div class="ss-preview-col">
                 <div class="pane ss-preview-col__pane">
                     <h2 class="ss-preview-col__heading">{{ c.title }} <span class="ss-preview-badge ss-preview-badge--{{ c.key }}">{{ c.badge }}</span></h2>
                     <p class="ss-preview-col__desc">{{ c.desc }}</p>
-                    <div class="ss-preview-col__form">
-                        <input type="search" class="text" placeholder="Search…" autocomplete="off"
-                               data-craftsearch-control="{{ c.key }}-input">
-                        <button class="btn" data-craftsearch-control="{{ c.key }}-submit" aria-label="Search">
-                            <span data-icon="search" aria-hidden="true"></span>
-                        </button>
-                    </div>
+                    {% if c.note is defined %}
+                        <p class="ss-preview-col__note">{{ c.note }}</p>
+                    {% endif %}
                     {% if c.summary is defined %}
                         <div class="ss-preview-col__summary" data-craftsearch-target="{{ c.key }}-summary" hidden></div>
                     {% endif %}
@@ -69,7 +72,7 @@
     <template data-craftsearch-target="loading-tpl">
         <div class="ss-preview-col__loading">
             <span class="ss-preview-col__loading-spinner"></span>
-            Searching…
+            Searching&hellip;
         </div>
     </template>
 
