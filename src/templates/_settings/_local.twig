@@ -2,21 +2,7 @@
 
 {% namespace 'settings' %}
 <h2>Local search</h2>
-<p class="light">A fourth search type that ranks against Craft’s own database instead of PostgreSQL, so you can compare the two on the same content. It builds its own index, which does not affect the PostgreSQL one.</p>
-
-    {{ forms.lightswitchField({
-        label: 'Enable local search',
-        instructions: 'Adds <code>type=local</code> to the API and a fourth column on the Preview page. Turning this on starts building the local index the next time an entry is saved; use Reindex local on the dashboard, or <code>craft smart-search/local/reindex</code>, to build it now.',
-        id: 'localEnabled', name: 'localEnabled',
-        on: settings.localEnabled,
-        errors: settings.getErrors('localEnabled'),
-    }) }}
-
-{% if settings.localEnabled %}
-    <p class="light">
-        The local index embeds separately from the PostgreSQL one, so building it costs its own OpenAI usage.
-    </p>
-{% endif %}
+<p class="light">A search type that ranks against Craft’s own database instead of PostgreSQL, always available as <code>type=local</code>. It builds its own index, which does not affect the PostgreSQL one and costs its own OpenAI usage. An empty index returns no results, so use Reindex local on the dashboard, or <code>craft smart-search/local/reindex</code>, to build it.</p>
 
 <h2>Embedding</h2>
 

@@ -77,13 +77,6 @@ class Settings extends Model
 
     public float $costBudgetDailyGlobal = 3.0;
 
-    /*
-     * The `local` search type: a semantic and keyword index held in Craft's own
-     * database, for comparison against the pgvector types. Off by default, and inert
-     * in every code path while it is off.
-     */
-    public bool $localEnabled = false;
-
     /**
      * The local index embeds separately from the pgvector store, so it can be pointed
      * at another model — or eventually another provider — without a pgvector reindex.
@@ -207,7 +200,6 @@ class Settings extends Model
         ],
         self::SCENARIO_LOCAL => [
             'attributes' => [
-                'localEnabled',
                 'localEmbeddingModel', 'localDimensions',
                 'localScanBatchSize',
                 'localScanWarnMs', 'localScanCritMs',
@@ -306,8 +298,6 @@ class Settings extends Model
                 'on' => $postgres, ],
 
             // Local search type — Local
-            [['localEnabled'], 'boolean', 'on' => $local],
-            [['localEnabled'], 'default', 'value' => false],
             [['localEmbeddingModel'], 'string', 'on' => $local],
             [['localEmbeddingModel'], 'default', 'value' => 'text-embedding-3-small'],
             [['localDimensions'], 'in', 'range' => self::LOCAL_DIMENSION_CHOICES, 'on' => $local],

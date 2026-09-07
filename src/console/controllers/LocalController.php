@@ -53,11 +53,6 @@ class LocalController extends Controller
 
     public function actionReindex(): int
     {
-        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
-            $this->stdout("Local search is off. Enable it under Settings > Local first.\n", Console::FG_YELLOW);
-            return ExitCode::UNSPECIFIED_ERROR;
-        }
-
         if ($this->wipe) {
             $this->stdout("Emptying the local index...\n");
             $deleted = SmartSearch::getInstance()->localIndexService->clearAll($this->siteId);
@@ -100,7 +95,6 @@ class LocalController extends Controller
         $stats = SmartSearch::getInstance()->localIndexService->stats($this->siteId);
         $settings = SmartSearch::getInstance()->getSettings();
 
-        $this->stdout('Local search: ' . ($settings->localEnabled ? "on\n" : "off\n"));
         $this->stdout("Model: {$settings->localEmbeddingModel} at {$stats['dimensions']} dimensions ({$stats['bytesPerChunk']} bytes per chunk)\n\n");
 
         if ($stats['sites'] === []) {
@@ -193,11 +187,6 @@ class LocalController extends Controller
         if ($queries === []) {
             $this->stderr("The query file has no queries in it.\n", Console::FG_RED);
             return ExitCode::USAGE;
-        }
-
-        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
-            $this->stdout("Local search is off. Enable it under Settings > Local first.\n", Console::FG_YELLOW);
-            return ExitCode::UNSPECIFIED_ERROR;
         }
 
         /*

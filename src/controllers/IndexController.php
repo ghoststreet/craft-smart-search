@@ -249,13 +249,6 @@ class IndexController extends BaseApiController
         $this->requireAdmin();
         $this->requirePostRequest();
 
-        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
-            Craft::$app->getSession()->setError(
-                Craft::t('smart-search', 'Local search is off. Enable it under Settings > Local first.')
-            );
-            return $this->redirect('smart-search');
-        }
-
         $rawSiteId = Craft::$app->getRequest()->getBodyParam('siteId');
         $siteId = ($rawSiteId !== null && $rawSiteId !== '') ? (int)$rawSiteId : null;
 
@@ -590,9 +583,6 @@ class IndexController extends BaseApiController
      */
     private function buildLocalOverview(bool $withLabel = false): array
     {
-        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
-            return [];
-        }
         return $this->buildStoreRows('local', $this->loadSyncJobs(LocalSyncIndexJob::class)['perSite'], $withLabel);
     }
 

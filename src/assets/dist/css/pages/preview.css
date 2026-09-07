@@ -1,16 +1,8 @@
 .ss-preview-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 24px;
     align-items: start;
-}
-
-@media (max-width: 1400px) {
-    .ss-preview-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 1024px) {
-    .ss-preview-grid { grid-template-columns: 1fr; }
 }
 
 .ss-preview-col__pane {
@@ -44,6 +36,7 @@
 .ss-preview-badge--craft      { background: var(--gray-200); color: var(--medium-text-color); }
 .ss-preview-badge--smart      { background: #dbeafe; color: #1d4ed8; }
 .ss-preview-badge--ai-answer  { background: #ede9fe; color: #6d28d9; }
+.ss-preview-badge--local      { background: #d1fae5; color: #047857; }
 
 .ss-preview-search {
     display: flex;
@@ -149,4 +142,14 @@
     color: var(--medium-text-color);
     margin: 0;
     font-style: italic;
+}
+
+.ss-preview-col__error {
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    border-radius: 3px;
+    background: var(--smart-search-danger-bg);
+    color: var(--smart-search-danger-fg);
+    border: 1px solid var(--smart-search-danger-border);
 }

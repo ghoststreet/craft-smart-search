@@ -25,10 +25,6 @@ class LocalIndexEntryJob extends BaseJob
 
     public function execute($queue): void
     {
-        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
-            return;
-        }
-
         try {
             $entry = Entry::find()
                 ->id($this->entryId)

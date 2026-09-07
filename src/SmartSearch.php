@@ -205,11 +205,9 @@ class SmartSearch extends Plugin
                     /* A separate job, not a step inside that one: the local store is
                        isolated, so indexing it must not be able to fail the pgvector
                        index of the same entry. */
-                    if ($this->getSettings()->localEnabled) {
-                        Craft::$app->getQueue()->push($enabledForSite
-                            ? new LocalIndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
-                            : new LocalDeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]));
-                    }
+                    Craft::$app->getQueue()->push($enabledForSite
+                        ? new LocalIndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
+                        : new LocalDeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]));
                 }
             }
         );

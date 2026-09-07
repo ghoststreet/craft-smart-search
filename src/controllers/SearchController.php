@@ -351,13 +351,6 @@ class SearchController extends BaseApiController
             return $this->badRequest($params['validationError']);
         }
 
-        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
-            return $this->badRequest([
-                'success' => false,
-                'message' => 'The local search type is not enabled.',
-            ]);
-        }
-
         $this->logRequest('localSearch', $params);
 
         try {
