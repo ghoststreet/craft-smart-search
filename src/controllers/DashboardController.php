@@ -88,6 +88,8 @@ class DashboardController extends Controller
             'trendingQueries' => $metrics['trendingQueries'],
             'recentErrors' => $metrics['recentErrors'],
             'recommendations' => $recommendations,
+            /* Only computed when the type is on: five COUNT queries otherwise wasted. */
+            'localStats' => $settings->localEnabled ? $plugin->localIndexService->stats() : null,
             'hasSearches' => $history->count() > 0,
             'siteCount' => $siteCount,
             'isMultisite' => $siteCount > 1,

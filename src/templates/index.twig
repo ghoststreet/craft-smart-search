@@ -3,6 +3,21 @@
 
 {% set title = 'Smart Search' %}
 
+{#
+    The local index needs neither PostgreSQL nor an API key at search time, so its meter
+    is rendered on both branches: gating it behind setupComplete would hide it from
+    exactly the site that chose the local type to avoid that setup.
+#}
+{% set localMeter %}
+    {% if localStats %}
+        <div class="ss-dash-row">
+            {% include 'smart-search/_dashboard/_local-meter' with {
+                localStats: localStats, settings: settings, isMultisite: isMultisite,
+            } only %}
+        </div>
+    {% endif %}
+{% endset %}
+
 {% block content %}
 {% if not setupComplete %}
     <div class="ss-dashboard ss-dashboard--onboarding">
@@ -10,6 +25,7 @@
             requiredSteps: requiredSteps,
             recommendedSteps: recommendedSteps,
         } only %}
+        {{ localMeter }}
     </div>
 {% else %}
 <div class="ss-dashboard">
@@ -119,6 +135,8 @@
             {% include 'smart-search/_dashboard/_coverage-by-site' with { coverage: coverage, coverageTotal: coverageTotal } only %}
         </div>
     {% endif %}
+
+    {{ localMeter }}
 
     {# Suggestions are noise until there's search traffic to base them on. #}
     {% for card in [

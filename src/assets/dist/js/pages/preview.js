@@ -178,15 +178,49 @@
         });
     }
 
+    // Only rendered when the API returned timings, which it does for an admin or in devMode.
+    function renderTimings(root, key, timings) {
+        var panel = DOM.find(key + '-timings', root);
+        if (!panel) return;
+
+        panel.innerHTML = '';
+        if (!timings || timings.length === 0) {
+            panel.hidden = true;
+            return;
+        }
+
+        var tpl = DOM.find('timing-row-tpl');
+        if (!tpl) { panel.hidden = true; return; }
+
+        var slowest = timings.reduce(function (max, t) { return Math.max(max, t.ms); }, 0) || 1;
+
+        timings.forEach(function (t) {
+            var node = tpl.content.cloneNode(true);
+            var row = DOM.find('timing-row', node);
+            DOM.find('field-label', row).textContent = t.name;
+            DOM.find('field-value', row).textContent = t.ms.toFixed(1) + ' ms';
+            DOM.find('field-bar', row).style.width = Math.max(1, (t.ms / slowest) * 100) + '%';
+            panel.appendChild(row);
+        });
+
+        panel.hidden = false;
+    }
+
     function runStandardSearch(query, root, opts) {
         var resultsEl = DOM.find(opts.resultsTarget, root);
         var errorEl = DOM.find(opts.errorTarget, root);
 
-        if (!query) { reset(resultsEl, errorEl); return; }
+        if (!query) {
+            reset(resultsEl, errorEl);
+            renderTimings(root, opts.key, null);
+            return;
+        }
 
         setLoading(resultsEl, errorEl);
+        renderTimings(root, opts.key, null);
         postSearch(opts.action, query, getSiteId(), opts.type)
             .then(function (data) {
+                renderTimings(root, opts.key, data.timings);
                 var results = data[opts.dataField] || [];
                 if (results.length === 0) {
                     resultsEl.innerHTML = '<div class="ss-preview-col__summary"><p>No relevant results found for your query.</p></div>';
@@ -201,14 +235,23 @@
     var RUNNERS = {
         craft: function (q, root) {
             runStandardSearch(q, root, {
+                key: 'craft',
                 resultsTarget: 'craft-results', errorTarget: 'craft-error',
                 action: 'smart-search/preview/craft-search', dataField: 'results',
             });
         },
         smart: function (q, root) {
             runStandardSearch(q, root, {
+                key: 'smart',
                 resultsTarget: 'smart-results', errorTarget: 'smart-error',
                 action: 'smart-search/search', dataField: 'semanticResults', type: 'search',
+            });
+        },
+        local: function (q, root) {
+            runStandardSearch(q, root, {
+                key: 'local',
+                resultsTarget: 'local-results', errorTarget: 'local-error',
+                action: 'smart-search/search', dataField: 'semanticResults', type: 'local',
             });
         },
         'ai-answer': function (q, root) { runRagAnswer(q, root); },
@@ -224,7 +267,10 @@
 
         function submit() {
             var q = input.value.trim();
-            Object.keys(RUNNERS).forEach(function (type) { RUNNERS[type](q, root); });
+            Object.keys(RUNNERS).forEach(function (type) {
+                // A column the settings have switched off is not rendered at all.
+                if (DOM.find('col-' + type, root)) RUNNERS[type](q, root);
+            });
         }
 
         if (btn) btn.addEventListener('click', submit);

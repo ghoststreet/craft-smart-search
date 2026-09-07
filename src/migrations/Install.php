@@ -7,9 +7,11 @@ use craft\db\Migration;
 /**
  * Install migration for Smart Search plugin.
  *
- * Creates two tables:
+ * Creates:
  *   - smart_search_history:          one row per search, with all metrics and token/cost data
  *   - smart_search_excluded_entries: entries manually excluded from the search index
+ *   - the smart_search_local_* tables, defined by m260905_000000_local_index so a fresh
+ *     install and an upgrade cannot drift apart
  */
 class Install extends Migration
 {
@@ -60,11 +62,14 @@ class Install extends Migration
             $this->createIndex(null, self::EXCLUDED_TABLE, ['elementId', 'siteId'], true);
         }
 
+        m260905_000000_local_index::createTables($this);
+
         return true;
     }
 
     public function safeDown(): bool
     {
+        m260905_000000_local_index::dropTables($this);
         $this->dropTableIfExists(self::EXCLUDED_TABLE);
         $this->dropTableIfExists(self::HISTORY_TABLE);
         return true;

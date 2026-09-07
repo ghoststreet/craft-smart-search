@@ -39,9 +39,11 @@ class SmartSearchAsset extends AssetBundle
             'css/components/filter-bar.css',
             'css/components/index-stats.css',
             'css/components/kpi-grid.css',
+            'css/components/local-meter.css',
             'css/components/onboarding-list.css',
             'css/components/overview-cards.css',
             'css/components/pagination.css',
+            'css/components/preview-timings.css',
             'css/components/recommendation-list.css',
         ];
 

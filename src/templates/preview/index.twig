@@ -10,7 +10,7 @@
         <div class="ss-preview-info__content">
             <h2>Test your search setup</h2>
             <p>
-                Run one query against all three search modes at once and compare the results
+                Run one query against every search mode at once and compare the results
                 side by side. Every mode maps to an endpoint you can call from your front end
                 &mdash; see
                 <a href="{{ wikiUrl }}/Using-the-API" target="_blank" rel="noopener">Using the API</a>
@@ -45,26 +45,37 @@
         {% for c in [
             { key: 'craft', title: 'Default Craft Response', badge: 'Native',
               desc: 'Craft\'s built-in keyword search, untouched. The baseline everything else is compared against.' },
-            { key: 'smart', title: 'Smart Search', badge: 'Semantic + Keyword',
+            { key: 'smart', title: 'Smart Search', badge: 'Semantic + Keyword', timings: true,
               desc: 'Combines semantic (vector) similarity with keyword scoring for the most relevant results.' },
             { key: 'ai-answer', title: 'AI Answer', badge: 'Generated', summary: true,
               desc: 'Retrieves matching entries then generates a streaming AI summary with inline citations.',
               note: 'Each run spends AI credits on your provider account.' },
+            { key: 'local', title: 'Local Search', badge: 'No PostgreSQL', timings: true,
+              show: plugin.settings.localEnabled,
+              desc: 'The same semantic and keyword ranking, scored against Craft\'s own database instead of PostgreSQL.',
+              note: 'Uses its own index. Build it with Reindex local on the dashboard.' },
         ] %}
-            <div class="ss-preview-col">
+            {% if c.show is not defined or c.show %}
+            <div class="ss-preview-col" data-craftsearch-target="col-{{ c.key }}">
                 <div class="pane ss-preview-col__pane">
                     <h2 class="ss-preview-col__heading">{{ c.title }} <span class="ss-preview-badge ss-preview-badge--{{ c.key }}">{{ c.badge }}</span></h2>
                     <p class="ss-preview-col__desc">{{ c.desc }}</p>
                     {% if c.note is defined %}
-                        <p class="ss-preview-col__note">{{ c.note }}</p>
+                        <p class="ss-preview-col__note">{{ c.note|raw }}</p>
                     {% endif %}
                     {% if c.summary is defined %}
                         <div class="ss-preview-col__summary" data-craftsearch-target="{{ c.key }}-summary" hidden></div>
                     {% endif %}
                     <div class="ss-preview-col__results" data-craftsearch-target="{{ c.key }}-results" role="region" hidden></div>
                     <div class="ss-preview-col__error" data-craftsearch-target="{{ c.key }}-error" role="alert" hidden></div>
+                    {% if c.timings is defined %}
+                        {# Populated from the response's `timings` key, which the API only
+                           returns to an admin or in devMode. #}
+                        <div class="ss-preview-timings" data-craftsearch-target="{{ c.key }}-timings" hidden></div>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
         {% endfor %}
 
     </div>
@@ -78,6 +89,14 @@
 
     <template data-craftsearch-target="cite-tpl">
         <a class="ss-preview-col__cite" href="" target="_blank" rel="noopener" data-craftsearch-target="field-url"></a>
+    </template>
+
+    <template data-craftsearch-target="timing-row-tpl">
+        <div class="ss-preview-timings__row" data-craftsearch-target="timing-row">
+            <span class="ss-preview-timings__label" data-craftsearch-target="field-label"></span>
+            <span class="ss-preview-timings__value" data-craftsearch-target="field-value"></span>
+            <span class="ss-preview-timings__bar"><span data-craftsearch-target="field-bar"></span></span>
+        </div>
     </template>
 
     <template data-craftsearch-target="result-card-tpl">

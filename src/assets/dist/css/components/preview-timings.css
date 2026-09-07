@@ -1,0 +1,53 @@
+/*
+ * Per-phase timing panel on the Preview page.
+ *
+ * Bars are relative to the slowest phase in the same column, not to a fixed scale:
+ * the question the panel answers is which phase dominates, and an absolute scale would
+ * flatten a fast column into nothing.
+ */
+.ss-preview-timings {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--hairline-color, #e3e5e8);
+}
+
+.ss-preview-timings__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    font-size: 12px;
+}
+
+.ss-preview-timings__label {
+    flex: 0 0 auto;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--medium-text-color, #596673);
+}
+
+.ss-preview-timings__value {
+    flex: 0 0 auto;
+    min-width: 58px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-color, #3f4d5a);
+}
+
+.ss-preview-timings__bar {
+    flex: 1;
+    min-width: 24px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--gray-100, #f3f4f6);
+    overflow: hidden;
+}
+
+.ss-preview-timings__bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background-color: var(--smart-search-semantic, #6b7cff);
+}

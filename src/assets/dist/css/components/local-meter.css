@@ -1,0 +1,22 @@
+/*
+    Local index headroom meter.
+
+    Almost nothing here on purpose: the bars are .ss-budget-block / .ss-budget-bar, the
+    numbers are the .ss-index-stats strip the entries page already uses, and the prose is
+    Craft's own .light.smalltext. What is left is the vertical rhythm between them.
+*/
+.ss-local-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* The strip carries a bottom margin for the entries page, where it sits above a table.
+   Here the flex gap above already provides that space. */
+.ss-local-meter .ss-index-stats {
+    margin-bottom: 0;
+}
+
+.ss-local-meter__sites {
+    margin-top: 4px;
+}

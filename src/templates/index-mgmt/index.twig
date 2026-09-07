@@ -2,12 +2,33 @@
 
 {% extends 'smart-search/index-mgmt/_layout' %}
 
+{#
+    The local cards render on the disconnected branch too. Same reasoning as the dashboard
+    meter: the local store needs neither PostgreSQL nor the pgvector schema, so hiding its
+    health behind a working pgvector connection would withhold it exactly when the other
+    index is the thing that is broken.
+#}
+{% set localGrid %}
+    {% if settings.localEnabled and localSites|length %}
+        <div class="ss-card-grid"
+             data-craftsearch-target="local-grid"
+             data-craftsearch-store="local">
+            {% for site in localSites %}
+                {% include 'smart-search/_partials/overview-site-card' with {
+                    site: site, store: 'local',
+                } only %}
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endset %}
+
 {% block content %}
     {% if overview.state == 'onboarding' %}
         {% include 'smart-search/_partials/overview-onboarding' with { setupSteps: setupSteps } only %}
 
     {% elseif overview.state == 'disconnected' %}
         {% include 'smart-search/_partials/overview-disconnected' with { error: overview.error } only %}
+        {{ localGrid }}
 
     {% else %}
         {% if overview.isMultiSite %}
@@ -23,10 +44,15 @@
 
         <div class="ss-card-grid"
              data-craftsearch-target="overview-grid"
+             data-craftsearch-store="pgvector"
              {% if syncStarted %}data-craftsearch-sync-started="1"{% endif %}>
             {% for site in overview.sites %}
-                {% include 'smart-search/_partials/overview-site-card' with { site: site } only %}
+                {% include 'smart-search/_partials/overview-site-card' with {
+                    site: site, store: 'pgvector',
+                } only %}
             {% endfor %}
         </div>
+
+        {{ localGrid }}
     {% endif %}
 {% endblock %}

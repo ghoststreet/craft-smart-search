@@ -23,6 +23,8 @@ use ghoststreet\craftsmartsearch\assets\SettingsAsset;
 use ghoststreet\craftsmartsearch\assets\SmartSearchAsset;
 use ghoststreet\craftsmartsearch\jobs\DeleteEntryJob;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\jobs\LocalDeleteEntryJob;
+use ghoststreet\craftsmartsearch\jobs\LocalIndexEntryJob;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\services\AiAnswerService;
 use ghoststreet\craftsmartsearch\services\BoostService;
@@ -33,6 +35,8 @@ use ghoststreet\craftsmartsearch\services\ExclusionService;
 use ghoststreet\craftsmartsearch\services\HistoryService;
 use ghoststreet\craftsmartsearch\services\IndexInspectionService;
 use ghoststreet\craftsmartsearch\services\KeywordSearchService;
+use ghoststreet\craftsmartsearch\services\LocalIndexService;
+use ghoststreet\craftsmartsearch\services\LocalSearchService;
 use ghoststreet\craftsmartsearch\services\OpenAIClientFactory;
 use ghoststreet\craftsmartsearch\services\QueryCorrectorService;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
@@ -67,12 +71,14 @@ use yii\web\Response;
  * @property-read DictionaryService $dictionaryService
  * @property-read QueryCorrectorService $queryCorrectorService
  * @property-read BoostService $boostService
+ * @property-read LocalIndexService $localIndexService
+ * @property-read LocalSearchService $localSearchService
  */
 class SmartSearch extends Plugin
 {
     public const WIKI_URL = 'https://github.com/ghoststreet/craft-smart-search/wiki';
 
-    public string $schemaVersion = '1.0.0';
+    public string $schemaVersion = '1.1.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
 
@@ -116,6 +122,8 @@ class SmartSearch extends Plugin
                 'dictionaryService' => DictionaryService::class,
                 'queryCorrectorService' => QueryCorrectorService::class,
                 'boostService' => BoostService::class,
+                'localIndexService' => LocalIndexService::class,
+                'localSearchService' => LocalSearchService::class,
             ],
         ];
     }
@@ -193,6 +201,15 @@ class SmartSearch extends Plugin
                         ? new IndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
                         : new DeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]);
                     Craft::$app->getQueue()->push($job);
+
+                    /* A separate job, not a step inside that one: the local store is
+                       isolated, so indexing it must not be able to fail the pgvector
+                       index of the same entry. */
+                    if ($this->getSettings()->localEnabled) {
+                        Craft::$app->getQueue()->push($enabledForSite
+                            ? new LocalIndexEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId])
+                            : new LocalDeleteEntryJob(['entryId' => $element->id, 'siteId' => $element->siteId]));
+                    }
                 }
             }
         );
@@ -204,6 +221,12 @@ class SmartSearch extends Plugin
                 $element = $event->element;
                 if ($element instanceof Entry) {
                     Craft::$app->getQueue()->push(new DeleteEntryJob([
+                        'entryId' => $element->id,
+                        'siteId' => $element->siteId,
+                    ]));
+                    /* Unguarded on purpose: rows left behind for a deleted entry would
+                       reappear the moment the local type is switched back on. */
+                    Craft::$app->getQueue()->push(new LocalDeleteEntryJob([
                         'entryId' => $element->id,
                         'siteId' => $element->siteId,
                     ]));
@@ -224,6 +247,7 @@ class SmartSearch extends Plugin
                 $event->rules['smart-search/settings/indexing'] = 'smart-search/settings/indexing';
                 $event->rules['smart-search/settings/smart-search'] = 'smart-search/settings/smart-search';
                 $event->rules['smart-search/settings/ai-answer'] = 'smart-search/settings/ai-answer';
+                $event->rules['smart-search/settings/local'] = 'smart-search/settings/local';
                 $event->rules['smart-search/settings/advanced'] = 'smart-search/settings/advanced';
 
                 $event->rules['smart-search/index'] = 'smart-search/index/index';

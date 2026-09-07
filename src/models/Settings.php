@@ -18,6 +18,7 @@ class Settings extends Model
     public const SCENARIO_INDEXING = 'indexing';
     public const SCENARIO_SMART_SEARCH = 'smartSearch';
     public const SCENARIO_AI_ANSWER = 'aiAnswer';
+    public const SCENARIO_LOCAL = 'local';
     public const SCENARIO_ADVANCED = 'advanced';
 
     public ?string $openaiApiKey = null;
@@ -75,6 +76,63 @@ class Settings extends Model
     public int $aiAnswerConcurrencyGlobal = 10;
 
     public float $costBudgetDailyGlobal = 3.0;
+
+    /*
+     * The `local` search type: a semantic and keyword index held in Craft's own
+     * database, for comparison against the pgvector types. Off by default, and inert
+     * in every code path while it is off.
+     */
+    public bool $localEnabled = false;
+
+    /**
+     * The local index embeds separately from the pgvector store, so it can be pointed
+     * at another model — or eventually another provider — without a pgvector reindex.
+     */
+    public string $localEmbeddingModel = 'text-embedding-3-small';
+
+    /**
+     * Requested from the API rather than truncated locally. Fewer dimensions is
+     * directly less work for the PHP scan: cost per search is linear in this.
+     * Changing it requires a local reindex, since stored vectors keep their own width.
+     */
+    public int $localDimensions = 512;
+
+    /** Rows per keyset batch in the vector scan. Bounds per-request memory. */
+    public int $localScanBatchSize = 500;
+
+    /*
+     * Meter thresholds on the p95 of the scan phase. The scan is exact and therefore
+     * linear in corpus size, so these predict slowdown, not instability.
+     */
+    public int $localScanWarnMs = 250;
+    public int $localScanCritMs = 1000;
+
+    /** BM25 term-frequency saturation and length normalisation. */
+    public float $localBm25K1 = 1.2;
+    public float $localBm25B = 0.75;
+
+    /*
+     * Field weights matching the 5:1 ratio of ts_rank_cd's A and B lexeme classes
+     * (KeywordSearchService::RANK_WEIGHTS), so title behaves the same in both types.
+     */
+    public float $localTitleWeight = 1.0;
+    public float $localBodyWeight = 0.2;
+
+    /*
+     * Cover density: how much a chunk is rewarded for containing more of the query's
+     * distinct terms rather than one of them repeatedly. BM25 sums each term
+     * independently, so a chunk mentioning "christchurch" ten times outranks one that
+     * has "speed", "mentoring" and "christchurch" once each. ts_rank_cd does not make
+     * that mistake, and multi-term queries are where the two types diverge most.
+     *
+     * The chunk's score is multiplied by (matched terms / query terms) ^ weight.
+     * 0 disables it and restores plain BM25.
+     *
+     * ponytail: coverage only, not true proximity. The postings table stores tf but no
+     * term positions, so "close together" cannot be measured without a schema change.
+     * Add positions to the postings table if coverage alone proves insufficient.
+     */
+    public float $localCoverageWeight = 0.0;
 
     /**
      * The one table describing every CP settings tab: the attributes it owns and
@@ -144,6 +202,20 @@ class Settings extends Model
             'pageKey' => 'ai-answer',
             'subPage' => null,
         ],
+        self::SCENARIO_LOCAL => [
+            'attributes' => [
+                'localEnabled',
+                'localEmbeddingModel', 'localDimensions',
+                'localScanBatchSize',
+                'localScanWarnMs', 'localScanCritMs',
+                'localBm25K1', 'localBm25B',
+                'localTitleWeight', 'localBodyWeight',
+            ],
+            'url' => 'smart-search/settings/local',
+            'partial' => 'smart-search/_settings/_local',
+            'pageKey' => 'local',
+            'subPage' => null,
+        ],
         self::SCENARIO_ADVANCED => [
             'attributes' => [
                 'apiToken', 'allowedOrigins',
@@ -205,6 +277,7 @@ class Settings extends Model
         $indexing = [self::SCENARIO_DEFAULT, self::SCENARIO_INDEXING];
         $smartSearch = [self::SCENARIO_DEFAULT, self::SCENARIO_SMART_SEARCH];
         $aiAnswer = [self::SCENARIO_DEFAULT, self::SCENARIO_AI_ANSWER];
+        $local = [self::SCENARIO_DEFAULT, self::SCENARIO_LOCAL];
         $advanced = [self::SCENARIO_DEFAULT, self::SCENARIO_ADVANCED];
 
         return [
@@ -228,6 +301,31 @@ class Settings extends Model
             [['vectorsTableName', 'vectorsSchemaName', 'termsTableName', 'boostsTableName'], 'match', 'pattern' => self::IDENTIFIER_REGEX,
                 'message' => '{attribute} must be a valid Postgres identifier (letters, digits, underscores, hyphens; max 63 chars).',
                 'on' => $postgres, ],
+
+            // Local search type — Local
+            [['localEnabled'], 'boolean', 'on' => $local],
+            [['localEnabled'], 'default', 'value' => false],
+            [['localEmbeddingModel'], 'string', 'on' => $local],
+            [['localEmbeddingModel'], 'default', 'value' => 'text-embedding-3-small'],
+            /* Upper bound is text-embedding-3-large's native width; the API rejects more. */
+            [['localDimensions'], 'integer', 'min' => 64, 'max' => 3072, 'on' => $local],
+            [['localDimensions'], 'default', 'value' => 512],
+            [['localScanBatchSize'], 'integer', 'min' => 50, 'max' => 5000, 'on' => $local],
+            [['localScanBatchSize'], 'default', 'value' => 500],
+            [['localScanWarnMs'], 'integer', 'min' => 1, 'max' => 60000, 'on' => $local],
+            [['localScanWarnMs'], 'default', 'value' => 250],
+            [['localScanCritMs'], 'integer', 'min' => 1, 'max' => 60000, 'on' => $local],
+            [['localScanCritMs'], 'default', 'value' => 1000],
+            [['localScanCritMs'], 'compare', 'compareAttribute' => 'localScanWarnMs', 'operator' => '>=',
+                'message' => 'Critical threshold must be at or above the warning threshold.',
+                'on' => $local, ],
+            [['localBm25K1'], 'number', 'min' => 0, 'max' => 5, 'on' => $local],
+            [['localBm25K1'], 'default', 'value' => 1.2],
+            [['localBm25B'], 'number', 'min' => 0, 'max' => 1, 'on' => $local],
+            [['localBm25B'], 'default', 'value' => 0.75],
+            [['localTitleWeight', 'localBodyWeight'], 'number', 'min' => 0, 'max' => 10, 'on' => $local],
+            [['localTitleWeight'], 'default', 'value' => 1.0],
+            [['localBodyWeight'], 'default', 'value' => 0.2],
 
             // Content chunking — Indexing
             [['minChunkTokens'], 'integer', 'min' => 10, 'max' => 500, 'on' => $indexing],

@@ -139,6 +139,33 @@ class IndexInspectionService extends Component
      */
     public function getCoverageBySite(): array
     {
+        return $this->coverageBySite(static function(int $siteId): array {
+            return SmartSearch::getInstance()->databaseService->getIndexedSummary($siteId);
+        }, 'coverageBySite');
+    }
+
+    /**
+     * The same coverage counts for the local store.
+     *
+     * Which entries count, how exclusions apply and what makes a row stale are properties
+     * of the content, not of where the vectors live, so both stores are counted by the
+     * one routine below and differ only in the summary they are handed.
+     *
+     * @return list<array{siteId: int, site: string, handle: string, indexed: int, stale: int, notIndexed: int, total: int}>
+     */
+    public function getLocalCoverageBySite(): array
+    {
+        return $this->coverageBySite(static function(int $siteId): array {
+            return SmartSearch::getInstance()->localIndexService->getIndexedSummary($siteId);
+        }, 'localCoverageBySite');
+    }
+
+    /**
+     * @param callable(int): array<string, array{chunkCount: int, lastIndexed: string}> $summaryFor
+     * @return list<array{siteId: int, site: string, handle: string, indexed: int, stale: int, notIndexed: int, total: int}>
+     */
+    private function coverageBySite(callable $summaryFor, string $logContext): array
+    {
         $out = [];
         foreach (Craft::$app->getSites()->getAllSites() as $site) {
             $entries = Entry::find()
@@ -151,9 +178,9 @@ class IndexInspectionService extends Component
                 ->all();
 
             try {
-                $summary = SmartSearch::getInstance()->databaseService->getIndexedSummary($site->id);
+                $summary = $summaryFor((int)$site->id);
             } catch (Throwable $e) {
-                Logger::exception($e, 'coverageBySite', ['siteId' => $site->id]);
+                Logger::exception($e, $logContext, ['siteId' => $site->id]);
                 $summary = [];
             }
 

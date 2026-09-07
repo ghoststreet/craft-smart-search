@@ -1,13 +1,22 @@
 {#
-    A single site's index health card on the Overview tab.
+    A single site's index health card on the Overview tab, for either store.
 
     Params:
-        site  object  per-site row (siteId, name, indexed, stale, notIndexed, total,
-                      lastIndexed, activeJob?)
+        site   object  per-site row (siteId, name, indexed, stale, notIndexed, total,
+                       lastIndexed, activeJob?)
+        store  string  'pgvector' (default) or 'local'
+
+    One partial rather than two, because everything that differs between the stores is
+    the pair of action names and a label. The counts, the states and the gap wording all
+    describe the content, which is the same content either way.
 
     State derivation mirrors the JS in index-mgmt.js so initial paint matches
     the first poll response.
 #}
+{% set store = store ?? 'pgvector' %}
+{% set isLocal = store == 'local' %}
+{% set syncAction = isLocal ? 'smart-search/index/local-sync' : 'smart-search/index/sync' %}
+{% set defaultButtonLabel = isLocal ? 'Reindex local' : 'Sync Index' %}
 {% set hasGaps = site.stale > 0 or site.notIndexed > 0 %}
 {% set coverage = site.total > 0 ? (site.indexed / site.total * 100)|round : 0 %}
 {% set activeJob = site.activeJob ?? null %}
@@ -23,7 +32,7 @@
     {% set state = 'synced' %}
 {% endif %}
 
-{% set p = { heroPrefix: 'entries indexed · ', buttonLabel: 'Sync Index' }|merge({
+{% set p = { heroPrefix: 'entries indexed · ', buttonLabel: defaultButtonLabel }|merge({
     'synced':     { pillLabel: 'Healthy',    pillDot: 'on' },
     'needs-sync': { pillLabel: 'Needs sync', pillDot: 'orange' },
     'not-synced': { pillLabel: 'Not synced', pillDot: 'off' },
@@ -31,9 +40,12 @@
                     heroPrefix: jobRunning ? 'indexing · ' : 'waiting for worker · ', buttonLabel: 'Cancel' },
 }[state]) %}
 
-<div class="ss-card" data-craftsearch-target="site-card" data-craftsearch-state="{{ state }}" data-craftsearch-site-id="{{ site.siteId }}">
+<div class="ss-card" data-craftsearch-target="site-card" data-craftsearch-state="{{ state }}"
+     data-craftsearch-site-id="{{ site.siteId }}"
+     data-craftsearch-store="{{ store }}"
+     data-craftsearch-default-label="{{ defaultButtonLabel }}">
     <div class="ss-card__head">
-        <h3 class="ss-card__title">{{ site.name }}</h3>
+        <h3 class="ss-card__title">{{ site.name }}{% if isLocal %} - local{% endif %}</h3>
         <span class="ss-card__pill" data-craftsearch-target="pill">
             <span class="status {{ p.pillDot }}" data-craftsearch-target="pill-dot"></span>
             <span data-craftsearch-target="pill-label">{{ p.pillLabel }}</span>
@@ -69,12 +81,16 @@
                     Never synced
                 {% endif %}
             </span>
+            {% if isLocal and site.chunkCount is defined %}
+                <span class="light">· {{ site.chunkCount|number_format }} chunks</span>
+            {% endif %}
         </div>
         <form method="post">
             {{ csrfInput() }}
-            {{ actionInput('smart-search/index/sync') }}
+            {{ actionInput(syncAction) }}
             <input type="hidden" name="siteId" value="{{ site.siteId }}">
-            <button type="submit" class="btn submit" data-craftsearch-control="sync-site-btn">
+            <input type="hidden" name="store" value="{{ store }}">
+            <button type="submit" class="btn{% if not isLocal %} submit{% endif %}" data-craftsearch-control="sync-site-btn">
                 <span data-craftsearch-target="button-label">{{ p.buttonLabel }}</span>
             </button>
         </form>

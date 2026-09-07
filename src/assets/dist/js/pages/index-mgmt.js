@@ -14,8 +14,17 @@
     var ENTRY_POLL_INITIAL_MS = 1500;
     var ENTRY_POLL_MS = 2000;
     var SYNC_ACTION = 'smart-search/index/sync';
+    var LOCAL_SYNC_ACTION = 'smart-search/index/local-sync';
     var CANCEL_ACTION = 'smart-search/index/cancel-sync';
     var STATS_ACTION = 'smart-search/index/get-stats';
+
+    // Which poll fields and which sync endpoint belong to each store. A card carries its
+    // store in a data attribute, so one SiteBlock drives both grids and the two can never
+    // drift apart the way two copies of this file would.
+    var STORES = {
+        'pgvector': { syncAction: SYNC_ACTION,       coverageKey: 'coverage',      jobsKey: 'jobs' },
+        'local':    { syncAction: LOCAL_SYNC_ACTION, coverageKey: 'localCoverage', jobsKey: 'localJobs' },
+    };
 
     // State presets describe everything that changes between states. Dynamic
     // bits (numbers, error text, running/queued sub-label) come from ctx.
@@ -63,6 +72,8 @@
     function SiteBlock(card) {
         this.card = card;
         this.siteId = parseInt(card.getAttribute('data-craftsearch-site-id'), 10);
+        this.store = card.getAttribute('data-craftsearch-store') || 'pgvector';
+        this.cfg = STORES[this.store] || STORES['pgvector'];
         var barContainer = DOM.find('site-progress-bar', card);
         this.els = {
             pillDot:     DOM.find('pill-dot', card),
@@ -89,7 +100,7 @@
         this.state = null;
         this.wasActive = false;
         this.optimistic = false;
-        this.defaultButtonLabel = 'Sync Index';
+        this.defaultButtonLabel = card.getAttribute('data-craftsearch-default-label') || 'Sync Index';
         this.bindForm();
     }
 
@@ -105,7 +116,7 @@
                 self.requestCancel();
             } else {
                 self.markQueued();
-                submitSync({ siteId: self.siteId }, [self]);
+                submitSync({ siteId: self.siteId }, [self], self.cfg.syncAction);
             }
         });
     };
@@ -113,7 +124,7 @@
     SiteBlock.prototype.requestCancel = function () {
         setButtonBusy(this.els.button, true);
         setText(this.els.buttonLabel, 'Cancelling…');
-        Craft.sendActionRequest('POST', CANCEL_ACTION, { data: { siteId: this.siteId } })
+        Craft.sendActionRequest('POST', CANCEL_ACTION, { data: { siteId: this.siteId, store: this.store } })
             .then(pollNow, pollNow);
     };
 
@@ -248,11 +259,11 @@
         return parseInt((this.els.heroTotal && this.els.heroTotal.textContent) || '0', 10) || 0;
     };
 
-    function submitSync(data, optimisticBlocks) {
+    function submitSync(data, optimisticBlocks, action) {
         function clearOptimistic() {
             optimisticBlocks.forEach(function (b) { b.optimistic = false; });
         }
-        return Craft.sendActionRequest('POST', SYNC_ACTION, { data: data })
+        return Craft.sendActionRequest('POST', action || SYNC_ACTION, { data: data })
             .then(function (r) {
                 var payload = (r && r.data) || {};
                 if (!payload.success) {
@@ -275,8 +286,10 @@
         if (!form) return;
         form.addEventListener('submit', function (e) {
             e.preventDefault();
-            blocks.forEach(function (b) { b.markQueued(); });
-            submitSync({}, blocks.slice());
+            // Sync all sites is the pgvector control; local cards keep their own buttons.
+            var targets = blocks.filter(function (b) { return b.store === 'pgvector'; });
+            targets.forEach(function (b) { b.markQueued(); });
+            submitSync({}, targets, SYNC_ACTION);
         });
     }
 
@@ -289,13 +302,19 @@
     }
 
     function render(data) {
-        var jobsBySite = indexByKey(data.jobs, 'siteId');
-        var coverageBySite = indexByKey(data.coverage, 'siteId');
+        var byStore = {};
+        Object.keys(STORES).forEach(function (name) {
+            byStore[name] = {
+                jobs: indexByKey(data[STORES[name].jobsKey], 'siteId'),
+                coverage: indexByKey(data[STORES[name].coverageKey], 'siteId'),
+            };
+        });
 
         var anyActive = false;
         blocks.forEach(function (block) {
-            var job = jobsBySite[block.siteId] || null;
-            var row = coverageBySite[block.siteId] || null;
+            var lookup = byStore[block.store] || byStore['pgvector'];
+            var job = lookup.jobs[block.siteId] || null;
+            var row = lookup.coverage[block.siteId] || null;
 
             // Hold the optimistic "Queued" state until either the job appears
             // in the queue or the queue empties (sync already finished).
@@ -438,10 +457,15 @@
     }
 
     function bootOverview() {
-        var grid = DOM.find('overview-grid');
-        if (!grid) return;
+        var grids = [DOM.find('overview-grid'), DOM.find('local-grid')].filter(Boolean);
+        if (!grids.length) return;
 
-        blocks = DOM.findAll('site-card', grid).map(function (card) { return new SiteBlock(card); });
+        blocks = [];
+        grids.forEach(function (grid) {
+            DOM.findAll('site-card', grid).forEach(function (card) {
+                blocks.push(new SiteBlock(card));
+            });
+        });
         if (!blocks.length) return;
 
         bindSyncAllForm();

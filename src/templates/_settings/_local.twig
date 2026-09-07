@@ -1,0 +1,104 @@
+{% import '_includes/forms.twig' as forms %}
+
+{% namespace 'settings' %}
+<h2>Local search</h2>
+<p class="light">A fourth search type that ranks against Craft’s own database instead of PostgreSQL, so you can compare the two on the same content. It builds its own index, which does not affect the PostgreSQL one.</p>
+
+    {{ forms.lightswitchField({
+        label: 'Enable local search',
+        instructions: 'Adds <code>type=local</code> to the API and a fourth column on the Preview page. Turning this on starts building the local index the next time an entry is saved; use Reindex local on the dashboard, or <code>craft smart-search/local/reindex</code>, to build it now.',
+        id: 'localEnabled', name: 'localEnabled',
+        on: settings.localEnabled,
+        errors: settings.getErrors('localEnabled'),
+    }) }}
+
+{% if settings.localEnabled %}
+    <p class="light">
+        The local index embeds separately from the PostgreSQL one, so building it costs its own OpenAI usage.
+    </p>
+{% endif %}
+
+<h2>Embedding</h2>
+
+    {{ forms.selectField({
+        label: 'Embedding model',
+        instructions: 'Used for the local index only. Changing it requires a local reindex.',
+        id: 'localEmbeddingModel', name: 'localEmbeddingModel',
+        options: [
+            { label: 'text-embedding-3-small', value: 'text-embedding-3-small' },
+            { label: 'text-embedding-3-large', value: 'text-embedding-3-large' },
+        ],
+        value: settings.localEmbeddingModel,
+        errors: settings.getErrors('localEmbeddingModel'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Dimensions',
+        instructions: 'Requested from OpenAI. Fewer dimensions is directly less work per search, and search cost is linear in this. Changing it requires a local reindex.',
+        id: 'localDimensions', name: 'localDimensions', type: 'number', size: 6,
+        value: settings.localDimensions,
+        errors: settings.getErrors('localDimensions'),
+    }) }}
+
+<h2>Scanning</h2>
+<p class="light">Every search compares the query against every stored vector, so nothing is missed, and the time taken grows in step with the number of chunks. These thresholds decide when the dashboard warns you about that.</p>
+
+    {{ forms.textField({
+        label: 'Rows per batch',
+        instructions: 'How many vectors are read at a time. Lower uses less memory, higher does fewer queries.',
+        id: 'localScanBatchSize', name: 'localScanBatchSize', type: 'number', size: 6,
+        value: settings.localScanBatchSize,
+        errors: settings.getErrors('localScanBatchSize'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Warn above (ms)',
+        instructions: 'The dashboard turns amber when the 95th percentile scan time passes this.',
+        id: 'localScanWarnMs', name: 'localScanWarnMs', type: 'number', size: 6,
+        value: settings.localScanWarnMs,
+        errors: settings.getErrors('localScanWarnMs'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Critical above (ms)',
+        instructions: 'The dashboard turns red, and recommends moving to PostgreSQL.',
+        id: 'localScanCritMs', name: 'localScanCritMs', type: 'number', size: 6,
+        value: settings.localScanCritMs,
+        errors: settings.getErrors('localScanCritMs'),
+    }) }}
+
+<h2>Keyword ranking</h2>
+<p class="light">BM25 tuning for the local keyword signal. The defaults are the standard ones; change them only to test a hunch.</p>
+
+    {{ forms.textField({
+        label: 'Term saturation (k1)',
+        instructions: 'How much a repeated word keeps adding. Higher rewards repetition more.',
+        id: 'localBm25K1', name: 'localBm25K1', size: 6,
+        value: settings.localBm25K1,
+        errors: settings.getErrors('localBm25K1'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Length normalisation (b)',
+        instructions: 'How much a long passage is penalised. 0 ignores length, 1 fully normalises by it.',
+        id: 'localBm25B', name: 'localBm25B', size: 6,
+        value: settings.localBm25B,
+        errors: settings.getErrors('localBm25B'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Title weight',
+        instructions: 'How much a match in the title counts.',
+        id: 'localTitleWeight', name: 'localTitleWeight', size: 6,
+        value: settings.localTitleWeight,
+        errors: settings.getErrors('localTitleWeight'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Body weight',
+        instructions: 'How much a match in the body counts. The default 1.0 / 0.2 pair matches how PostgreSQL weights title against body, so the two types are comparable.',
+        id: 'localBodyWeight', name: 'localBodyWeight', size: 6,
+        value: settings.localBodyWeight,
+        errors: settings.getErrors('localBodyWeight'),
+    }) }}
+{% endnamespace %}

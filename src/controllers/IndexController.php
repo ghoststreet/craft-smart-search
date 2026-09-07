@@ -11,6 +11,7 @@ use craft\queue\Queue;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
+use ghoststreet\craftsmartsearch\jobs\LocalSyncIndexJob;
 use ghoststreet\craftsmartsearch\jobs\SyncSearchIndexJob;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use Throwable;
@@ -61,6 +62,7 @@ class IndexController extends BaseApiController
         return $this->renderTemplate('smart-search/index-mgmt/index', array_merge($this->commonViewData(), [
             'setupSteps' => $this->buildSetupSteps($setup),
             'overview' => $overview,
+            'localSites' => $this->buildLocalOverview(),
             'syncStarted' => $syncStarted,
         ]));
     }
@@ -228,6 +230,58 @@ class IndexController extends BaseApiController
         return $this->redirect('smart-search/index');
     }
 
+    /**
+     * Queue a bulk reindex of the local store, the twin of actionSync above.
+     *
+     * Separate from the pgvector sync rather than folded into it, because the two stores
+     * are rebuilt independently: that is the whole reason LocalSyncIndexJob exists as its
+     * own job. Saving an entry already queues both, so only the bulk path was missing,
+     * and a CP-only workflow could rebuild pgvector while leaving local on stale data
+     * with nothing on screen to say so.
+     *
+     * No orphan sweep here. The pgvector sync prunes vectors for entries that have gone,
+     * but the local store holds exactly the same expired entries by the same enumeration,
+     * so pruning one side and not the other would invent a difference between the arms.
+     */
+    public function actionLocalSync(): Response
+    {
+        $this->requirePostRequest();
+
+        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
+            Craft::$app->getSession()->setError(
+                Craft::t('smart-search', 'Local search is off. Enable it under Settings > Local first.')
+            );
+            return $this->redirect('smart-search');
+        }
+
+        $rawSiteId = Craft::$app->getRequest()->getBodyParam('siteId');
+        $siteId = ($rawSiteId !== null && $rawSiteId !== '') ? (int)$rawSiteId : null;
+
+        $sites = $siteId !== null
+            ? [$siteId]
+            : array_map(static fn($site): int => (int)$site->id, Craft::$app->getSites()->getAllSites());
+
+        foreach ($sites as $id) {
+            Craft::$app->getQueue()->push(new LocalSyncIndexJob(['siteId' => $id]));
+        }
+
+        Logger::info('Queued local sync job', ['sites' => count($sites), 'siteId' => $siteId]);
+
+        if (Craft::$app->getRequest()->getAcceptsJson()) {
+            return $this->asJson(['success' => true, 'sites' => count($sites)]);
+        }
+
+        Craft::$app->getSession()->setNotice(
+            Craft::t('smart-search', 'Local reindex queued for {count} site(s). Unchanged entries are skipped.', [
+                'count' => count($sites),
+            ])
+        );
+
+        /* Back where it was pressed: the button exists on both the dashboard meter and
+           the Index page, and landing somewhere else is disorienting either way. */
+        return $this->redirect(Craft::$app->getRequest()->getReferrer() ?? 'smart-search/index');
+    }
+
     public function actionGetStats(): Response
     {
         $this->requireAdmin();
@@ -250,7 +304,12 @@ class IndexController extends BaseApiController
             );
 
             $jobs = $this->loadSyncJobs();
+            $localJobs = $this->loadSyncJobs(LocalSyncIndexJob::class);
 
+            /* Local rows are not cached alongside the pgvector block above: they are a
+               handful of grouped queries against Craft's own database, and caching them
+               would make a card sit on stale counts for the whole TTL right after the
+               reindex the user just triggered. */
             return $this->asJson([
                 'success' => true,
                 'entryCount' => $stats['entryCount'],
@@ -258,6 +317,8 @@ class IndexController extends BaseApiController
                 'perSite' => $perSite,
                 'coverage' => $coverage,
                 'jobs' => array_values($jobs['perSite']),
+                'localCoverage' => $this->buildLocalOverview(/* withLabel */ true),
+                'localJobs' => array_values($localJobs['perSite']),
                 'queueRemaining' => Craft::$app->getQueue()->getTotalWaiting(),
                 'sync' => $jobs['global'],
             ]);
@@ -286,6 +347,75 @@ class IndexController extends BaseApiController
     }
 
     /**
+     * The local store's per-site stats, reshaped to the same keys the pgvector rows use
+     * so buildCoverageRows does not need to know which store it is merging.
+     *
+     * @return list<array{siteId: int, entryCount: int, chunkCount: int, lastIndexed: ?string}>
+     */
+    private function loadLocalPerSiteStats(): array
+    {
+        try {
+            $stats = SmartSearch::getInstance()->localIndexService->stats();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($stats['sites'] ?? [] as $row) {
+            $out[] = [
+                'siteId' => (int)$row['siteId'],
+                'entryCount' => (int)($row['entries'] ?? 0),
+                'chunkCount' => (int)($row['chunks'] ?? 0),
+                'lastIndexed' => $row['lastIndexed'] ?? null,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * One store's worth of overview cards: coverage merged with per-site stats and any
+     * job currently in the queue for it.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function buildStoreRows(string $store, array $activeJobs, bool $withLabel = false): array
+    {
+        $perSite = $store === 'local' ? $this->loadLocalPerSiteStats() : $this->loadPerSiteStats();
+        $bySite = array_column($this->buildCoverageRows($perSite, $withLabel, $store), null, 'siteId');
+
+        $rows = [];
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            $sid = (int)$site->id;
+            $cov = $bySite[$sid] ?? [
+                'indexed' => 0, 'stale' => 0, 'notIndexed' => 0, 'total' => 0,
+                'lastIndexed' => null, 'chunkCount' => 0,
+            ];
+            $rows[] = [
+                'store' => $store,
+                'siteId' => $sid,
+                'name' => $site->name ?: $site->handle,
+                'handle' => $site->handle,
+                'indexed' => $cov['indexed'],
+                'stale' => $cov['stale'],
+                'notIndexed' => $cov['notIndexed'],
+                'total' => $cov['total'],
+                'chunkCount' => $cov['chunkCount'],
+                'lastIndexed' => $cov['lastIndexed'],
+                'lastIndexedLabel' => $cov['lastIndexedLabel'] ?? null,
+                'activeJob' => $activeJobs[$sid] ?? null,
+            ];
+        }
+
+        usort($rows, static function(array $a, array $b): int {
+            $pctA = $a['total'] > 0 ? $a['indexed'] / $a['total'] : 0;
+            $pctB = $b['total'] > 0 ? $b['indexed'] / $b['total'] : 0;
+            return $pctB <=> $pctA ?: $b['indexed'] <=> $a['indexed'] ?: strcasecmp($a['name'], $b['name']);
+        });
+
+        return $rows;
+    }
+
+    /**
      * Merge entry-side coverage (indexed / stale / notIndexed / total) with
      * the vector-side `lastIndexed` timestamp. When $withLabel is true also
      * formats `lastIndexedLabel` for direct display.
@@ -293,10 +423,13 @@ class IndexController extends BaseApiController
      * @param list<array{siteId: int, entryCount: int, chunkCount: int, lastIndexed: ?string}> $perSiteStats
      * @return list<array<string, mixed>>
      */
-    private function buildCoverageRows(array $perSiteStats, bool $withLabel = false): array
+    private function buildCoverageRows(array $perSiteStats, bool $withLabel = false, string $store = 'pgvector'): array
     {
         $statsBySite = array_column($perSiteStats, null, 'siteId');
-        $coverage = SmartSearch::getInstance()->indexInspectionService->getCoverageBySite();
+        $inspection = SmartSearch::getInstance()->indexInspectionService;
+        $coverage = $store === 'local'
+            ? $inspection->getLocalCoverageBySite()
+            : $inspection->getCoverageBySite();
         $formatter = $withLabel ? Craft::$app->getFormatter() : null;
 
         $out = [];
@@ -316,20 +449,25 @@ class IndexController extends BaseApiController
     }
 
     /**
-     * Scan the queue for in-flight SyncSearchIndexJob entries. Detection is
+     * Scan the queue for in-flight sync jobs of one class. Detection is
      * locale-proof — we filter on the serialized job class, not on the
      * (translated) description string.
      *
+     * Taking the class as an argument is what lets the local store reuse this: the two
+     * jobs are separate classes precisely so one can run without the other, and the queue
+     * is the only place that distinction is visible.
+     *
+     * @param class-string $jobClass
      * @return array{perSite: array<int, array<string, mixed>>, global: ?array<string, mixed>, all: list<array<string, mixed>>}
      */
-    private function loadSyncJobs(): array
+    private function loadSyncJobs(string $jobClass = SyncSearchIndexJob::class): array
     {
         $out = ['perSite' => [], 'global' => null, 'all' => []];
         try {
             $rows = (new Query())
                 ->select(['id', 'job'])
                 ->from(Table::QUEUE)
-                ->where(['like', 'job', SyncSearchIndexJob::class])
+                ->where(['like', 'job', $jobClass])
                 ->all();
             if (empty($rows)) {
                 return $out;
@@ -341,7 +479,7 @@ class IndexController extends BaseApiController
                 try {
                     $payload = is_resource($row['job']) ? stream_get_contents($row['job']) : (string)$row['job'];
                     $job = $queue->serializer->unserialize($payload);
-                    $siteIdsById[$row['id']] = ($job instanceof SyncSearchIndexJob) ? $job->siteId : null;
+                    $siteIdsById[$row['id']] = ($job instanceof $jobClass) ? $job->siteId : null;
                 } catch (Throwable) {
                     $siteIdsById[$row['id']] = null;
                 }
@@ -428,39 +566,31 @@ class IndexController extends BaseApiController
             return ['state' => 'disconnected', 'error' => $stats['error'] ?? null, 'sites' => [], 'isMultiSite' => $isMultiSite];
         }
 
-        $perSiteStats = $this->loadPerSiteStats();
-        $coverageRows = $this->buildCoverageRows($perSiteStats);
-        $coverageBySite = array_column($coverageRows, null, 'siteId');
-        $rows = [];
-        foreach ($sites as $site) {
-            $sid = (int)$site->id;
-            $cov = $coverageBySite[$sid] ?? ['indexed' => 0, 'stale' => 0, 'notIndexed' => 0, 'total' => 0, 'lastIndexed' => null, 'chunkCount' => 0];
-            $rows[] = [
-                'siteId' => $sid,
-                'name' => $site->name ?: $site->handle,
-                'handle' => $site->handle,
-                'indexed' => $cov['indexed'],
-                'stale' => $cov['stale'],
-                'notIndexed' => $cov['notIndexed'],
-                'total' => $cov['total'],
-                'chunkCount' => $cov['chunkCount'],
-                'lastIndexed' => $cov['lastIndexed'],
-                'activeJob' => $activeJobs[$sid] ?? null,
-            ];
-        }
-
-        usort($rows, static function(array $a, array $b): int {
-            $pctA = $a['total'] > 0 ? $a['indexed'] / $a['total'] : 0;
-            $pctB = $b['total'] > 0 ? $b['indexed'] / $b['total'] : 0;
-            return $pctB <=> $pctA ?: $b['indexed'] <=> $a['indexed'] ?: strcasecmp($a['name'], $b['name']);
-        });
-
         return [
             'state' => 'ready',
             'error' => null,
-            'sites' => $rows,
+            'sites' => $this->buildStoreRows('pgvector', $activeJobs),
             'isMultiSite' => $isMultiSite,
         ];
+    }
+
+    /**
+     * Local cards, built whether or not pgvector is healthy.
+     *
+     * They are returned separately from buildOverviewData rather than inside it because
+     * that method short-circuits to onboarding or disconnected on pgvector's state, and
+     * the local store depends on neither PostgreSQL nor the OpenAI key at search time.
+     * Hiding its cards when the other index is down would withhold them exactly when
+     * they matter.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function buildLocalOverview(bool $withLabel = false): array
+    {
+        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
+            return [];
+        }
+        return $this->buildStoreRows('local', $this->loadSyncJobs(LocalSyncIndexJob::class)['perSite'], $withLabel);
     }
 
     public function actionCancelSync(): Response
@@ -469,13 +599,20 @@ class IndexController extends BaseApiController
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
-        $rawSiteId = Craft::$app->getRequest()->getBodyParam('siteId');
+        $request = Craft::$app->getRequest();
+        $rawSiteId = $request->getBodyParam('siteId');
         $siteId = ($rawSiteId !== null && $rawSiteId !== '') ? (int)$rawSiteId : null;
+
+        /* Which store's job to release. Without this a Cancel on a local card would
+           release the pgvector sync running beside it. */
+        $jobClass = $request->getBodyParam('store') === 'local'
+            ? LocalSyncIndexJob::class
+            : SyncSearchIndexJob::class;
 
         $queue = Craft::$app->getQueue();
         $released = 0;
 
-        foreach ($this->loadSyncJobs()['all'] as $job) {
+        foreach ($this->loadSyncJobs($jobClass)['all'] as $job) {
             if ($siteId !== null && $job['siteId'] !== $siteId) {
                 continue;
             }
@@ -487,7 +624,7 @@ class IndexController extends BaseApiController
             }
         }
 
-        Logger::info('Cancelled sync', ['released' => $released, 'siteId' => $siteId]);
+        Logger::info('Cancelled sync', ['released' => $released, 'siteId' => $siteId, 'job' => $jobClass]);
 
         return $this->asJson(['success' => true, 'released' => $released]);
     }

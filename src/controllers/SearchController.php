@@ -11,6 +11,7 @@ use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\PricingTable;
 use ghoststreet\craftsmartsearch\helpers\RequestParameterExtractor;
 use ghoststreet\craftsmartsearch\helpers\SearchResultFormatter;
+use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
 use ghoststreet\craftsmartsearch\models\SearchHistoryEntry;
 use ghoststreet\craftsmartsearch\services\RateLimitService;
@@ -93,6 +94,7 @@ class SearchController extends BaseApiController
 
         $this->startTime = microtime(true);
         UsageTracker::reset();
+        TimingProfiler::reset();
 
         $request = Craft::$app->getRequest();
 
@@ -293,6 +295,7 @@ class SearchController extends BaseApiController
         }
         return match ($type) {
             SearchType::Search => $this->runHybridSearch(),
+            SearchType::Local => $this->runLocalSearch(),
             SearchType::AiAnswer => $this->runAiAnswer(),
             SearchType::AiAnswerStream => $this->runAiAnswerStream(),
         };
@@ -330,6 +333,53 @@ class SearchController extends BaseApiController
         } catch (Throwable $e) {
             $this->recordHistory('smart', $params, 0, $e->getMessage());
             return $this->jsonError($e, 'semanticSearch', $params);
+        }
+    }
+
+    /**
+     * The same hybrid ranking, scored against Craft's own database instead of pgvector.
+     *
+     * A near-clone of runHybridSearch rather than a flag on it: the two types are meant
+     * to be compared, so neither may be able to change the other's request handling.
+     */
+    private function runLocalSearch(): Response
+    {
+        $this->requireAcceptsJson();
+        $params = RequestParameterExtractor::extractSearchParams();
+
+        if ($params['validationError'] !== null) {
+            return $this->badRequest($params['validationError']);
+        }
+
+        if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
+            return $this->badRequest([
+                'success' => false,
+                'message' => 'The local search type is not enabled.',
+            ]);
+        }
+
+        $this->logRequest('localSearch', $params);
+
+        try {
+            $results = SmartSearch::getInstance()->localSearchService->search(
+                $params['query'],
+                $params['limit'],
+                $params['siteId'],
+                sections: $params['sections'],
+            );
+
+            $formattedResults = $this->formatSearchResults($results, SearchType::Local);
+
+            $this->recordHistory('local', $params, count($formattedResults));
+
+            return $this->successResponse('localSearch', [
+                'query' => $params['query'],
+                'semanticResults' => $formattedResults,
+                'semanticCount' => count($formattedResults),
+            ]);
+        } catch (Throwable $e) {
+            $this->recordHistory('local', $params, 0, $e->getMessage());
+            return $this->jsonError($e, 'localSearch', $params);
         }
     }
 
@@ -588,7 +638,32 @@ class SearchController extends BaseApiController
             'results' => $resultCount,
         ]);
 
-        return $this->asJson(['success' => true, 'requestId' => $this->requestId] + $body);
+        return $this->asJson(
+            ['success' => true, 'requestId' => $this->requestId]
+            + $body
+            + $this->diagnostics($elapsedMs)
+        );
+    }
+
+    /**
+     * Per-phase timings and peak memory, for the Preview page's comparison panel and the
+     * comparison harness.
+     *
+     * Admin or devMode only: the phase names describe the plugin's internals, which is
+     * useful to whoever is tuning it and nobody else.
+     *
+     * @return array<string, mixed>
+     */
+    private function diagnostics(int $elapsedMs): array
+    {
+        if (!Craft::$app->getConfig()->getGeneral()->devMode && !Craft::$app->getUser()->getIsAdmin()) {
+            return [];
+        }
+
+        return [
+            'timings' => array_merge(TimingProfiler::phases(), [['name' => 'Total', 'ms' => $elapsedMs]]),
+            'memoryPeakKb' => (int)round(memory_get_peak_usage(true) / 1024),
+        ];
     }
 
     /**

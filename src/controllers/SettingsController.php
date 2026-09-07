@@ -49,6 +49,11 @@ class SettingsController extends BaseApiController
         return $this->renderScenario(Settings::SCENARIO_AI_ANSWER);
     }
 
+    public function actionLocal(): Response
+    {
+        return $this->renderScenario(Settings::SCENARIO_LOCAL);
+    }
+
     public function actionAdvanced(): Response
     {
         return $this->renderScenario(Settings::SCENARIO_ADVANCED);

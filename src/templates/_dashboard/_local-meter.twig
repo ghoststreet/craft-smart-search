@@ -1,0 +1,181 @@
+{#
+    Local index headroom.
+
+    This meter predicts slowdown, not instability. Nothing breaks when it turns red:
+    every local search compares the query against every stored vector, so results stay
+    exactly as good, they just take longer. Red means the PostgreSQL types have become
+    the better trade for this corpus.
+
+    Params (from DashboardController::actionIndex):
+        localStats  array  LocalIndexService::stats()
+        settings    Settings
+#}
+{% set totals = localStats.totals %}
+{% set p95 = localStats.scanP95Ms %}
+
+{#
+    One ceiling, expressed in the unit the pane is about: chunks.
+
+    The bar used to plot p95 against the crit threshold while the headroom figure counted
+    chunks against the warn threshold, so the two disagreed by construction — 12% full
+    beside "2,394 to go" out of 3,722. Everything below is measured against the same
+    number so the fill and the figure can only ever say the same thing.
+
+    Two limits can bind, and the smaller one is the real capacity:
+
+      scan  — an exact scan is linear in chunk count, so warnMs / msPerChunk is the chunk
+              count at which searches start feeling slow. The rate is a median measured
+              per scan, not p95 divided by today's total: samples taken when the corpus
+              was a different size would make that division wrong by however much it has
+              grown since.
+
+      cache — vectors that outgrow the database's memory push every scan onto disk. 60% of
+              that memory is the same crit line the old cache bar drew.
+#}
+{% set msPerChunk = localStats.scanMsPerChunk %}
+{% set chunksAtScan = msPerChunk and msPerChunk > 0
+    ? (settings.localScanWarnMs / msPerChunk)|round
+    : null %}
+{% set chunksAtCache = localStats.dbCacheBytes and localStats.bytesPerChunk > 0
+    ? ((localStats.dbCacheBytes * 0.6) / localStats.bytesPerChunk)|round
+    : null %}
+
+{% set limits = [chunksAtScan, chunksAtCache]|filter(v => v is not null) %}
+{% set capacity = limits|length ? min(limits) : null %}
+{% set boundBy = capacity is null
+    ? null
+    : (capacity == chunksAtScan ? 'scan time' : 'database memory') %}
+
+{% set usedPct = capacity and capacity > 0 ? ((totals.chunks / capacity) * 100) : null %}
+{% set headroom = capacity is not null ? capacity - totals.chunks : null %}
+
+{#
+    Coloured on the fill, not on a second threshold. A bar that turns orange at a quarter
+    full teaches people to distrust the fill.
+#}
+{% set capClass = usedPct is null
+    ? ''
+    : (usedPct >= 100 ? 'ss-budget-bar--crit' : (usedPct >= 75 ? 'ss-budget-bar--warn' : '')) %}
+
+{% set cacheShare = localStats.dbCacheBytes and localStats.dbCacheBytes > 0
+    ? ((totals.vectorBytes / localStats.dbCacheBytes) * 100)
+    : null %}
+
+<div class="pane">
+    {#
+        .ss-dash-title like every other pane on this dashboard, not Craft's .pane-header.
+        That class is a full-bleed band: it cancels the pane's padding with margin-inline
+        of --neg-padding, which is 1.5rem, while these panes use 18px. The 6px it could
+        not cancel is the overhang, and the grey band it draws appears on no other card
+        here. Craft's .flex / .flex-grow put the controls on the title's line.
+    #}
+    <div class="flex">
+        <h3 class="ss-dash-title flex-grow">Local index headroom</h3>
+        <form method="post">
+            {{ csrfInput() }}
+            {{ actionInput('smart-search/index/local-sync') }}
+            <button type="submit" class="btn small" data-craftsearch-control="local-sync-btn">Reindex local</button>
+        </form>
+        <a class="btn small" href="{{ cpUrl('smart-search/settings/local') }}">Settings</a>
+    </div>
+
+    {% if totals.chunks == 0 %}
+        <p class="light">
+            Nothing indexed locally yet. Hit Reindex local above, then run your queue.
+        </p>
+    {% else %}
+        <div class="ss-local-meter">
+
+            {#
+                The one bar. Its fill is chunks against the count at which this corpus
+                stops being a good fit for the local store, so the bar filling up is
+                itself the message: past the end, move to the PostgreSQL types.
+            #}
+            {% if capacity is null %}
+                <p class="light smalltext">
+                    No local searches recorded yet, so there is nothing to measure the
+                    scan rate against.
+                </p>
+            {% else %}
+                <div class="ss-local-meter__block">
+                    <div class="ss-budget-block__head">
+                        <span class="ss-budget-block__label">Capacity used</span>
+                        <span class="ss-budget-block__usage">
+                            {{ totals.chunks|number_format }}<span class="light"> / {{ capacity|number_format }} chunks · {{ usedPct|round }}%</span>
+                        </span>
+                    </div>
+                    <div class="ss-budget-bar{% if capClass %} {{ capClass }}{% endif %}">
+                        <span class="ss-budget-bar__fill" style="width: {{ usedPct < 1 ? 1 : (usedPct > 100 ? 100 : usedPct|round) }}%"></span>
+                    </div>
+                    <p class="light smalltext">
+                        {% if usedPct >= 100 %}
+                            Past what {{ boundBy }} supports here. Results are unaffected, searches
+                            are just slower than is comfortable. Move this corpus to the PostgreSQL
+                            search types.
+                        {% elseif usedPct >= 75 %}
+                            Approaching what {{ boundBy }} supports here. Plan the move to the
+                            PostgreSQL search types.
+                        {% else %}
+                            Limited by {{ boundBy }}. Currently {{ p95|number_format(0) }} ms at the
+                            95th percentile over {{ localStats.scanSampleCount }} searches.
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+
+            {#
+                Same strip the entries page uses, so the numbers here sit in the CP's own
+                border, radius and label treatment rather than a second look invented for
+                one pane.
+            #}
+            <div class="ss-index-stats">
+                {% for stat in [
+                    { label: 'Chunks stored',  count: totals.chunks|number_format },
+                    { label: 'Chunks of room', count: (headroom > 0 ? headroom : 0)|number_format,
+                      dot: headroom is null ? null : (headroom <= 0 ? 'red' : (usedPct >= 75 ? 'orange' : 'green')) },
+                    { label: 'Dimensions',     count: localStats.dimensions|number_format },
+                    { label: 'Vector data',    count: totals.vectorBytes|filesize
+                        ~ (cacheShare is null ? '' : ' (' ~ cacheShare|round ~ '% of db memory)') },
+                ] %}
+                    <div class="ss-index-stats__item">
+                        {% if stat.dot is defined and stat.dot %}<span class="status {{ stat.dot }}"></span>{% endif %}
+                        <span class="ss-index-stats__count">{{ stat.count }}</span>
+                        <span class="ss-index-stats__label">{{ stat.label }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if totals.staleVectors > 0 %}
+                <p class="light smalltext">
+                    {{ totals.staleVectors|number_format }} vectors are stored at a different
+                    width than the current setting and are being skipped, so those entries
+                    cannot be found semantically. Hit Reindex local above to rebuild them.
+                </p>
+            {% endif %}
+
+            {% if isMultisite and localStats.sites|length > 1 %}
+                <table class="data fullwidth ss-local-meter__sites">
+                    <thead>
+                        <tr>
+                            <th>Site</th>
+                            <th class="right">Entries</th>
+                            <th class="right">Chunks</th>
+                            <th class="right">Vector data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for site in localStats.sites %}
+                            <tr>
+                                <td>{{ site.name }}</td>
+                                <td class="right">{{ site.entries|number_format }}</td>
+                                <td class="right">{{ site.chunks|number_format }}</td>
+                                <td class="right">{{ site.vectorBytes|filesize }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+
+        </div>
+    {% endif %}
+</div>

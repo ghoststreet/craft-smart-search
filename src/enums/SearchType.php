@@ -5,6 +5,7 @@ namespace ghoststreet\craftsmartsearch\enums;
 enum SearchType : string
 {
     case Search = 'search';
+    case Local = 'local';
     case AiAnswer = 'ai-answer';
     case AiAnswerStream = 'ai-answer-stream';
 

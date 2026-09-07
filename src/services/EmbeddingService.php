@@ -102,9 +102,9 @@ class EmbeddingService extends Component
      * @return array The embedding vector as an array of floats
      * @throws EmbeddingException If the text is empty or the API call fails
      */
-    public function generateEmbedding(string $text, ?string $model = null): array
+    public function generateEmbedding(string $text, ?string $model = null, ?int $dimensions = null): array
     {
-        return ($this->dispatchEmbedding($text, $model))();
+        return ($this->dispatchEmbedding($text, $model, $dimensions))();
     }
 
     /**
@@ -125,7 +125,7 @@ class EmbeddingService extends Component
      * @return callable(): array
      * @throws EmbeddingException If the text is empty or the API key is missing
      */
-    public function dispatchEmbedding(string $text, ?string $model = null): callable
+    public function dispatchEmbedding(string $text, ?string $model = null, ?int $dimensions = null): callable
     {
         if (TextValidator::isEmpty($text)) {
             throw EmbeddingException::emptyText();
@@ -133,13 +133,16 @@ class EmbeddingService extends Component
 
         $settings = SmartSearch::getInstance()->getSettings();
         $model = $model ?? $settings->embeddingModel;
+        $dimensions = $dimensions ?? Settings::VECTOR_DIMENSIONS;
 
         $normalizedText = TextValidator::sanitizeEmbeddingInput($text);
         if (TextValidator::isEmpty($normalizedText)) {
             throw EmbeddingException::emptyText();
         }
 
-        $requestCacheKey = md5($normalizedText . '_' . $model);
+        /* The dimension is part of the identity of the vector, not just of the request:
+           without it a 512-dim caller is handed a cached 1536-dim vector. */
+        $requestCacheKey = md5($normalizedText . '_' . $model . '_' . $dimensions);
         $persistentCacheKey = 'smart_search_embedding_' . $requestCacheKey;
 
         if (isset(self::$requestEmbeddingCache[$requestCacheKey])) {
@@ -169,7 +172,7 @@ class EmbeddingService extends Component
 
         $params = ['model' => $model, 'input' => $normalizedText];
         if (str_starts_with($model, 'text-embedding-3')) {
-            $params['dimensions'] = Settings::VECTOR_DIMENSIONS;
+            $params['dimensions'] = $dimensions;
         }
 
         $handles = $this->sendEmbeddingRequest($apiKey, $params);
@@ -669,7 +672,7 @@ class EmbeddingService extends Component
      *
      * @return array<array{terms: string[], weight: int|float}>
      */
-    private function collectBoostRules(ElementInterface $element): array
+    public function collectBoostRules(ElementInterface $element): array
     {
         if (!$this->hasEventHandlers(self::EVENT_INDEX_BOOSTS)) {
             return [];
@@ -739,7 +742,7 @@ class EmbeddingService extends Component
      *
      * @return string[] One or more text chunks
      */
-    private function chunkText(string $text): array
+    public function chunkText(string $text): array
     {
         $settings = SmartSearch::getInstance()->getSettings();
 
