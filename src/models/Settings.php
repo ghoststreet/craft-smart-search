@@ -97,6 +97,9 @@ class Settings extends Model
      */
     public int $localDimensions = 512;
 
+    /** Both are within every supported model's native width, so any model can use either. */
+    public const LOCAL_DIMENSION_CHOICES = [512, 1536];
+
     /** Rows per keyset batch in the vector scan. Bounds per-request memory. */
     public int $localScanBatchSize = 500;
 
@@ -307,8 +310,7 @@ class Settings extends Model
             [['localEnabled'], 'default', 'value' => false],
             [['localEmbeddingModel'], 'string', 'on' => $local],
             [['localEmbeddingModel'], 'default', 'value' => 'text-embedding-3-small'],
-            /* Upper bound is text-embedding-3-large's native width; the API rejects more. */
-            [['localDimensions'], 'integer', 'min' => 64, 'max' => 3072, 'on' => $local],
+            [['localDimensions'], 'in', 'range' => self::LOCAL_DIMENSION_CHOICES, 'on' => $local],
             [['localDimensions'], 'default', 'value' => 512],
             [['localScanBatchSize'], 'integer', 'min' => 50, 'max' => 5000, 'on' => $local],
             [['localScanBatchSize'], 'default', 'value' => 500],

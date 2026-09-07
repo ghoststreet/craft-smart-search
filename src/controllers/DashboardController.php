@@ -9,6 +9,7 @@ use DateTime;
 use DateTimeInterface;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use Throwable;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use yii\web\Response;
 
 /**
@@ -149,7 +150,8 @@ class DashboardController extends Controller
         return Craft::$app->getCache()->getOrSet(
             'smart_search_dash_coverage',
             fn() => SmartSearch::getInstance()->indexInspectionService->getCoverageBySite(),
-            self::CACHE_TTL
+            self::CACHE_TTL,
+            CacheTag::dependency(),
         );
     }
 

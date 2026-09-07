@@ -3,6 +3,7 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDOException;
@@ -356,6 +357,7 @@ class QueryCorrectorService extends Component
                 self::VARIANT_CACHE_KEY_PREFIX . md5($memoKey),
                 $results[$token],
                 self::VARIANT_CACHE_TTL_SECONDS,
+                CacheTag::dependency(),
             );
         }
 

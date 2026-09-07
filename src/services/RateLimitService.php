@@ -6,6 +6,7 @@ use Craft;
 use ghoststreet\craftsmartsearch\enums\SearchType;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
 use ghoststreet\craftsmartsearch\SmartSearch;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use yii\base\Component;
 
 /**
@@ -87,7 +88,7 @@ class RateLimitService extends Component
                 throw $e;
             }
 
-            Craft::$app->getCache()->set(self::NONCE_KEY_PREFIX . $nonce, $ip, self::CONCURRENCY_TTL);
+            Craft::$app->getCache()->set(self::NONCE_KEY_PREFIX . $nonce, $ip, self::CONCURRENCY_TTL, CacheTag::dependency());
         } finally {
             $this->unlock(self::AI_ANSWER_ADMIT_MUTEX);
         }
@@ -177,7 +178,7 @@ class RateLimitService extends Component
         try {
             $cache = Craft::$app->getCache();
             $current = (float)$cache->get($key);
-            $cache->set($key, $current + $costUsd, $this->secondsUntilUtcMidnight() + 3600);
+            $cache->set($key, $current + $costUsd, $this->secondsUntilUtcMidnight() + 3600, CacheTag::dependency());
         } finally {
             $this->unlock($mutexKey);
         }
@@ -230,7 +231,7 @@ class RateLimitService extends Component
                 throw RateLimitException::tooManyRequests(max(1, $window - $elapsed));
             }
 
-            $cache->set($currKey, $curr + 1, $window * 2);
+            $cache->set($currKey, $curr + 1, $window * 2, CacheTag::dependency());
         } finally {
             $this->unlock($mutexKey);
         }
@@ -245,7 +246,7 @@ class RateLimitService extends Component
             throw RateLimitException::concurrencyExceeded($scope);
         }
 
-        $cache->set($key, $current + 1, self::CONCURRENCY_TTL);
+        $cache->set($key, $current + 1, self::CONCURRENCY_TTL, CacheTag::dependency());
     }
 
     private function decrementGaugeLocked(string $key): void
@@ -257,7 +258,7 @@ class RateLimitService extends Component
             return;
         }
 
-        $cache->set($key, $current - 1, self::CONCURRENCY_TTL);
+        $cache->set($key, $current - 1, self::CONCURRENCY_TTL, CacheTag::dependency());
     }
 
     private function lock(string $key): void

@@ -3,6 +3,7 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\SqlHelper;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -335,6 +336,7 @@ class BoostService extends Component
             self::TABLE_EXISTS_CACHE_KEY,
             fn() => $this->queryTableExists() ? 1 : 0,
             self::TABLE_EXISTS_CACHE_TTL,
+            CacheTag::dependency(),
         );
     }
 

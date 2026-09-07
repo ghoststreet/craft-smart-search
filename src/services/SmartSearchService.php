@@ -4,6 +4,7 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\Ranker;
 use ghoststreet\craftsmartsearch\helpers\SqlHelper;
@@ -97,7 +98,7 @@ class SmartSearchService extends Component
                 'Ranking',
                 fn() => $this->rankResults($query, $limit, $siteId, $embeddingModel, $sectionIds, $settings)
             );
-            $cache->set($cacheKey, $scoredResults, self::RANKING_CACHE_TTL_SECONDS);
+            $cache->set($cacheKey, $scoredResults, self::RANKING_CACHE_TTL_SECONDS, CacheTag::dependency());
         }
 
         /* Dispatched before the element load, collected after it. Needs ranking settled. */

@@ -4,6 +4,7 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDO;
@@ -535,7 +536,7 @@ class DatabaseService extends Component
 
         if (!is_string($token) || $token === '') {
             $token = bin2hex(random_bytes(8));
-            $cache->set(self::VECTORS_TOKEN_CACHE_KEY, $token, 0);
+            $cache->set(self::VECTORS_TOKEN_CACHE_KEY, $token, 0, CacheTag::dependency());
         }
 
         return $token;
@@ -635,7 +636,7 @@ class DatabaseService extends Component
                 'isConnected' => true,
                 'error' => null,
             ];
-        }, 60);
+        }, 60, CacheTag::dependency());
     }
 
     /**

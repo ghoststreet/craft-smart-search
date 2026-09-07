@@ -32,10 +32,14 @@
         errors: settings.getErrors('localEmbeddingModel'),
     }) }}
 
-    {{ forms.textField({
+    {{ forms.selectField({
         label: 'Dimensions',
-        instructions: 'Requested from OpenAI. Fewer dimensions is directly less work per search, and search cost is linear in this. Changing it requires a local reindex.',
-        id: 'localDimensions', name: 'localDimensions', type: 'number', size: 6,
+        instructions: 'Requested from OpenAI. Every search compares the query against every stored vector, so this sets how much content the index can hold before search slows down. 512 is about a third of the work per search; 1536 ranks better. Changing it requires a local reindex.',
+        id: 'localDimensions', name: 'localDimensions',
+        options: [
+            { label: '512', value: 512 },
+            { label: '1536', value: 1536 },
+        ],
         value: settings.localDimensions,
         errors: settings.getErrors('localDimensions'),
     }) }}

@@ -7,11 +7,13 @@ use craft\base\ElementInterface;
 use craft\db\Query;
 use craft\elements\Entry;
 use craft\helpers\Db;
+use craft\helpers\StringHelper;
 use DateTime;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\Stemmer;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
-use ghoststreet\craftsmartsearch\migrations\m260905_000000_local_index as LocalTables;
+use ghoststreet\craftsmartsearch\migrations\Install as LocalTables;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use Throwable;
 use yii\base\Component;
@@ -30,6 +32,8 @@ use yii\base\Component;
  */
 class LocalIndexService extends Component
 {
+    private static ?bool $chunksMb4 = null;
+
     /** Vectors are packed little-endian explicitly, so a dump moves between machines. */
     public const PACK_FORMAT = 'g';
 
@@ -70,7 +74,7 @@ class LocalIndexService extends Component
            carries its rules. */
         $this->syncBoosts($elementId, $siteId, $language, $embeddingService->collectBoostRules($element));
 
-        $text = $embeddingService->extractTextFromElement($element);
+        $text = $this->storable($embeddingService->extractTextFromElement($element), $elementId, $siteId);
         if (trim($text) === '') {
             return;
         }
@@ -84,7 +88,7 @@ class LocalIndexService extends Component
             return;
         }
 
-        $title = (string)($element->title ?? '');
+        $title = $this->storable((string)($element->title ?? ''), $elementId, $siteId);
         $dimensions = $settings->localDimensions;
         $now = Db::prepareDateForDb(new DateTime());
         $db = Craft::$app->getDb();
@@ -132,6 +136,52 @@ class LocalIndexService extends Component
             'chunks' => $totalChunks,
             'dims' => $dimensions,
         ]);
+    }
+
+    /**
+     * Drops characters the chunks table cannot store, so one of them costs a character
+     * rather than the entry.
+     *
+     * Install creates these tables as utf8mb4 and is the real fix. This is the net under
+     * it: an existing table's charset depends on the site's history, and a 4-byte
+     * character reaching a 3-byte column is a hard MySQL error that aborts the insert.
+     * Stripped rather than encoded as an HTML entity the way Craft does it, because the
+     * entity would enter the inverted index as a term that can never match.
+     */
+    private function storable(string $text, int $elementId, int $siteId): string
+    {
+        if ($text === '') {
+            return $text;
+        }
+
+        if (!self::chunksSupportMb4() && StringHelper::containsMb4($text)) {
+            $dropped = 0;
+            $text = StringHelper::replaceMb4($text, static function() use (&$dropped): string {
+                $dropped++;
+                return '';
+            });
+
+            Logger::warning('Dropped 4-byte characters the local index cannot store', [
+                'entryId' => $elementId,
+                'siteId' => $siteId,
+                'dropped' => $dropped,
+                'fix' => 'reinstall the plugin so its tables are created as utf8mb4',
+            ]);
+        }
+
+        return $text;
+    }
+
+    /** Cached: one schema read per request, not one per entry. */
+    private static function chunksSupportMb4(): bool
+    {
+        if (self::$chunksMb4 === null) {
+            $db = Craft::$app->getDb();
+            self::$chunksMb4 = !$db->getIsMysql()
+                || $db->getSchema()->supportsMb4($db->getSchema()->getRawTableName(LocalTables::CHUNKS_TABLE));
+        }
+
+        return self::$chunksMb4;
     }
 
     /**
@@ -406,7 +456,7 @@ class LocalIndexService extends Component
                     continue;
                 }
                 $phrases[] = $lexemes;
-                $labels[] = $phrase;
+                $labels[] = $this->storable($phrase, $elementId, $siteId);
             }
 
             if ($phrases === [] || $weight <= 0) {
@@ -814,7 +864,7 @@ class LocalIndexService extends Component
 
         if (!is_string($token) || $token === '') {
             $token = bin2hex(random_bytes(8));
-            $cache->set(self::CACHE_TOKEN_KEY, $token, 0);
+            $cache->set(self::CACHE_TOKEN_KEY, $token, 0, CacheTag::dependency());
         }
 
         return $token;

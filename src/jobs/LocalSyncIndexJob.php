@@ -10,6 +10,7 @@ use craft\i18n\Translation;
 use craft\queue\BaseBatchedJob;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
+use Throwable;
 
 /**
  * Walks every enabled entry that has a URI and re-indexes those whose extracted text
@@ -21,8 +22,16 @@ use ghoststreet\craftsmartsearch\SmartSearch;
  */
 class LocalSyncIndexJob extends BaseBatchedJob
 {
+    /**
+     * High enough that neighbouring bad entries cannot trip it, low enough that a cause
+     * affecting every entry fails immediately rather than grinding through the site.
+     */
+    private const FAILURE_ABORT_THRESHOLD = 5;
+
     public ?int $siteId = null;
     public ?string $section = null;
+
+    private int $consecutiveFailures = 0;
 
     protected function loadData(): Batchable
     {
@@ -64,18 +73,41 @@ class LocalSyncIndexJob extends BaseBatchedJob
         }
 
         /*
-         * Deliberately not wrapped in a catch, matching SyncSearchIndexJob.
+         * One unindexable entry skips that entry. A run of them aborts the job.
          *
-         * It used to swallow every Throwable so one unembeddable entry could not abandon
-         * the run. The failure it actually caught was a missing API key, which fails for
-         * every remaining entry too: one run logged the same error 962 times across 481
-         * entries, skipped them all, and reported success. Twelve live pages were still
-         * missing from the local index months later while pgvector held them, because
-         * pgvector's job lets the exception through and Craft's queue retries it.
+         * Both halves are load-bearing. Catching everything and continuing hides a cause
+         * that applies to every remaining entry, such as a missing API key: the run then
+         * skips the whole site and still reports success. Rethrowing everything lets one
+         * entry the database will not store abort the reindex at the same item on every
+         * retry, leaving the rest unindexed.
          *
-         * An index that quietly omits pages is worse than a job that fails loudly.
+         * Consecutive failures are the distinction: they mean the cause is the run and not
+         * the entry. The counter resets on any success, so scattered bad entries never
+         * trip it.
          */
-        SmartSearch::getInstance()->localIndexService->syncEntry($entry);
+        try {
+            SmartSearch::getInstance()->localIndexService->syncEntry($entry);
+            $this->consecutiveFailures = 0;
+        } catch (Throwable $e) {
+            $this->consecutiveFailures++;
+
+            if ($this->consecutiveFailures >= self::FAILURE_ABORT_THRESHOLD) {
+                Logger::error('Local sync aborted: {count} entries failed in a row, so the cause is not the entry', [
+                    'count' => $this->consecutiveFailures,
+                    'entryId' => $entryId,
+                    'siteId' => $siteId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                throw $e;
+            }
+
+            Logger::error('Local sync skipped one entry and continued', [
+                'entryId' => $entryId,
+                'siteId' => $siteId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     protected function defaultDescription(): ?string

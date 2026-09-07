@@ -9,6 +9,7 @@ use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 use craft\queue\Queue;
 use ghoststreet\craftsmartsearch\exceptions\DatabaseException;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\jobs\IndexEntryJob;
 use ghoststreet\craftsmartsearch\jobs\LocalSyncIndexJob;
@@ -245,6 +246,7 @@ class IndexController extends BaseApiController
      */
     public function actionLocalSync(): Response
     {
+        $this->requireAdmin();
         $this->requirePostRequest();
 
         if (!SmartSearch::getInstance()->getSettings()->localEnabled) {
@@ -300,7 +302,8 @@ class IndexController extends BaseApiController
                         $this->buildCoverageRows($perSite, /* withLabel */ true),
                     ];
                 },
-                self::STATS_CACHE_TTL
+                self::STATS_CACHE_TTL,
+                CacheTag::dependency(),
             );
 
             $jobs = $this->loadSyncJobs();

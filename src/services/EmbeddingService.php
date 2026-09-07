@@ -18,6 +18,7 @@ use ghoststreet\craftsmartsearch\events\IndexBoostsEvent;
 use ghoststreet\craftsmartsearch\events\IndexFieldTextEvent;
 use ghoststreet\craftsmartsearch\exceptions\EmbeddingException;
 use ghoststreet\craftsmartsearch\exceptions\SearchException;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TextValidator;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
@@ -294,7 +295,7 @@ class EmbeddingService extends Component
 
         $ttlDays = SmartSearch::getInstance()->getSettings()->embeddingCacheTtlDays;
         if ($ttlDays > 0) {
-            Craft::$app->getCache()->set($persistentCacheKey, $embedding, $ttlDays * 86400);
+            Craft::$app->getCache()->set($persistentCacheKey, $embedding, $ttlDays * 86400, CacheTag::dependency());
         }
 
         return $embedding;
@@ -345,7 +346,7 @@ class EmbeddingService extends Component
 
             $ttlDays = SmartSearch::getInstance()->getSettings()->embeddingCacheTtlDays;
             if ($ttlDays > 0) {
-                Craft::$app->getCache()->set($persistentCacheKey, $embedding, $ttlDays * 86400);
+                Craft::$app->getCache()->set($persistentCacheKey, $embedding, $ttlDays * 86400, CacheTag::dependency());
             }
 
             return $embedding;

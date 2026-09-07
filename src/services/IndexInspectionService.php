@@ -4,6 +4,7 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\elements\Entry;
+use craft\helpers\DateTimeHelper;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\TokenEstimator;
 use ghoststreet\craftsmartsearch\SmartSearch;
@@ -123,8 +124,15 @@ class IndexInspectionService extends Component
         if ($summaryRow === null) {
             return self::STATUS_NOT_INDEXED;
         }
+        /* The stored value is UTC, and strtotime would read it as the system timezone,
+           reporting anything indexed within that offset of an edit as stale. */
+        $indexedAt = DateTimeHelper::toDateTime($summaryRow['lastIndexed']);
+        if ($indexedAt === false) {
+            return self::STATUS_STALE;
+        }
+
         $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
-        return $entryUpdated > strtotime($summaryRow['lastIndexed'])
+        return $entryUpdated > $indexedAt->getTimestamp()
             ? self::STATUS_STALE
             : self::STATUS_INDEXED;
     }

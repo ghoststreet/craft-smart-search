@@ -3,6 +3,7 @@
 namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use PDOException;
@@ -101,7 +102,8 @@ class DictionaryService extends Component
         return (bool)Craft::$app->getCache()->getOrSet(
             self::AVAILABILITY_CACHE_KEY,
             fn() => $this->checkAvailability() ? 1 : 0,
-            self::CAPABILITY_CACHE_TTL_SECONDS
+            self::CAPABILITY_CACHE_TTL_SECONDS,
+            CacheTag::dependency(),
         );
     }
 
@@ -115,7 +117,8 @@ class DictionaryService extends Component
         return self::$extensionCache[$name] = (bool)Craft::$app->getCache()->getOrSet(
             self::EXTENSION_CACHE_KEY_PREFIX . $name,
             fn() => $this->queryHasExtension($name) ? 1 : 0,
-            self::CAPABILITY_CACHE_TTL_SECONDS
+            self::CAPABILITY_CACHE_TTL_SECONDS,
+            CacheTag::dependency(),
         );
     }
 
@@ -276,7 +279,7 @@ class DictionaryService extends Component
 
         if (!is_string($token) || $token === '') {
             $token = bin2hex(random_bytes(8));
-            $cache->set(self::TERMS_TOKEN_CACHE_KEY, $token, self::CAPABILITY_CACHE_TTL_SECONDS);
+            $cache->set(self::TERMS_TOKEN_CACHE_KEY, $token, self::CAPABILITY_CACHE_TTL_SECONDS, CacheTag::dependency());
         }
 
         return $token;

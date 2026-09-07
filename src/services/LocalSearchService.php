@@ -4,12 +4,13 @@ namespace ghoststreet\craftsmartsearch\services;
 
 use Craft;
 use craft\db\Query;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\helpers\Ranker;
 use ghoststreet\craftsmartsearch\helpers\Stemmer;
 use ghoststreet\craftsmartsearch\helpers\TimingProfiler;
 use ghoststreet\craftsmartsearch\helpers\UsageTracker;
-use ghoststreet\craftsmartsearch\migrations\m260905_000000_local_index as LocalTables;
+use ghoststreet\craftsmartsearch\migrations\Install as LocalTables;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\SmartSearch;
 use SplMinHeap;
@@ -106,7 +107,7 @@ class LocalSearchService extends Component
                 'Ranking',
                 fn() => $this->rankResults($query, $limit, $siteId, $model, $sectionIds, $settings)
             );
-            $cache->set($cacheKey, $scoredResults, self::RANKING_CACHE_TTL_SECONDS);
+            $cache->set($cacheKey, $scoredResults, self::RANKING_CACHE_TTL_SECONDS, CacheTag::dependency());
         }
 
         $finalResults = TimingProfiler::profile(
@@ -559,7 +560,7 @@ class LocalSearchService extends Component
 
         $misspelled = array_values(array_diff($unknown, $known));
         foreach ($known as $term) {
-            $cache->set($cachePrefix . $term, '', self::VARIANT_CACHE_TTL_SECONDS);
+            $cache->set($cachePrefix . $term, '', self::VARIANT_CACHE_TTL_SECONDS, CacheTag::dependency());
         }
 
         if ($misspelled === []) {
@@ -605,7 +606,7 @@ class LocalSearchService extends Component
                 }
             }
 
-            $cache->set($cachePrefix . $lexeme, $bestTerm ?? '', self::VARIANT_CACHE_TTL_SECONDS);
+            $cache->set($cachePrefix . $lexeme, $bestTerm ?? '', self::VARIANT_CACHE_TTL_SECONDS, CacheTag::dependency());
             if ($bestTerm !== null) {
                 $variants[$lexeme] = $bestTerm;
             }
@@ -766,7 +767,7 @@ class LocalSearchService extends Component
                 ->one();
 
             $stats = [(int)($row['total'] ?? 0), max(1.0, (float)($row['meanLength'] ?? 1))];
-            $cache->set($key, $stats, self::RANKING_CACHE_TTL_SECONDS);
+            $cache->set($key, $stats, self::RANKING_CACHE_TTL_SECONDS, CacheTag::dependency());
         }
 
         return $stats;
@@ -815,7 +816,7 @@ class LocalSearchService extends Component
             $samples = array_slice($samples, -self::SCAN_SAMPLE_SIZE);
         }
 
-        $cache->set(self::SCAN_SAMPLE_KEY, $samples, 0);
+        $cache->set(self::SCAN_SAMPLE_KEY, $samples, 0, CacheTag::dependency());
     }
 
     /**
