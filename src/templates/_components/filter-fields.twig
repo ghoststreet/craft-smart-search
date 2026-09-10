@@ -44,6 +44,11 @@
     {% endif %}
 {% endmacro %}
 
+{#
+    demo: the pgvector `smart` type is hidden from Insights, so the option below now
+    selects the local backend under the Smart Search name.
+    Restore: { label: 'Smart', value: 'smart' },
+#}
 {% macro typeSelect(typeFilter) %}
     {% import "_includes/forms.twig" as forms %}
     {{ forms.selectField({
@@ -52,7 +57,7 @@
         value: typeFilter,
         options: [
             { label: 'All', value: '' },
-            { label: 'Smart', value: 'smart' },
+            { label: 'Smart Search', value: 'local' },
             { label: 'AI Answer', value: 'aiAnswer' },
         ],
     }) }}

@@ -22,6 +22,17 @@
     {% endif %}
 {% endset %}
 
+{#
+    demo: only the local store's cards are shown. The pgvector grid and the onboarding /
+    disconnected branches below are pgvector-state driven, so during the demo they would
+    hide the local cards behind a PostgreSQL problem. Nothing is removed — uncomment the
+    original block and delete the demo one to restore.
+#}
+{% block content %}
+    {{ localGrid }}
+{% endblock %}
+
+{#
 {% block content %}
     {% if overview.state == 'onboarding' %}
         {% include 'smart-search/_partials/overview-onboarding' with { setupSteps: setupSteps } only %}
@@ -38,7 +49,7 @@
                     {{ actionInput('smart-search/index/sync') }}
                     <button type="submit" class="btn submit" data-craftsearch-control="sync-all-btn">Sync all sites</button>
                 </form>
-                <p class="light smalltext">Only changed entries are re-embedded — unchanged ones are skipped.</p>
+                <p class="light smalltext">Only changed entries are re-embedded &mdash; unchanged ones are skipped.</p>
             </div>
         {% endif %}
 
@@ -56,3 +67,4 @@
         {{ localGrid }}
     {% endif %}
 {% endblock %}
+#}

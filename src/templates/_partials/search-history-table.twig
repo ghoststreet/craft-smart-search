@@ -25,7 +25,10 @@
                 {% for item in items %}
                     <tr>
                         <td>{{ item.query|truncate(120) }}</td>
-                        <td>{{ b.badge(item.type, item.type) }}</td>
+                        {# demo: `local` is presented as Smart Search. The variant stays `local`
+                           so the dot keeps its own colour, distinct from the hidden pgvector
+                           `smart` blue. Restore: {{ b.badge(item.type, item.type) }} #}
+                        <td>{{ b.badge(item.type == 'local' ? 'Smart Search' : item.type, item.type) }}</td>
                         <td>
                             {% if item.hasError %}
                                 {{ b.errorBadge(item.errorMessage) }}

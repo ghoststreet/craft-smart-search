@@ -45,6 +45,9 @@ class HistoryService extends Component
     public function getStats(?int $days = null): array
     {
         $query = (new Query())->from(SearchHistoryRecord::tableName());
+        // demo: pgvector rows are hidden from Insights so the KPI strip agrees with the
+        // history table below it. Delete this line to count them again.
+        $query->andWhere(['not', ['type' => 'smart']]);
 
         if ($cutoff = $this->cutoff($days)) {
             $query->andWhere(['>=', 'dateCreated', $cutoff]);
@@ -77,6 +80,10 @@ class HistoryService extends Component
         $perPage = max(1, min(100, $perPage));
 
         $base = (new Query())->from(SearchHistoryRecord::tableName());
+        // demo: hide pgvector search rows from Insights — the demo presents one backend,
+        // so a "SMART" badge next to the local rows would give the two away.
+        // Delete this line to show them again.
+        $base->andWhere(['not', ['type' => 'smart']]);
 
         if (!empty($filters['type'])) {
             $base->andWhere(['type' => $filters['type']]);

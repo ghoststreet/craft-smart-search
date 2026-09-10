@@ -58,9 +58,12 @@ class AiAnswerService extends Component
         try {
             $settings = SmartSearch::getInstance()->getSettings();
 
+            // demo: retrieval switched from pgvector to the local index so AI Answer works
+            // without PostgreSQL. LocalSearchService::search() is signature- and shape-compatible.
+            // Restore: SmartSearch::getInstance()->smartSearchService->search(...)
             $searchResults = TimingProfiler::profile(
                 'Smart search',
-                fn() => SmartSearch::getInstance()->smartSearchService->search(
+                fn() => SmartSearch::getInstance()->localSearchService->search(
                     $query,
                     $limit,
                     $siteId
@@ -202,7 +205,9 @@ class AiAnswerService extends Component
         try {
             $settings = SmartSearch::getInstance()->getSettings();
 
-            $searchResults = SmartSearch::getInstance()->smartSearchService->search(
+            // demo: same swap as search() above — see the note there.
+            // Restore: SmartSearch::getInstance()->smartSearchService->search(...)
+            $searchResults = SmartSearch::getInstance()->localSearchService->search(
                 $query,
                 $limit,
                 $siteId

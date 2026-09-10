@@ -16,7 +16,10 @@
 {% set store = store ?? 'pgvector' %}
 {% set isLocal = store == 'local' %}
 {% set syncAction = isLocal ? 'smart-search/index/local-sync' : 'smart-search/index/sync' %}
-{% set defaultButtonLabel = isLocal ? 'Reindex local' : 'Sync Index' %}
+{# demo: the local store is the only one on screen, so its card drops the "local" wording
+   and paints like the pgvector card did. Restore the line below to bring the label back.
+   {% set defaultButtonLabel = isLocal ? 'Reindex local' : 'Sync Index' %} #}
+{% set defaultButtonLabel = 'Sync Index' %}
 {% set hasGaps = site.stale > 0 or site.notIndexed > 0 %}
 {% set coverage = site.total > 0 ? (site.indexed / site.total * 100)|round : 0 %}
 {% set activeJob = site.activeJob ?? null %}
@@ -45,7 +48,7 @@
      data-craftsearch-store="{{ store }}"
      data-craftsearch-default-label="{{ defaultButtonLabel }}">
     <div class="ss-card__head">
-        <h3 class="ss-card__title">{{ site.name }}{% if isLocal %} - local{% endif %}</h3>
+        <h3 class="ss-card__title">{{ site.name }}{# demo: was {% if isLocal %} - local{% endif %} #}</h3>
         <span class="ss-card__pill" data-craftsearch-target="pill">
             <span class="status {{ p.pillDot }}" data-craftsearch-target="pill-dot"></span>
             <span data-craftsearch-target="pill-label">{{ p.pillLabel }}</span>
@@ -90,7 +93,7 @@
             {{ actionInput(syncAction) }}
             <input type="hidden" name="siteId" value="{{ site.siteId }}">
             <input type="hidden" name="store" value="{{ store }}">
-            <button type="submit" class="btn{% if not isLocal %} submit{% endif %}" data-craftsearch-control="sync-site-btn">
+            <button type="submit" class="btn submit"{# demo: was class="btn{% if not isLocal %} submit{% endif %}" #} data-craftsearch-control="sync-site-btn">
                 <span data-craftsearch-target="button-label">{{ p.buttonLabel }}</span>
             </button>
         </form>

@@ -42,15 +42,24 @@
     <div class="ss-preview-grid">
 
         {# `key` drives the badge modifier and every data-craftsearch-* name (see pages/preview.js). #}
+        {#
+            demo: the `local` column is hidden (show: false). The Smart Search column now runs
+            the local backend (see RUNNERS.smart in pages/preview.js), so a separate Local
+            Search column would just be the same results twice. Set show: true to restore it.
+
+            demo: `timings: false` hides the per-phase timing panel — its phase names ("Local
+            vector scan", "Local corrector lookup") name the backend and expose internals.
+            Set timings: true to bring the panel back.
+        #}
         {% for c in [
             { key: 'craft', title: 'Default Craft Response', badge: 'Native',
               desc: 'Craft\'s built-in keyword search, untouched. The baseline everything else is compared against.' },
-            { key: 'smart', title: 'Smart Search', badge: 'Semantic + Keyword', timings: true,
+            { key: 'smart', title: 'Smart Search', badge: 'Semantic + Keyword', timings: false,
               desc: 'Combines semantic (vector) similarity with keyword scoring for the most relevant results.' },
             { key: 'ai-answer', title: 'AI Answer', badge: 'Generated', summary: true,
               desc: 'Retrieves matching entries then generates a streaming AI summary with inline citations.',
               note: 'Each run spends AI credits on your provider account.' },
-            { key: 'local', title: 'Local Search', badge: 'No PostgreSQL', timings: true,
+            { key: 'local', title: 'Local Search', badge: 'No PostgreSQL', timings: false, show: false,
               desc: 'The same semantic and keyword ranking, scored against Craft\'s own database instead of PostgreSQL.',
               note: 'Uses its own index. Build it with Reindex local on the dashboard.' },
         ] %}
@@ -67,7 +76,7 @@
                     {% endif %}
                     <div class="ss-preview-col__results" data-craftsearch-target="{{ c.key }}-results" role="region" hidden></div>
                     <div class="ss-preview-col__error" data-craftsearch-target="{{ c.key }}-error" role="alert" hidden></div>
-                    {% if c.timings is defined %}
+                    {% if c.timings is defined and c.timings %}
                         {# Populated from the response's `timings` key, which the API only
                            returns to an admin or in devMode. #}
                         <div class="ss-preview-timings" data-craftsearch-target="{{ c.key }}-timings" hidden></div>

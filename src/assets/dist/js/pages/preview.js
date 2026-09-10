@@ -240,20 +240,23 @@
                 action: 'smart-search/preview/craft-search', dataField: 'results',
             });
         },
+        // demo: the Smart Search column is pointed at the local backend, so a preview run
+        // never touches PostgreSQL. Restore type: 'search' to go back to pgvector.
         smart: function (q, root) {
             runStandardSearch(q, root, {
                 key: 'smart',
                 resultsTarget: 'smart-results', errorTarget: 'smart-error',
-                action: 'smart-search/search', dataField: 'semanticResults', type: 'search',
+                action: 'smart-search/search', dataField: 'semanticResults', type: 'local', // was: 'search'
             });
         },
-        local: function (q, root) {
-            runStandardSearch(q, root, {
-                key: 'local',
-                resultsTarget: 'local-results', errorTarget: 'local-error',
-                action: 'smart-search/search', dataField: 'semanticResults', type: 'local',
-            });
-        },
+        // demo: disabled alongside the hidden `local` column in preview/index.twig.
+        // local: function (q, root) {
+        //     runStandardSearch(q, root, {
+        //         key: 'local',
+        //         resultsTarget: 'local-results', errorTarget: 'local-error',
+        //         action: 'smart-search/search', dataField: 'semanticResults', type: 'local',
+        //     });
+        // },
         'ai-answer': function (q, root) { runRagAnswer(q, root); },
     };
 
