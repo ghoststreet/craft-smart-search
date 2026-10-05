@@ -1,0 +1,58 @@
+{% import '_includes/forms.twig' as forms %}
+
+{% namespace 'settings' %}
+<h2>Search Results</h2>
+<p class="light">Caps how many searches one visitor can run, so a single person or bot cannot overload the API. Set either limit to <code>0</code> to turn it off. Behind a CDN, configure Craft’s <code>request.trustedHosts</code> and <code>ipHeaders</code> so the real visitor IP is read. <a href="{{ wikiUrl }}/Troubleshooting#behind-a-cdn-or-proxy" target="_blank" rel="noopener">Learn more</a>.</p>
+
+    {{ forms.textField({
+        label: 'Searches per minute (per visitor)',
+        instructions: 'Set to <code>0</code> to turn off. Default <code>' ~ defaults.rateLimitSearchPerMinute ~ '</code>.',
+        id: 'rateLimitSearchPerMinute', name: 'rateLimitSearchPerMinute',
+        value: settings.rateLimitSearchPerMinute, type: 'number', min: '0', max: '100000',
+        required: true, errors: settings.getErrors('rateLimitSearchPerMinute'),
+    }) }}
+    {{ forms.textField({
+        label: 'Searches per hour (per visitor)',
+        instructions: 'Set to <code>0</code> to turn off. Default <code>' ~ defaults.rateLimitSearchPerHour ~ '</code>.',
+        id: 'rateLimitSearchPerHour', name: 'rateLimitSearchPerHour',
+        value: settings.rateLimitSearchPerHour, type: 'number', min: '0', max: '100000',
+        required: true, errors: settings.getErrors('rateLimitSearchPerHour'),
+    }) }}
+
+<hr>
+
+<h2>AI Answer</h2>
+
+    {{ forms.textField({
+        label: 'Daily spend cap (USD)',
+        instructions: 'Maximum dollars spent per day across all visitors. Resets every 24 hours. Once reached, requests fall back to plain search results with no summary. Default <code>' ~ defaults.costBudgetDailyGlobal ~ '</code>.',
+        id: 'costBudgetDailyGlobal', name: 'costBudgetDailyGlobal',
+        value: settings.costBudgetDailyGlobal, type: 'number', step: '0.01', min: '0',
+        errors: settings.getErrors('costBudgetDailyGlobal'),
+    }) }}
+    {% if insightsAvailable %}
+        <p class="light">View current usage and spend on the <a href="{{ url('smart-search/insights') }}">Insights</a> page.</p>
+    {% endif %}
+
+    {{ forms.textField({
+        label: 'Answers per minute (per visitor)',
+        instructions: 'How many answers one visitor can request per minute. Set to <code>0</code> to turn off. Default <code>' ~ defaults.rateLimitAiAnswerPerMinute ~ '</code>.',
+        id: 'rateLimitAiAnswerPerMinute', name: 'rateLimitAiAnswerPerMinute',
+        value: settings.rateLimitAiAnswerPerMinute, type: 'number', min: '0', max: '100000',
+        required: true, errors: settings.getErrors('rateLimitAiAnswerPerMinute'),
+    }) }}
+    {{ forms.textField({
+        label: 'Answers per hour (per visitor)',
+        instructions: 'How many answers one visitor can request per hour. Set to <code>0</code> to turn off. Default <code>' ~ defaults.rateLimitAiAnswerPerHour ~ '</code>.',
+        id: 'rateLimitAiAnswerPerHour', name: 'rateLimitAiAnswerPerHour',
+        value: settings.rateLimitAiAnswerPerHour, type: 'number', min: '0', max: '100000',
+        required: true, errors: settings.getErrors('rateLimitAiAnswerPerHour'),
+    }) }}
+    {{ forms.textField({
+        label: 'Concurrent answers (whole site)',
+        instructions: 'How many answers the whole site can generate at the same time, across all visitors. Requests beyond this are refused until a slot frees up. Minimum <code>1</code>. Default <code>' ~ defaults.aiAnswerConcurrencyGlobal ~ '</code>.',
+        id: 'aiAnswerConcurrencyGlobal', name: 'aiAnswerConcurrencyGlobal',
+        value: settings.aiAnswerConcurrencyGlobal, type: 'number', min: '1', max: '100000',
+        required: true, errors: settings.getErrors('aiAnswerConcurrencyGlobal'),
+    }) }}
+{% endnamespace %}

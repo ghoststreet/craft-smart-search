@@ -1,0 +1,33 @@
+{% import 'smart-search/_components/step-list' as steps %}
+<div class="pane">
+    <div class="ss-onboarding-card__intro flex flex-nowrap flex-start flex-gap-l">
+        <div class="ss-onboarding-card__icon" aria-hidden="true">
+            {{ svg('@ghoststreet/craftsmartsearch/icon.svg') }}
+        </div>
+        <div class="ss-onboarding-card__intro-body flex-grow">
+            <h2 class="ss-dash-lede">Welcome to Smart Search</h2>
+            <p class="light ss-dash-lede">
+                Smart Search finds what visitors meant, not just the words they typed, and forgives their
+                typos along the way. It needs no account and no API key to do that: it reads your content
+                and learns which words your pages relate. Indexing has already started, so the one step
+                below is usually just waiting for your queue to finish.
+            </p>
+        </div>
+    </div>
+
+    <h3 class="ss-onboarding-section">1. Get search running</h3>
+    <p class="light ss-onboarding-section__hint">
+        Smart Search keeps its own searchable copy of your content inside your Craft database. Building it
+        costs nothing and calls nothing.
+    </p>
+    {{ steps.stepList(requiredSteps, false, true) }}
+
+    {% if recommendedSteps|length %}
+        <h3 class="ss-onboarding-section ss-onboarding-section--muted">2. Tailor it to your site</h3>
+        <p class="light ss-onboarding-section__hint">
+            Search works without any of these. An API key upgrades how results are ranked and turns on the
+            AI answer; the rest control how that answer sounds and how much it is allowed to spend.
+        </p>
+        {{ steps.stepList(recommendedSteps, true, false) }}
+    {% endif %}
+</div>

@@ -1,0 +1,23 @@
+<div class="pane ss-white-pane-bg">
+    <h3 class="ss-small-caps ss-dash-title">Trending queries ({{ trendingDays }}d)</h3>
+    {% embed 'smart-search/_components/data-table' with { columns: [
+        { label: 'Query' },
+        { label: 'Searches', class: 'thin rightalign', title: 'Searches in the last ' ~ trendingDays ~ ' days' },
+        { label: 'Change', class: 'thin rightalign', title: 'Searches gained over the ' ~ trendingDays ~ ' days before' },
+    ] } %}
+        {% block rows %}
+            {% for q in trendingQueries %}
+                <tr>
+                    <td>{{ q.query|truncate(80) }}</td>
+                    <td class="thin rightalign">{{ q.recent|number_format }}</td>
+                    <td class="thin rightalign"><span class="success smalltext">+{{ q.delta|number_format }}</span></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="3" class="centeralign light">No trending queries detected. Search volume is stable.</td></tr>
+            {% endfor %}
+        {% endblock %}
+    {% endembed %}
+    {% if trendingQueries|length %}
+        <p class="ss-dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights', { report: 'trending' }) }}">View all trending</a></p>
+    {% endif %}
+</div>

@@ -1,0 +1,15 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Settings' %}
+{% set selectedSubnavItem = 'settings' %}
+{% set fullPageForm = true %}
+
+{% set tabs = scenarios|map((s, slug) => { label: s.label, url: cpUrl('smart-search/settings/' ~ slug) }) %}
+{% set selectedTab = scenario %}
+
+{% block content %}
+    {{ actionInput('smart-search/settings/save') }}
+    {{ hiddenInput('scenario', scenario) }}
+
+    {% include partial %}
+{% endblock %}

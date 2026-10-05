@@ -1,0 +1,92 @@
+{% import '_includes/forms.twig' as forms %}
+
+<h2>Connections</h2>
+<p class="light">Optional. Search already works without a key, matching on keywords and on the terms your own
+content puts side by side. A key swaps that second signal for an embedding model that knows words are
+related even when your site never writes them together, and it is what AI Answer needs.
+<a href="{{ wikiUrl }}/Connections" target="_blank" rel="noopener">Setup guide</a>.</p>
+
+{% namespace 'settings' %}
+    {{ forms.selectField({
+        label: 'Provider',
+        instructions: 'Which API serves embeddings and AI Answer. Switching provider changes the models available below and requires a reindex, which starts when you save.',
+        id: 'aiProvider', name: 'aiProvider',
+        value: settings.aiProvider,
+        options: providers,
+        required: true, errors: settings.getErrors('aiProvider'),
+        inputAttributes: { 'data-smart-search-target': 'ai-provider' },
+    }) }}
+
+    <div data-smart-search-provider="openai"{{ settings.aiProvider != 'openai' ? ' hidden' : '' }}>
+        {{ forms.autosuggestField({
+            label: 'OpenAI API key',
+            instructions: 'Optional. Reference an env var like <code>$OPENAI_API_KEY</code> instead of pasting the raw key.',
+            id: 'openaiApiKey', name: 'openaiApiKey',
+            value: settings.openaiApiKey, suggestEnvVars: true,
+            errors: settings.getErrors('openaiApiKey'),
+            inputAttributes: { 'data-smart-search-target': 'api-key' },
+        }) }}
+    </div>
+
+    <div data-smart-search-provider="openrouter"{{ settings.aiProvider != 'openrouter' ? ' hidden' : '' }}>
+        {{ forms.autosuggestField({
+            label: 'OpenRouter API key',
+            instructions: 'Optional. Reference an env var like <code>$OPENROUTER_API_KEY</code> instead of pasting the raw key.',
+            id: 'openrouterApiKey', name: 'openrouterApiKey',
+            value: settings.openrouterApiKey, suggestEnvVars: true,
+            errors: settings.getErrors('openrouterApiKey'),
+            inputAttributes: { 'data-smart-search-target': 'api-key' },
+        }) }}
+    </div>
+
+    <div class="buttons ss-settings__buttons" data-smart-search-target="test-api-key-row" hidden>
+        <button type="button" class="btn" data-smart-search-control="test-api-key">Test API key</button>
+        <span class="ss-settings__test-result" data-smart-search-target="test-api-key-result"></span>
+    </div>
+
+    {% set embeddingWarning %}
+        {% if hasIndex %}
+            <p class="warning has-icon" data-smart-search-target="smart-embedding-warning" hidden>
+                <span class="icon" aria-hidden="true"></span>
+                <span class="visually-hidden">{{ 'Warning:'|t('app') }} </span>
+                <span>Switching the model requires a reindex. It starts automatically when you save.</span>
+            </p>
+        {% endif %}
+    {% endset %}
+
+    {{ forms.field({
+        label: 'Embedding model',
+        instructions: 'Turns content and queries into vectors, once a key is set. Changing it requires a reindex, which starts when you save.',
+        id: 'embeddingModel',
+        required: true, errors: settings.getErrors('embeddingModel'),
+    }, forms.selectize({
+        id: 'embeddingModel', name: 'embeddingModel',
+        value: settings.embeddingModel,
+        options: providerModels[settings.aiProvider].embedding,
+        inputAttributes: { 'data-smart-search-target': 'smart-embedding-model' },
+    }) ~ embeddingWarning) }}
+
+    {{ forms.selectizeField({
+        label: 'Answer model',
+        instructions: 'The model that writes the AI summary. Prices show input / output cost per 1M tokens.',
+        id: 'aiAnswerModel', name: 'aiAnswerModel',
+        value: settings.aiAnswerModel,
+        options: providerModels[settings.aiProvider].answer,
+        required: true, errors: settings.getErrors('aiAnswerModel'),
+        inputAttributes: { 'data-smart-search-target': 'ai-answer-model' },
+    }) }}
+
+    {{ forms.selectField({
+        label: 'Dimensions',
+        instructions: 'The width of every stored vector, whether an API or your own content produced it. Every search compares the query against every stored vector, so this sets how much content the index can hold before search slows down. 512 is about a third of the work per search; wider ranks better. The choices come from the embedding model above, which decides what it will return. Changing it requires a reindex, which starts when you save.',
+        id: 'dimensions', name: 'dimensions',
+        options: settings.dimensionChoices|map(d => { label: d, value: d })|values,
+        value: settings.dimensions,
+        errors: settings.getErrors('dimensions'),
+        inputAttributes: { 'data-smart-search-target': 'dimensions' },
+        fieldAttributes: { 'data-smart-search-target': 'dimensions-field', hidden: not providerModels[settings.aiProvider].offersWidthChoice },
+    }) }}
+
+{% endnamespace %}
+
+<script type="application/json" data-smart-search-target="provider-models">{{ providerModels|json_encode(constant('JSON_HEX_TAG'))|raw }}</script>

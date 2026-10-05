@@ -1,0 +1,83 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Smart Search' %}
+{% set selectedSubnavItem = 'dashboard' %}
+
+{% block content %}
+{% if not setupComplete %}
+    {% include 'smart-search/_dashboard/_onboarding' with {
+        requiredSteps: requiredSteps,
+        recommendedSteps: recommendedSteps,
+    } only %}
+{% else %}
+<div class="ss-dashboard">
+
+    {% if stats.totals.vectors %}
+        {% include 'smart-search/_dashboard/_capacity-notice' with { indexStats: stats, canReduceDimensions: canReduceDimensions } only %}
+    {% endif %}
+
+    {% if not guideDismissed %}
+        {% include 'smart-search/_dashboard/_guide-card' with { recommendedSteps: recommendedSteps, hasSearches: hasSearches } only %}
+    {% endif %}
+
+    {% include 'smart-search/_dashboard/_kpi-usage' with { usage: usage, range: range } only %}
+
+    {% include 'smart-search/_dashboard/_kpi-unified' with {
+        aggregates: aggregates,
+        seriesSearches: seriesSearches,
+        seriesCost: seriesCost,
+        budget: budget,
+    } only %}
+
+    {% if topQueries|length %}
+    <div class="ss-dash-main">
+        <div class="pane ss-white-pane-bg">
+            <h3 class="ss-small-caps ss-dash-title">Top queries ({{ range }}d)</h3>
+            {% embed 'smart-search/_components/data-table' with { columns: [
+                { label: 'Query' },
+                { label: 'Hits', class: 'thin rightalign' },
+                { label: 'Avg results', class: 'thin rightalign' },
+            ] } %}
+                {% block rows %}
+                    {% for q in topQueries %}
+                        <tr>
+                            <td>{{ q.query|truncate(80) }}</td>
+                            <td class="thin rightalign">{{ q.hits|number_format }}</td>
+                            <td class="thin rightalign"><span class="light">{{ q.avgResults|round(1) }}</span></td>
+                        </tr>
+                    {% endfor %}
+                {% endblock %}
+            {% endembed %}
+            <p class="ss-dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights', { report: 'top-queries' }) }}">View all queries</a></p>
+        </div>
+
+        {% include 'smart-search/_dashboard/_trending-queries' with { trendingQueries: trendingQueries, trendingDays: trendingDays } only %}
+    </div>
+    {% endif %}
+
+    {% if recentErrors|length %}
+        <div class="pane">
+            <h3 class="ss-small-caps ss-dash-title">Recent errors</h3>
+            {% embed 'smart-search/_components/data-table' with { columns: [] } %}
+                {% block rows %}
+                    {% import 'smart-search/_components/badge' as b %}
+                    {% for e in recentErrors %}
+                        <tr>
+                            <td>
+                                {{ (e.query ?: e.errorMessage ?: 'error')|truncate(50) }}
+                                {{ b.errorBadge(e.errorMessage) }}
+                            </td>
+                            <td class="thin rightalign"><span class="light smalltext">{{ e.dateCreated|date('M j') }}</span></td>
+                        </tr>
+                    {% endfor %}
+                {% endblock %}
+            {% endembed %}
+            <p class="ss-dash-cta"><a class="go" href="{{ cpUrl('smart-search/insights', { errorsOnly: 1 }) }}">View all errors</a></p>
+        </div>
+    {% endif %}
+
+    {% include 'smart-search/_dashboard/_coverage-by-site' with { coverage: coverage, coverageTotal: coverageTotal, lastIndexed: stats.lastIndexed } only %}
+
+</div>
+{% endif %}
+{% endblock %}

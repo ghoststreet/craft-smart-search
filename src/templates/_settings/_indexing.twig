@@ -1,0 +1,42 @@
+{% import '_includes/forms.twig' as forms %}
+
+{% namespace 'settings' %}
+<h2>Chunking</h2>
+<p class="light">Long entries are split into smaller pieces so ranking can score sections instead of the whole entry. Sizes are in tokens (about 4 characters each). <a href="{{ wikiUrl }}/Indexing-Your-Content#chunking" target="_blank" rel="noopener">Learn more</a>.</p>
+
+    {{ forms.textField({
+        label: 'Smallest chunk size (tokens)',
+        instructions: 'Pieces shorter than this are merged into the next one. Raise it if results show short fragments. Default <code>' ~ defaults.minChunkTokens ~ '</code>.',
+        id: 'minChunkTokens', name: 'minChunkTokens', value: settings.minChunkTokens, type: 'number', min: '10', max: '500', required: true, errors: settings.getErrors('minChunkTokens') }) }}
+    {{ forms.textField({
+        label: 'Target chunk size (tokens)',
+        instructions: 'Smart Search aims for this size when splitting. Bigger chunks give more context per result but match less precisely. Default <code>' ~ defaults.targetChunkTokens ~ '</code>.',
+        id: 'targetChunkTokens', name: 'targetChunkTokens', value: settings.targetChunkTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('targetChunkTokens') }) }}
+    {{ forms.textField({
+        label: 'Largest chunk size (tokens)',
+        instructions: 'Hard upper limit. Keep it above the target size. Default <code>' ~ defaults.maxChunkTokens ~ '</code>.',
+        id: 'maxChunkTokens', name: 'maxChunkTokens', value: settings.maxChunkTokens, type: 'number', min: '200', max: '2000', required: true, errors: settings.getErrors('maxChunkTokens') }) }}
+    {{ forms.textField({
+        label: 'Chunk overlap (tokens)',
+        instructions: 'How many tokens neighbouring chunks share, so a sentence split across a boundary still matches. Set to <code>0</code> to turn off. Default <code>' ~ defaults.overlapTokens ~ '</code>.',
+        id: 'overlapTokens', name: 'overlapTokens', value: settings.overlapTokens, type: 'number', min: '0', max: '200', required: true, errors: settings.getErrors('overlapTokens') }) }}
+    {{ forms.textField({
+        label: 'Skip chunking below (tokens)',
+        instructions: 'Entries shorter than this are indexed whole. Default <code>' ~ defaults.chunkThresholdTokens ~ '</code>.',
+        id: 'chunkThresholdTokens', name: 'chunkThresholdTokens', value: settings.chunkThresholdTokens, type: 'number', min: '100', max: '1000', required: true, errors: settings.getErrors('chunkThresholdTokens') }) }}
+
+{% if settings.hasProviderKey() %}
+<hr>
+
+<h2>Cache</h2>
+
+    {{ forms.textField({
+        label: 'Embedding cache lifetime (days)',
+        instructions: 'Saves money by reusing a vector instead of paying for the same text twice. Edited entries always get a fresh one. Set to <code>0</code> to turn off. Default <code>' ~ defaults.embeddingCacheTtlDays ~ '</code>.',
+        id: 'embeddingCacheTtlDays', name: 'embeddingCacheTtlDays',
+        value: settings.embeddingCacheTtlDays, type: 'number', min: '0', max: '30',
+        required: true, errors: settings.getErrors('embeddingCacheTtlDays'),
+    }) }}
+{% endif %}
+
+{% endnamespace %}

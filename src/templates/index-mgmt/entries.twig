@@ -1,0 +1,33 @@
+{% extends "_layouts/cp" %}
+
+{% set title = 'Index' %}
+{% set selectedSubnavItem = 'index' %}
+
+{% set statuses = {
+    indexed:       { color: 'green',  label: 'Indexed' },
+    stale:         { color: 'orange', label: 'Stale' },
+    'not-indexed': { color: 'off',    label: 'Not indexed' },
+    excluded:      { color: 'grey',   label: 'Excluded' },
+} %}
+
+{% block content %}
+    {% include 'smart-search/_partials/entries-toolbar' with {
+        filters: filters,
+        sites: sites,
+        sections: sections,
+        statuses: statuses,
+        hasActiveFilters: hasActiveFilters,
+    } only %}
+
+    {% include 'smart-search/_partials/entries-stats' with { counts: result.counts, siteId: filters.siteId, activeJob: activeJob, statuses: statuses } only %}
+
+    <div data-smart-search-target="entries-table" data-smart-search-statuses="{{ statuses|json_encode }}">
+        {% include 'smart-search/_partials/entries-table' with { rows: result.items, statuses: statuses } only %}
+    </div>
+
+    {% include 'smart-search/_components/pagination' with {
+        page: result,
+        params: filters,
+        path: 'smart-search/index',
+    } only %}
+{% endblock %}

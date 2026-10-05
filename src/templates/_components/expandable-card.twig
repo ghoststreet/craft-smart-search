@@ -1,0 +1,6 @@
+{% set tag = expandable ? 'details' : 'div' %}
+{% set headTag = expandable ? 'summary' : 'header' %}
+<{{ tag }} class="ss-card {{ class }}{{ expandable ? ' ss-expander' }}">
+    <{{ headTag }} class="flex flex-nowrap {{ headClass }}">{{ head }}</{{ headTag }}>
+    {{ body }}
+</{{ tag }}>

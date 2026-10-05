@@ -1,0 +1,29 @@
+{% set cards = [
+    { icon: 'hashtag',    label: 'Embedding tokens', value: usage.embeddingTokens|number_format, show: usage.embeddingTokens > 0 },
+    { icon: 'robot',      label: 'LLM tokens',       value: usage.llmTokens|number_format, show: usage.llmTokens > 0 },
+    { icon: 'gauge-high', label: 'Avg duration',     value: usage.avgDurationMs|number_format, unit: ' ms', show: usage.avgDurationMs is not null },
+]|filter(c => c.show ?? true) %}
+
+{% if cards|length %}
+<div class="ss-kpi-grid">
+    {% for c in cards %}
+        <div class="pane padding-m flex flex-nowrap flex-gap-m ss-kpi-card--compact">
+            <span class="cp-icon ss-kpi-card__icon">{{ iconSvg(c.icon) }}</span>
+            <div>
+                <div class="ss-small-caps">{{ c.label }}</div>
+                <div class="ss-kpi-card__value">{{ c.value }}{% if c.unit is defined %}<span class="ss-kpi-card__value-unit">{{ c.unit }}</span>{% endif %}</div>
+            </div>
+        </div>
+    {% endfor %}
+    {% if usage.errorCount > 0 %}
+        <a href="{{ cpUrl('smart-search/insights', { errorsOnly: 1, days: range }) }}"
+           class="pane padding-m flex flex-nowrap flex-gap-m ss-kpi-card--compact ss-kpi-card--error ss-kpi-card--link" title="View errored searches">
+            <span class="cp-icon ss-kpi-card__icon">{{ iconSvg('triangle-exclamation') }}</span>
+            <div>
+                <div class="ss-small-caps">Errors</div>
+                <div class="ss-kpi-card__value error">{{ usage.errorCount|number_format }}</div>
+            </div>
+        </a>
+    {% endif %}
+</div>
+{% endif %}

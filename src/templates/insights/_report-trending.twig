@@ -1,0 +1,35 @@
+<p class="light">Queries gaining momentum: searched more in the last {{ trendingDays }} days than in the {{ trendingDays }} days before. Use it to spot rising interest early.</p>
+{% if page.items|length %}
+    {% embed 'smart-search/_components/data-table' with { columns: [
+        { label: 'Query' },
+        { label: 'Recent', class: 'thin rightalign', title: 'Searches in the last ' ~ trendingDays ~ ' days' },
+        { label: 'Prior', class: 'thin rightalign', title: 'Searches in the prior ' ~ trendingDays ~ ' days' },
+        { label: 'Change', class: 'thin rightalign', title: 'Searches gained over the prior ' ~ trendingDays ~ ' days' },
+    ] } %}
+        {% block rows %}
+            {% for k in page.items %}
+                <tr>
+                    <td>{{ k.query|truncate(100) }}</td>
+                    <td class="thin rightalign">{{ k.recent|number_format }}</td>
+                    <td class="thin rightalign light">{{ k.prior|number_format }}</td>
+                    <td class="thin rightalign"><span class="success smalltext">+{{ k.delta|number_format }}</span></td>
+                </tr>
+            {% endfor %}
+        {% endblock %}
+    {% endembed %}
+{% else %}
+    {% include 'smart-search/_components/empty-state' with {
+        variant: 'neutral',
+        title: hasActiveFilters ? 'No rising queries for this site' : 'Not enough data yet',
+        text: hasActiveFilters
+            ? 'Nothing gained momentum here. Clear the filters to compare across every site.'
+            : 'Check back once more searches are recorded.',
+        clearUrl: hasActiveFilters ? clearUrl : null,
+    } only %}
+{% endif %}
+
+{% include 'smart-search/_components/pagination' with {
+    page: page,
+    path: 'smart-search/insights',
+    params: { report: 'trending', siteId: filters.siteId },
+} only %}

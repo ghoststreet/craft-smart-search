@@ -1,0 +1,11 @@
+{% if page.pages > 1 %}
+    {% include '_includes/pagination' with {
+        pageInfo: {
+            total: page.total,
+            first: (page.page - 1) * page.perPage + 1,
+            last: min(page.page * page.perPage, page.total),
+            prevUrl: page.page > 1 ? cpUrl(path, params|merge({ page: page.page - 1 })) : null,
+            nextUrl: page.page < page.pages ? cpUrl(path, params|merge({ page: page.page + 1 })) : null,
+        },
+    } only %}
+{% endif %}

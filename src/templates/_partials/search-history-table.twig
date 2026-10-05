@@ -1,0 +1,60 @@
+{% set showCost = items|filter(i => i.cost > 0)|length > 0 %}
+{% if items|length %}
+    {% embed 'smart-search/_components/data-table' with { columns: [
+        { label: 'Query' },
+        { label: 'Type', class: 'thin' },
+        { label: 'Status', class: 'thin' },
+        { label: 'Results', class: 'thin rightalign' },
+        { label: 'Tokens', class: 'thin rightalign' },
+    ]|merge(showCost ? [{ label: 'Cost', class: 'thin rightalign' }] : [])|merge([
+        { label: 'Duration', class: 'thin rightalign' },
+        { label: 'Date', class: 'thin' },
+    ]) } %}
+        {% block rows %}
+            {% import 'smart-search/_components/badge' as b %}
+            {% for item in items %}
+                {% set type = searchTypes[item.type] %}
+                <tr>
+                    <td>{{ item.query|truncate(120) }}</td>
+                    <td class="thin">{{ b.badge(type.label, type.color) }}</td>
+                    <td class="thin">
+                        {% if item.hasError %}
+                            {{ b.errorBadge(item.errorMessage) }}
+                        {% else %}
+                            {{ b.badge('Success', 'green') }}
+                        {% endif %}
+                    </td>
+                    <td class="thin rightalign{% if item.resultsCount == 0 %} light{% endif %}">{{ item.resultsCount }}</td>
+                    <td class="thin rightalign">
+                        {%- set aiAnswerTokens = item.aiAnswerInputTokens + item.aiAnswerOutputTokens -%}
+                        {%- set hasEmbedding = item.embeddingCached or item.embeddingTokens > 0 -%}
+                        {%- if aiAnswerTokens > 0 -%}
+                            <span title="AI Answer tokens (LLM {{ item.aiAnswerInputTokens|number_format }} in / {{ item.aiAnswerOutputTokens|number_format }} out)"><span class="status violet"></span>{{ aiAnswerTokens|number_format }}</span>
+                        {%- endif -%}
+                        {%- if aiAnswerTokens > 0 and hasEmbedding %} <span class="light">/</span> {% endif -%}
+                        {%- if item.embeddingCached -%}
+                            <span title="Embedding served from cache, 0 embedding tokens billed">{{ b.badge('Cached', 'gray') }}</span>
+                        {%- elseif item.embeddingTokens > 0 -%}
+                            <span title="Embedding tokens"><span class="status blue"></span>{{ item.embeddingTokens|number_format }}</span>
+                        {%- endif -%}
+                        {%- if aiAnswerTokens == 0 and not hasEmbedding -%}
+                            <span class="light">-</span>
+                        {%- endif -%}
+                    </td>
+                    {% if showCost %}<td class="thin rightalign">{% if item.cost > 0 %}${{ item.cost|number_format(6) }}{% else %}<span class="light">-</span>{% endif %}</td>{% endif %}
+                    <td class="thin rightalign light">{{ item.durationMs|number_format }} ms</td>
+                    <td class="thin"><span class="light" title="{{ item.dateCreated|date('Y-m-d H:i:s') }}">{{ item.dateCreated|date('M j, Y') }}</span></td>
+                </tr>
+            {% endfor %}
+        {% endblock %}
+    {% endembed %}
+{% else %}
+    {% include 'smart-search/_components/empty-state' with {
+        variant: 'neutral',
+        title: hasActiveFilters ? 'No searches match these filters' : 'No searches recorded yet',
+        text: hasActiveFilters
+            ? 'Try a wider time range, or clear the filters to see every search.'
+            : 'Searches will appear here as visitors use search.',
+        clearUrl: hasActiveFilters ? clearUrl : null,
+    } only %}
+{% endif %}

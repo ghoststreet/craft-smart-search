@@ -1,0 +1,39 @@
+{% set hasSearches = aggregates.searches > 0 %}
+{% set hasSpend = aggregates.cost > 0 or budget.spent > 0 %}
+{% set budgetPct = (budget.ratio * 100)|round %}
+
+{% if hasSearches or hasSpend %}
+<div class="ss-dash-kpis">
+{% if hasSearches %}
+<div class="pane padding-l ss-kpi-card ss-white-pane-bg">
+    <div class="ss-small-caps">Searches · {{ aggregates.rangeDays }}d</div>
+    <div class="ss-kpi-card__value">{{ aggregates.searches|number_format }}</div>
+    <div class="ss-kpi-card__chart">
+        <canvas data-smart-search-target="chart-canvas" data-smart-search-chart="sparkline" data-smart-search-series="{{ seriesSearches|json_encode|e('html_attr') }}"></canvas>
+    </div>
+</div>
+{% endif %}
+
+{% if hasSpend %}
+<div class="pane padding-l ss-kpi-card ss-white-pane-bg">
+    <div class="ss-small-caps">Spend · {{ aggregates.rangeDays }}d</div>
+    <div class="ss-kpi-card__value">${{ aggregates.cost > 0 and aggregates.cost < 0.01 ? aggregates.cost|number_format(4) : aggregates.cost|number_format(2) }}</div>
+    <div class="ss-kpi-card__chart">
+        <canvas data-smart-search-target="chart-canvas" data-smart-search-chart="area" data-smart-search-series="{{ seriesCost|json_encode|e('html_attr') }}"></canvas>
+    </div>
+    {% if budget.cap > 0 %}
+        {% set usage %}${{ budget.spent|number_format(2) }} <span class="light">/ ${{ budget.cap|number_format(2) }}</span> · {{ budgetPct }}%{% endset %}
+        {% include 'smart-search/_components/usage-bar' with {
+            label: 'Daily budget',
+            usage: usage,
+            pct: budgetPct,
+            critAt: 90,
+        } only %}
+        {% if budget.etaDays is not null %}
+            <div class="light smalltext">Projected to hit cap in ~{{ budget.etaDays }} days</div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endif %}
+</div>
+{% endif %}

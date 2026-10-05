@@ -1,0 +1,101 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms.twig" as forms %}
+{% import 'smart-search/_components/filter-fields' as f %}
+
+{% set title = 'Insights' %}
+{% set selectedSubnavItem = 'insights' %}
+
+{% set days = filters.days %}
+{% set siteId = filters.siteId %}
+
+{% set searchTypes = {
+    search:      { label: 'Smart Search', color: 'blue' },
+    'ai-answer': { label: 'AI Answer',    color: 'violet' },
+    native:      { label: 'Craft search', color: 'gray' },
+} %}
+
+{% set showDays = report != 'trending' %}
+{% set isOverview = report == 'overview' %}
+{% set showSites = sites|length > 1 %}
+{% set hasFilters = showDays or isOverview or showSites %}
+{% set hasActiveFilters = days or siteId or filters.type or filters.errorsOnly %}
+
+{% set clearUrl = cpUrl('smart-search/insights', { report: report }) %}
+
+{% set reportOptions = [] %}
+{% for key, label in reports %}
+    {% set reportOptions = reportOptions|merge([{
+        label: label,
+        value: key,
+        data: { url: cpUrl('smart-search/insights', { report: key, siteId: siteId, days: key != 'trending' ? days : null }) },
+    }]) %}
+{% endfor %}
+
+{% block content %}
+    <div class="ss-filter-bar flex flex-end flex-gap-m">
+        {% if hasFilters %}
+            <form method="get" action="{{ cpUrl('smart-search/insights') }}" class="flex flex-end flex-gap-m" data-smart-search-target="filter-bar-form">
+                <input type="hidden" name="report" value="{{ report }}">
+                {{ f.sitesSelect(sites, siteId) }}
+                {% if showDays %}
+                    {{ forms.selectField({
+                        label: 'Time range',
+                        name: 'days',
+                        value: days,
+                        options: [
+                            { label: 'All time', value: '' },
+                            { label: 'Last 24 hours', value: 1 },
+                            { label: 'Last 7 days', value: 7 },
+                            { label: 'Last 30 days', value: 30 },
+                            { label: 'Last 90 days', value: 90 },
+                        ],
+                    }) }}
+                {% endif %}
+                {% if isOverview %}
+                    {{ forms.selectField({
+                        label: 'Type',
+                        name: 'type',
+                        value: filters.type,
+                        options: [{ label: 'All', value: '' }]|merge(searchTypes|map((t, value) => { label: t.label, value: value })|values),
+                    }) }}
+                    {{ forms.selectField({
+                        label: 'Status',
+                        name: 'errorsOnly',
+                        value: filters.errorsOnly ? 1 : '',
+                        options: [
+                            { label: 'All statuses', value: '' },
+                            { label: 'Errors only', value: 1 },
+                        ],
+                    }) }}
+                {% endif %}
+                <button type="submit" class="btn submit">Filter</button>
+                {{ f.resetButton(clearUrl, hasActiveFilters) }}
+            </form>
+        {% endif %}
+        {{ forms.selectField({
+            label: 'View',
+            id: 'ss-report-view',
+            fieldClass: 'ss-report-switch',
+            options: reportOptions,
+            value: report,
+            inputAttributes: { 'data-smart-search-control': 'report-select' },
+        }) }}
+    </div>
+
+    {% if isOverview %}
+        {% include 'smart-search/_partials/search-history-table' with {
+            items: page.items,
+            searchTypes: searchTypes,
+            hasActiveFilters: hasActiveFilters,
+            clearUrl: clearUrl,
+        } only %}
+
+        {% include 'smart-search/_components/pagination' with {
+            page: page,
+            path: 'smart-search/insights',
+            params: { days: filters.days, siteId: filters.siteId, type: filters.type, errorsOnly: filters.errorsOnly ? 1 : null },
+        } only %}
+    {% else %}
+        {% include 'smart-search/insights/_report-' ~ report %}
+    {% endif %}
+{% endblock %}

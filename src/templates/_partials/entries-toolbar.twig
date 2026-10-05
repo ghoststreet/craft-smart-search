@@ -1,0 +1,23 @@
+{% import "_includes/forms.twig" as forms %}
+{% import 'smart-search/_components/filter-fields' as f %}
+
+<form method="get" action="{{ cpUrl('smart-search/index') }}" class="ss-filter-bar flex flex-end flex-gap-m" data-smart-search-target="filter-bar-form">
+    {{ f.sitesSelect(sites, filters.siteId, false) }}
+
+    {{ forms.selectField({
+        label: 'Section',
+        name: 'section',
+        value: filters.section,
+        options: [{ label: 'All sections', value: '' }]|merge(sections|map(s => { label: s.name, value: s.handle })),
+    }) }}
+
+    {{ forms.selectField({
+        label: 'Status',
+        name: 'status',
+        value: filters.status,
+        options: [{ label: 'All', value: '' }]|merge(statuses|map((s, value) => { label: s.label, value: value })|values),
+    }) }}
+
+    <button type="submit" class="btn submit">Filter</button>
+    {{ f.resetButton(cpUrl('smart-search/index'), hasActiveFilters) }}
+</form>

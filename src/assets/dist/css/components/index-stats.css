@@ -1,0 +1,27 @@
+.ss-index-stats {
+    position: relative;
+    overflow: hidden;
+    margin: 0 0 18px;
+    padding: 12px 16px;
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--medium-border-radius);
+    background: var(--gray-050);
+}
+
+.ss-index-stats .status {
+    margin: 0;
+}
+
+.ss-index-stats__count {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.ss-index-stats__progress {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    border-radius: 0;
+}

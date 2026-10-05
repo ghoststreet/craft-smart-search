@@ -1,0 +1,34 @@
+.ss-chunk-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ss-chunk-row__header {
+    padding: 8px 14px;
+    background: var(--gray-050);
+}
+.ss-chunk-row__index { font-weight: 600; }
+
+.ss-chunk-row__token-bar {
+    flex: 1;
+    min-width: 60px;
+    max-width: 180px;
+    height: 4px;
+}
+
+.ss-chunk-row__content {
+    margin: 0;
+    padding: 12px 14px;
+    max-height: 360px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+    border-top: 1px solid var(--hairline-color);
+    background: var(--gray-050);
+}
+
+.ss-chunk-row__empty {
+    padding: 12px 14px;
+}

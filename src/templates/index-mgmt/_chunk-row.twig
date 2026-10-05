@@ -1,0 +1,24 @@
+{% set barPct = maxTokens > 0 ? (chunk.estimatedTokens / maxTokens * 100)|round : 0 %}
+{% set expandable = chunk.content is not empty %}
+{% set head %}
+    <span class="ss-chunk-row__index">#{{ chunk.chunkIndex + 1 }} / {{ chunk.totalChunks }}</span>
+    <span class="light smalltext">~{{ chunk.estimatedTokens }} {{ 'tokens'|t('smart-search') }}</span>
+    <div class="ss-bar ss-chunk-row__token-bar" aria-hidden="true">
+        <span class="ss-bar__fill" style="width: {{ barPct }}%"></span>
+    </div>
+    <span class="light smalltext">{{ chunk.dateUpdated|date('M j, Y g:i A') }}</span>
+{% endset %}
+{% set body %}
+    {% if expandable %}
+        <pre class="ss-chunk-row__content code">{{ chunk.content }}</pre>
+    {% else %}
+        <div class="ss-chunk-row__empty"><span class="light">-</span></div>
+    {% endif %}
+{% endset %}
+{% include 'smart-search/_components/expandable-card' with {
+    expandable: expandable,
+    class: 'ss-chunk-row',
+    headClass: 'ss-chunk-row__header flex-gap-m',
+    head: head,
+    body: body,
+} only %}

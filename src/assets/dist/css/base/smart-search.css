@@ -1,0 +1,32 @@
+[hidden] {
+    display: none !important;
+}
+
+.ss-small-caps {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--medium-text-color);
+}
+
+.ss-card {
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--medium-border-radius);
+    background: var(--white);
+    overflow: hidden;
+}
+
+button.status-label {
+    border: 0;
+    font-family: inherit;
+}
+
+.ss-error-message {
+    max-width: 480px;
+    max-height: 320px;
+    margin: 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

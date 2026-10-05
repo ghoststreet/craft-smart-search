@@ -1,0 +1,10 @@
+{% set state = pct >= critAt ? 'crit' : (pct >= 75 ? 'warn' : 'ok') %}
+<div class="ss-usage-bar">
+    <div class="flex flex-justify">
+        <span class="ss-small-caps">{{ label }}</span>
+        <span class="ss-usage-bar__usage">{{ usage }}</span>
+    </div>
+    <div class="ss-bar ss-bar--{{ state }}">
+        <span class="ss-bar__fill" style="width: {{ max(1, min(100, pct))|round }}%"></span>
+    </div>
+</div>

@@ -1,0 +1,55 @@
+{% if rows|length %}
+    {% set actionsLabel %}<span class="visually-hidden">Actions</span>{% endset %}
+    {% embed 'smart-search/_components/data-table' with { columns: [
+        { label: 'Title' },
+        { label: 'Section' },
+        { label: 'Status', class: 'thin' },
+        { label: 'Chunks', class: 'thin' },
+        { label: 'Last indexed', class: 'thin' },
+        { label: actionsLabel, class: 'thin' },
+    ] } %}
+        {% block rows %}
+            {% for row in rows %}
+                {% set s = statuses[row.status] %}
+                <tr data-smart-search-entry-row data-element-id="{{ row.elementId }}" data-site-id="{{ row.siteId }}">
+                    <td>
+                        <a href="{{ cpUrl('smart-search/index/entry', { elementId: row.elementId, siteId: row.siteId }) }}">{{ row.title ?: '(untitled)' }}</a>
+                    </td>
+                    <td>{{ row.section }}</td>
+                    <td class="thin" data-smart-search-target="status-cell">
+                        <span class="status {{ s.color }}"></span> {{ s.label }}
+                    </td>
+                    <td class="thin" data-smart-search-target="chunks-cell">{{ row.chunkCount }}</td>
+                    <td class="thin" data-smart-search-target="date-cell">
+                        {% if row.lastIndexed %}
+                            {{ row.lastIndexed|date('M j, Y g:i A') }}
+                        {% else %}
+                            <span class="light">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="thin">
+                        <div class="flex flex-nowrap flex-gap-xs">
+                            {% for action in [
+                                { name: 'reindex', label: 'Re-index',            icon: 'refresh',  hidden: row.excluded },
+                                { name: 'exclude', label: 'Exclude from index',  icon: 'disabled', hidden: row.excluded },
+                                { name: 'include', label: 'Re-include in index', icon: 'plus',     hidden: not row.excluded },
+                            ] %}
+                                <form method="post" data-smart-search-control="{{ action.name }}-form"{% if action.hidden %} hidden{% endif %}>
+                                    {{ csrfInput() }}
+                                    {{ actionInput('smart-search/index/' ~ action.name ~ '-entry') }}
+                                    {{ hiddenInput('elementId', row.elementId) }}
+                                    {{ hiddenInput('siteId', row.siteId) }}
+                                    <craft-tooltip placement="top" text="{{ action.label }}">
+                                        <button type="submit" class="btn small" data-smart-search-target="entry-action-button" data-icon="{{ action.icon }}" aria-label="{{ action.label }}"></button>
+                                    </craft-tooltip>
+                                </form>
+                            {% endfor %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        {% endblock %}
+    {% endembed %}
+{% else %}
+    <div class="zilch small">No entries match these filters.</div>
+{% endif %}

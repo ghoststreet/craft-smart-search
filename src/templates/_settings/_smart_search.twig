@@ -1,0 +1,68 @@
+{% import '_includes/forms.twig' as forms %}
+
+{% namespace 'settings' %}
+<h2>Craft search</h2>
+
+    {{ forms.lightswitchField({
+        label: 'Enhance Craft search',
+        instructions: 'Your site’s existing search (<code>craft.entries.search()</code> in templates and <code>search</code> in GraphQL) ranks by Smart Search, with no template changes. Everything Craft finds is still returned, and its search syntax keeps its meaning. Control panel search stays Craft’s own.',
+        id: 'enhanceNativeSearch', name: 'enhanceNativeSearch',
+        on: settings.enhanceNativeSearch,
+        errors: settings.getErrors('enhanceNativeSearch'),
+    }) }}
+
+<hr>
+
+<h2>Ranking</h2>
+<p class="light">Results are scored by meaning (semantic) and exact words (keyword). The bar below decides how the two are mixed. <a href="{{ wikiUrl }}/Tuning-Search-Results" target="_blank" rel="noopener">Learn more</a>.</p>
+
+    {% set weightBar %}
+        <div class="ss-weight-bar" data-smart-search-target="weight-bar">
+            <input type="range" class="ss-weight-bar__input"
+                id="rrfSemanticWeight" name="rrfSemanticWeight"
+                min="0" max="1" step="0.05"
+                value="{{ settings.rrfSemanticWeight }}"
+                data-smart-search-control="weight"
+                aria-describedby="rrfSemanticWeight-readout">
+            <div class="ss-weight-bar__readout" id="rrfSemanticWeight-readout" aria-live="polite">
+                <span data-smart-search-target="weight-semantic"></span>
+                <span data-smart-search-target="weight-keyword"></span>
+            </div>
+        </div>
+    {% endset %}
+
+    {{ forms.field({
+        label: 'Ranking balance',
+        instructions: 'Drag right to rank by meaning, left to rank by exact words. The filled part of the bar is the semantic share, the rest goes to keywords. Default <code>' ~ (defaults.rrfSemanticWeight * 100)|round ~ '%</code> semantic, <code>' ~ (100 - defaults.rrfSemanticWeight * 100)|round ~ '%</code> keyword.',
+        id: 'rrfSemanticWeight',
+        errors: settings.getErrors('rrfSemanticWeight'),
+    }, weightBar) }}
+
+    {{ forms.textField({
+        label: 'Minimum semantic score',
+        instructions: 'How close in meaning a result must be before it shows. Raise it to filter weak matches; lower it if relevant pages are missing. Default <code>' ~ defaults.minSemanticThreshold ~ '</code>.',
+        id: 'minSemanticThreshold', name: 'minSemanticThreshold',
+        value: settings.minSemanticThreshold, type: 'number', step: '0.05', min: '0', max: '1',
+        required: true, errors: settings.getErrors('minSemanticThreshold'),
+    }) }}
+
+    {{ forms.textField({
+        label: 'Candidate pool size',
+        instructions: 'How many results Smart Search considers per query before picking the best. Bigger casts a wider net but slows searches. Default <code>' ~ defaults.maxSemanticResults ~ '</code>.',
+        id: 'maxSemanticResults', name: 'maxSemanticResults',
+        value: settings.maxSemanticResults, type: 'number', min: '10', max: '500',
+        required: true, errors: settings.getErrors('maxSemanticResults'),
+    }) }}
+
+<hr>
+
+<h2>Result display</h2>
+
+    {{ forms.textField({
+        label: 'Excerpt length (characters)',
+        instructions: 'Length of the preview snippet shown under each result. Default <code>' ~ defaults.excerptLength ~ '</code>.',
+        id: 'excerptLength', name: 'excerptLength',
+        value: settings.excerptLength, type: 'number', min: '50', max: '500',
+        required: true, errors: settings.getErrors('excerptLength'),
+    }) }}
+{% endnamespace %}

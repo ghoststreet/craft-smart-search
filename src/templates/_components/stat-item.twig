@@ -1,0 +1,5 @@
+<div class="flex flex-gap-xs">
+    {% if color ?? null %}<span class="status {{ color }}"></span>{% endif %}
+    <span class="ss-index-stats__count"{{ attr({ data: { 'smart-search-target': countTarget ?? null } }) }}>{{ count }}</span>
+    <span class="ss-small-caps"{{ attr({ data: { 'smart-search-target': labelTarget ?? null } }) }}>{{ label }}</span>
+</div>

@@ -1,0 +1,126 @@
+.ss-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    align-items: start;
+}
+
+.ss-preview-col__pane {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ss-preview-col__heading {
+    margin: 0;
+}
+
+.ss-preview-col__cite {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--link-color);
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+.ss-preview-result-card {
+    border-top: 1px solid var(--hairline-color);
+    padding: 10px 0;
+}
+
+.ss-preview-result-card:first-child {
+    border-top: none;
+}
+
+.ss-preview-result-card__title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--link-color);
+    text-decoration: none;
+    display: block;
+}
+
+.ss-preview-result-card__title:hover {
+    text-decoration: underline;
+}
+
+.ss-preview-result-card__excerpt {
+    font-size: 12px;
+    color: var(--medium-text-color);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.ss-preview-col__summary {
+    background: var(--gray-100);
+    border-left: 3px solid var(--violet-600);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-color);
+    white-space: pre-wrap;
+}
+
+.ss-preview-info {
+    margin-bottom: 24px;
+    padding: 20px 24px;
+}
+
+.ss-preview-coverage {
+    margin-top: 12px;
+}
+
+.ss-preview-info__content {
+    max-width: 600px;
+    margin-bottom: 20px;
+}
+
+.ss-preview-col__desc {
+    font-size: 13px;
+    color: var(--medium-text-color);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.ss-preview-col__note {
+    font-size: 12px;
+    color: var(--medium-text-color);
+    margin: 0;
+    font-style: italic;
+}
+
+.ss-preview-timings {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--hairline-color);
+}
+
+.ss-preview-timings__row {
+    padding: 2px 0;
+    font-size: 12px;
+}
+
+.ss-preview-timings__label {
+    flex: 0 0 auto;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--medium-text-color);
+}
+
+.ss-preview-timings__value {
+    flex: 0 0 auto;
+    min-width: 58px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-color);
+}
+
+.ss-preview-timings__bar {
+    flex: 1;
+    min-width: 24px;
+    height: 4px;
+}

@@ -1,0 +1,133 @@
+.ss-dashboard {
+    display: grid;
+    gap: 16px;
+}
+.ss-dashboard .pane {
+    margin: 0;
+}
+
+/* Craft paints panes inside #content with --secondary-pane-bg; pointing it at the white pane color wins without a specificity fight. */
+.ss-white-pane-bg {
+    --secondary-pane-bg: var(--pane-bg);
+}
+
+.ss-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.ss-dash-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.ss-kpi-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    min-height: 190px;
+}
+.ss-kpi-card__value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -.01em;
+    color: var(--text-color);
+}
+.ss-kpi-card__value-unit {
+    font-size: 14px;
+    color: var(--medium-text-color);
+}
+.ss-kpi-card__chart {
+    position: relative;
+    height: 80px;
+}
+
+.ss-kpi-card--compact .ss-kpi-card__value { font-size: 22px; }
+.ss-kpi-card__icon {
+    --icon-size: 26px;
+    --icon-color: var(--gray-400);
+    flex: 0 0 auto;
+}
+.ss-kpi-card--error .ss-kpi-card__icon { --icon-color: var(--error-color); }
+
+a.ss-kpi-card--link {
+    text-decoration: none;
+    transition: background-color 120ms ease;
+}
+a.ss-kpi-card--link:hover {
+    background: var(--gray-100);
+}
+
+.ss-dash-main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+.ss-dash-title { margin: 0 0 12px; }
+.ss-dash-cta { margin-top: 12px; }
+.ss-dash-chart {
+    position: relative;
+    height: 220px;
+}
+
+.ss-capacity-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    background: var(--amber-050);
+    border-inline-start: 6px solid var(--amber-500);
+}
+.ss-capacity-notice--crit {
+    background: var(--red-050);
+    border-inline-start-color: var(--fg-error);
+}
+.ss-capacity-notice__icon {
+    --icon-size: 18px;
+    --icon-color: var(--amber-600);
+    flex: 0 0 auto;
+}
+.ss-capacity-notice--crit .ss-capacity-notice__icon { --icon-color: var(--fg-error); }
+.ss-capacity-notice p { margin: 0; }
+
+.ss-guide-card {
+    padding-inline-end: 44px;
+    background: var(--blue-050);
+    border: 1px solid var(--blue-200);
+}
+.ss-guide-card__close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--medium-text-color);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+}
+.ss-guide-card__close:hover { background: var(--gray-100); color: var(--text-color); }
+.ss-guide-card > .ss-onboarding-section { margin-top: 0; }
+
+@media (max-width: 1500px) {
+    .ss-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1100px) {
+    .ss-dash-main { grid-template-columns: 1fr; }
+    .ss-dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+    .ss-dash-kpis { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+    .ss-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

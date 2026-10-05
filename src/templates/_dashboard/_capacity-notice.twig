@@ -1,0 +1,29 @@
+{% set totals = indexStats.totals %}
+
+{% set msPerChunk = indexStats.scanMsPerChunk %}
+{% set chunksAtScan = msPerChunk and msPerChunk > 0
+    ? (indexStats.scanWarnMs / msPerChunk)|round
+    : null %}
+{% set chunksAtCache = indexStats.dbCacheBytes and indexStats.bytesPerChunk > 0
+    ? ((indexStats.dbCacheBytes * 0.6) / indexStats.bytesPerChunk)|round
+    : null %}
+
+{% set limits = [chunksAtScan, chunksAtCache]|filter(v => v is not null) %}
+{% set capacity = limits|length ? min(limits) : null %}
+{% set usedPct = capacity and capacity > 0 ? ((totals.chunks / capacity) * 100) : null %}
+
+{% if usedPct is not null and usedPct >= 80 %}
+    {% set over = usedPct >= 100 %}
+    <div class="ss-capacity-notice{{ over ? ' ss-capacity-notice--crit' }}" role="status">
+        <span class="cp-icon ss-capacity-notice__icon">{{ iconSvg('triangle-exclamation') }}</span>
+        <p class="flex-grow">
+            <strong>{{ over ? 'Search is slower than it should be.' : 'Search is close to its comfortable size.' }}</strong>
+            {{ totals.chunks|number_format }} of {{ capacity|number_format }} chunks used ({{ usedPct|round(0, 'floor') }}%).
+            Exclude entries that don’t need to be found{{ canReduceDimensions ? ', or lower the dimensions' }}.
+        </p>
+        <a class="btn small" href="{{ cpUrl('smart-search/index') }}">Open Index</a>
+        {% if canReduceDimensions %}
+            <a class="btn small" href="{{ cpUrl('smart-search/settings/connections') }}">Reduce dimensions</a>
+        {% endif %}
+    </div>
+{% endif %}

@@ -1,0 +1,11 @@
+<div class="pane">
+    <h3 class="ss-small-caps ss-dash-title">Index coverage</h3>
+    {% if coverage|length and coverageTotal > 0 %}
+        <div class="ss-dash-chart">
+            <canvas data-smart-search-target="chart-canvas" data-smart-search-chart="horizontal-stacked-bar" data-smart-search-series="{{ coverage|json_encode|e('html_attr') }}"></canvas>
+        </div>
+        {% if lastIndexed %}<p class="light smalltext">Last sync {{ lastIndexed|date('M j, g:i A') }}</p>{% endif %}
+    {% else %}
+        <p class="zilch small">No entries indexed yet. <a href="{{ cpUrl('smart-search/index') }}">Run your first sync</a>.</p>
+    {% endif %}
+</div>

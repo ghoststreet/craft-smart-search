@@ -1,0 +1,10 @@
+.ss-expander > summary { cursor: pointer; list-style: none; }
+.ss-expander > summary::-webkit-details-marker { display: none; }
+.ss-expander > summary::before {
+    content: '▸';
+    margin-right: 8px;
+    display: inline-block;
+    color: var(--medium-text-color);
+    transition: transform 0.15s;
+}
+.ss-expander[open] > summary::before { transform: rotate(90deg); }

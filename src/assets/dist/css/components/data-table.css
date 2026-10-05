@@ -1,0 +1,7 @@
+.ss-data-table {
+    overflow-x: auto;
+}
+
+.ss-data-table + .pagination {
+    margin-block-start: 24px;
+}

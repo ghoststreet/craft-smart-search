@@ -1,0 +1,22 @@
+{% macro sitesSelect(sites, siteFilter, includeAll = true) %}
+    {% import "_includes/forms.twig" as forms %}
+    {% if sites|length > 1 %}
+        {% set options = includeAll ? [{ label: 'All sites', value: '' }] : [] %}
+        {% for s in sites %}
+            {% set options = options|merge([{ label: s.name ?: s.handle, value: s.id }]) %}
+        {% endfor %}
+        {{ forms.selectField({
+            label: 'Site',
+            name: 'siteId',
+            value: siteFilter,
+            options: options,
+            inputAttributes: includeAll ? {} : { 'data-smart-search-default': currentSite.id },
+        }) }}
+    {% else %}
+        <input type="hidden" name="siteId" value="{{ siteFilter }}">
+    {% endif %}
+{% endmacro %}
+
+{% macro resetButton(url, active) %}
+    <a href="{{ url }}" class="btn" data-smart-search-target="filter-bar-reset"{% if not active %} hidden{% endif %}>Reset</a>
+{% endmacro %}

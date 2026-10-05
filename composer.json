@@ -1,0 +1,49 @@
+{
+  "name": "ghoststreet/craft-smart-search",
+  "description": "Smart Search: hybrid semantic and keyword search for Craft CMS, indexed in your own database using OpenAI embeddings.",
+  "type": "craft-plugin",
+  "version": "0.9.0",
+  "license": "proprietary",
+  "support": {
+    "email": "dev@ghost.st"
+  },
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "craftcms/cms": "^5.0",
+    "openai-php/client": "^0.18",
+    "wamania/php-stemmer": "4.0"
+  },
+  "require-dev": {
+    "craftcms/ecs": "dev-main",
+    "craftcms/phpstan": "dev-main"
+  },
+  "autoload": {
+    "psr-4": {
+      "ghoststreet\\craftsmartsearch\\": "src/"
+    }
+  },
+  "extra": {
+    "handle": "smart-search",
+    "name": "Smart Search",
+    "developer": "Ghost Street",
+    "documentationUrl": "https://github.com/ghoststreet/craft-smart-search",
+    "class": "ghoststreet\\craftsmartsearch\\SmartSearch"
+  },
+  "scripts": {
+    "check-cs": "ecs check --ansi",
+    "fix-cs": "ecs check --ansi --fix",
+    "phpstan": "phpstan --memory-limit=1G"
+  },
+  "config": {
+    "sort-packages": true,
+    "platform": {
+      "php": "8.2"
+    },
+    "allow-plugins": {
+      "yiisoft/yii2-composer": true,
+      "craftcms/plugin-installer": true,
+      "php-http/discovery": true
+    }
+  }
+}

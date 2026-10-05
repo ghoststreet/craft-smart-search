@@ -1,0 +1,25 @@
+{% set coverage = counts.total > 0 ? (counts.indexed / counts.total * 100)|round : 0 %}
+
+<div class="ss-index-stats flex flex-gap-xl" data-smart-search-target="sync-bar" data-smart-search-site-id="{{ siteId }}"{% if activeJob %} data-smart-search-state="indexing"{% endif %}>
+    {% include 'smart-search/_components/stat-item' with { count: counts.total, label: 'Total' } only %}
+    {% for key, status in statuses %}
+        {% include 'smart-search/_components/stat-item' with { count: counts[key], label: status.label, color: status.color } only %}
+    {% endfor %}
+    {% include 'smart-search/_components/stat-item' with {
+        count: coverage ~ '%',
+        label: 'Coverage',
+        countTarget: 'sync-label',
+        labelTarget: 'sync-caption',
+    } only %}
+
+    <div class="flex-grow"></div>
+    {% include 'smart-search/_components/sync-form' with {
+        siteId: siteId,
+        label: activeJob ? 'Cancel' : 'Update index',
+        primary: true,
+    } only %}
+
+    <div class="ss-bar ss-index-stats__progress" data-smart-search-target="site-progress"{% if not activeJob %} hidden{% endif %}>
+        <span class="ss-bar__fill" data-smart-search-target="site-progress-fill" style="width: {{ activeJob.progress ?? 0 }}%"></span>
+    </div>
+</div>

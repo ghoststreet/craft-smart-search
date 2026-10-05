@@ -1,0 +1,39 @@
+<p class="light">Your most-searched queries for the selected period. Use it to see what your audience wants and to spot popular searches returning few or no results.</p>
+{% if page.items|length %}
+    {% embed 'smart-search/_components/data-table' with { columns: [
+        { label: 'Query' },
+        { label: 'Searches', class: 'thin rightalign' },
+        { label: 'Avg results', class: 'thin rightalign' },
+        { label: 'Last searched', class: 'thin' },
+    ] } %}
+        {% block rows %}
+            {% for k in page.items %}
+                {% set sharePct = totalSearches > 0 ? (k.hits / totalSearches * 100)|round : 0 %}
+                <tr>
+                    <td>{{ k.query|truncate(100) }}</td>
+                    <td class="thin rightalign">{{ k.hits|number_format }} <span class="light">({{ sharePct }}%)</span></td>
+                    <td class="thin rightalign">
+                        {% if k.avgResults < 1 %}<span class="status orange" title="Returns few or no results"></span> {% endif %}
+                        <span class="light">{{ k.avgResults|number_format(1) }}</span>
+                    </td>
+                    <td class="thin"><span class="light" title="{{ k.lastSeen|date('Y-m-d H:i:s') }}">{{ k.lastSeen|date('M j, g:ia') }}</span></td>
+                </tr>
+            {% endfor %}
+        {% endblock %}
+    {% endembed %}
+{% else %}
+    {% include 'smart-search/_components/empty-state' with {
+        variant: 'neutral',
+        title: hasActiveFilters ? 'No queries match these filters' : 'No queries yet',
+        text: hasActiveFilters
+            ? 'Try a wider time range, or clear the filters to see every query.'
+            : 'Searches will show up here once visitors start using search.',
+        clearUrl: hasActiveFilters ? clearUrl : null,
+    } only %}
+{% endif %}
+
+{% include 'smart-search/_components/pagination' with {
+    page: page,
+    path: 'smart-search/insights',
+    params: { report: 'top-queries', days: filters.days, siteId: filters.siteId },
+} only %}

@@ -1,0 +1,124 @@
+{% extends "_layouts/cp" %}
+{% import 'smart-search/_components/badge' as b %}
+
+{% set title = 'Preview' %}
+{% set selectedSubnavItem = 'preview' %}
+
+{% block content %}
+<div data-smart-search-target="preview-page">
+
+    <div class="ss-preview-info pane">
+        <div class="ss-preview-info__content">
+            <h2>Compare search modes</h2>
+            <p>
+                Run one search in every mode and compare the results side by side.
+                Each mode has an endpoint you can call from your front end. See
+                <a href="{{ wikiUrl }}/Using-the-API" target="_blank" rel="noopener">Using the API</a>
+                for details.
+            </p>
+        </div>
+
+        <form class="flex flex-nowrap" data-smart-search-control="search-form">
+            {% if sites|length > 1 %}
+                <label for="preview-site" class="visually-hidden">Site</label>
+                <div class="select">
+                    <select id="preview-site" data-smart-search-control="site-select">
+                        {% for site in sites %}
+                            <option value="{{ site.id }}"{% if site.id == craft.app.sites.currentSite.id %} selected{% endif %}>
+                                {{ site.name ?: site.handle }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            {% endif %}
+
+            <label for="preview-query" class="visually-hidden">Search query</label>
+            <input type="search" id="preview-query" class="text flex-grow" placeholder="Search&hellip;" autocomplete="off"
+                   data-smart-search-control="query-input">
+            <button type="submit" class="btn submit">Search</button>
+        </form>
+
+        {% set affectedModes = settings.hasProviderKey() ? 'Smart Search and AI Answer' : 'Smart Search' %}
+        {% for site in incompleteSites %}
+            {% set missing = site.total - site.indexed %}
+            <div class="ss-preview-coverage flex flex-gap-m" data-smart-search-target="sync-bar" data-smart-search-site-id="{{ site.siteId }}"{% if site.activeJob %} data-smart-search-state="indexing"{% endif %}>
+                <p class="light smalltext my-0">
+                    {{ missing }} of {{ site.total }} entries{{ sites|length > 1 ? ' on ' ~ site.site : '' }}
+                    {{ missing == 1 ? 'is' : 'are' }} not indexed or out of date, so {{ affectedModes }} can miss {{ missing == 1 ? 'it' : 'them' }}.
+                </p>
+                <span class="light" data-smart-search-target="sync-label"></span>
+                {% include 'smart-search/_components/sync-form' with {
+                    siteId: site.siteId,
+                    label: site.activeJob ? 'Cancel' : 'Update index',
+                } only %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="ss-preview-grid">
+
+        {% for c in [
+            { key: 'craft', title: 'Native Search', color: 'gray',
+              desc: 'Craft\'s standard keyword search. Use it as the baseline.' },
+            { key: 'smart', title: 'Smart Search', color: 'blue', timings: true,
+              desc: 'Ranks the best matches first, even with typos or different wording.' },
+            { key: 'ai-answer', title: 'AI Answer', color: 'violet', summary: true,
+              show: settings.hasProviderKey(),
+              desc: 'Writes a short answer from your content, with links to the sources.',
+              note: 'Each run spends AI credits on your provider account.' },
+        ] %}
+            {% if c.show is not defined or c.show %}
+            <div data-smart-search-target="col-{{ c.key }}">
+                <div class="pane ss-preview-col__pane">
+                    <h2 class="ss-preview-col__heading">{{ b.badge(c.title, c.color) }}</h2>
+                    <p class="ss-preview-col__desc">{{ c.desc }}</p>
+                    {% if c.note is defined %}
+                        <p class="ss-preview-col__note">{{ c.note }}</p>
+                    {% endif %}
+                    {% if c.summary is defined %}
+                        <div class="ss-preview-col__summary" data-smart-search-target="{{ c.key }}-summary" hidden></div>
+                    {% endif %}
+                    <div data-smart-search-target="{{ c.key }}-results" role="region" hidden></div>
+                    <p class="error my-0" data-smart-search-target="{{ c.key }}-error" role="alert" hidden></p>
+                    {% if c.timings is defined and c.timings %}
+                        <div class="ss-preview-timings" data-smart-search-target="{{ c.key }}-timings" hidden></div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+
+    </div>
+
+    <template data-smart-search-target="loading-tpl">
+        <div class="flex light smalltext">
+            <span class="spinner small"></span>
+            Searching&hellip;
+        </div>
+    </template>
+
+    <template data-smart-search-target="no-results-tpl">
+        <div class="ss-preview-col__summary"><p>No relevant results found for your query.</p></div>
+    </template>
+
+    <template data-smart-search-target="cite-tpl">
+        <a class="ss-preview-col__cite" href="" target="_blank" rel="noopener" data-smart-search-target="field-url"></a>
+    </template>
+
+    <template data-smart-search-target="timing-row-tpl">
+        <div class="ss-preview-timings__row flex flex-nowrap" data-smart-search-target="timing-row">
+            <span class="ss-preview-timings__label" data-smart-search-target="field-label"></span>
+            <span class="ss-preview-timings__value" data-smart-search-target="field-value"></span>
+            <span class="ss-bar ss-preview-timings__bar"><span class="ss-bar__fill" data-smart-search-target="field-bar"></span></span>
+        </div>
+    </template>
+
+    <template data-smart-search-target="result-card-tpl">
+        <div class="ss-preview-result-card" data-smart-search-target="result-card">
+            <a class="ss-preview-result-card__title" href="" target="_blank" rel="noopener" data-smart-search-target="field-url"></a>
+            <p class="ss-preview-result-card__excerpt" data-smart-search-target="field-excerpt"></p>
+        </div>
+    </template>
+
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+<div class="ss-data-table">
+    <table class="data fullwidth">
+        {% if columns %}
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                        <th scope="col"{{ attr({ class: col.class ?? null, title: col.title ?? null }) }}>{{ col.label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+        {% endif %}
+        <tbody>
+            {% block rows %}{% endblock %}
+        </tbody>
+    </table>
+</div>

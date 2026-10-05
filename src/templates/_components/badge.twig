@@ -1,0 +1,10 @@
+{% macro badge(label, color) %}
+    <span class="status-label {{ color }}"><span class="status {{ color }}"></span><span class="status-label-text">{{ label }}</span></span>
+{% endmacro %}
+
+{% macro errorBadge(message) %}
+    <button type="button" class="status-label red"
+            data-smart-search-control="error-hud-trigger"
+            data-smart-search-error-message="{{ message }}"
+            title="{{ message }}"><span class="status red"></span><span class="status-label-text">Error</span></button>
+{% endmacro %}

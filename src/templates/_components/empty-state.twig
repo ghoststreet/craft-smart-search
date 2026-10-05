@@ -1,0 +1,8 @@
+<div class="ss-empty-state{% if variant == 'positive' %} ss-empty-state--positive{% endif %}">
+    <span class="ss-empty-state__icon">{{ iconSvg(variant == 'positive' ? 'circle-check' : 'magnifying-glass') }}</span>
+    <div class="ss-empty-state__title">{{ title }}</div>
+    <p class="ss-empty-state__text">{{ text }}</p>
+    {% if clearUrl %}
+        <p class="ss-empty-state__action"><a class="btn" href="{{ clearUrl }}">Clear filters</a></p>
+    {% endif %}
+</div>

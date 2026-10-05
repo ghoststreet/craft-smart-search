@@ -1,0 +1,18 @@
+{% macro stepList(steps, recommended, numbered) %}
+    <ol class="ss-onboarding-list{% if recommended %} ss-onboarding-list--recommended{% endif %}">
+        {% for s in steps %}
+            <li class="ss-card ss-onboarding-list__item flex flex-nowrap flex-gap-m{% if s.done %} ss-onboarding-list__item--done{% endif %}">
+                <span class="ss-onboarding-list__icon">
+                    {%- if s.done %}<span data-icon="check"></span>{% elseif numbered %}{{ loop.index }}{% endif -%}
+                </span>
+                <div class="ss-onboarding-list__body flex-grow">
+                    <strong>{{ s.label }}</strong>
+                    <div class="light">{{ s.hint }}</div>
+                </div>
+                {% if not s.done %}
+                    <a class="btn{% if not recommended %} submit{% endif %}" href="{{ s.cta.url }}">{{ s.cta.label }}</a>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ol>
+{% endmacro %}

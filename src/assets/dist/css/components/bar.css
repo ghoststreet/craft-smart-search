@@ -1,0 +1,25 @@
+.ss-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--gray-100);
+    overflow: hidden;
+}
+.ss-bar__fill {
+    display: block;
+    height: 100%;
+    background: var(--link-color);
+    transition: width .3s;
+}
+.ss-bar--ok .ss-bar__fill { background: var(--green-600); }
+.ss-bar--warn .ss-bar__fill { background: var(--bg-pending); }
+.ss-bar--crit .ss-bar__fill { background: var(--bg-disabled); }
+
+.ss-usage-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ss-usage-bar__usage {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}

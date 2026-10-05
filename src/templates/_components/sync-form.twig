@@ -1,0 +1,6 @@
+<form method="post">
+    {{ csrfInput() }}
+    {{ actionInput('smart-search/index/sync') }}
+    {% if siteId %}{{ hiddenInput('siteId', siteId) }}{% endif %}
+    <button type="submit" class="btn small{% if primary ?? false %} submit{% endif %}" data-smart-search-control="sync-site-btn">{{ label }}</button>
+</form>

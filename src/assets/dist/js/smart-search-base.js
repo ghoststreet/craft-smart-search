@@ -1,0 +1,20 @@
+(function () {
+    'use strict';
+
+    window.SmartSearch = {
+        core: {
+            Utils: {
+                parseJSON: function (str, fallback) {
+                    if (!str) return fallback;
+                    try { return JSON.parse(str); } catch (e) { return fallback; }
+                }
+            },
+            errors: {
+                messageFor: function (err) {
+                    return (err && err.message) ||
+                        Craft.t('smart-search', 'Something went wrong. The administrator can find details in the Smart Search log.');
+                }
+            }
+        }
+    };
+})();
