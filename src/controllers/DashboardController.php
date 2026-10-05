@@ -64,7 +64,8 @@ class DashboardController extends BaseCpController
             'recentErrors' => $metrics['recentErrors'],
             'hasSearches' => $hasSearches,
             'setupComplete' => $setupComplete,
-            'canReduceDimensions' => $settings->provider()->offersWidthChoice() && $settings->dimensions > min($settings->dimensionChoices()),
+            'canReduceDimensions' => Craft::$app->getConfig()->getGeneral()->allowAdminChanges
+                && $settings->provider()->offersWidthChoice() && $settings->dimensions > min($settings->dimensionChoices()),
             'requiredSteps' => $this->buildRequiredSteps($setupComplete),
             'recommendedSteps' => $this->buildRecommendedSteps($settings, $setupComplete),
             'guideDismissed' => (bool)Craft::$app->getUser()->getIdentity()->getPreference('smartSearchGuideDismissed'),
@@ -150,6 +151,9 @@ class DashboardController extends BaseCpController
 
     private function buildRecommendedSteps(Settings $settings, bool $hasIndex): array
     {
+        if (!Craft::$app->getConfig()->getGeneral()->allowAdminChanges) {
+            return [];
+        }
         $steps = [];
         if ($hasIndex) {
             $steps[] = [
