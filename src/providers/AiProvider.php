@@ -72,11 +72,7 @@ interface AiProvider
      */
     public function warmEmbeddingModel(string $model, string $apiKey): void;
 
-    /**
-     * Whether the CP lets the user pick the vector width. A provider whose list is a table
-     * in this repo knows every width up front. One built from a live catalogue only learns
-     * a model's widths when it is saved, so it gets the narrowest width the model returns.
-     */
+    /** Whether the CP lets the user pick the vector width. */
     public function offersWidthChoice(): bool;
 
     /**

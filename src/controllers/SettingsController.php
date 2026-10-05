@@ -179,9 +179,9 @@ class SettingsController extends BaseCpController
      * Connections tab validates Dimensions, so no other tab's save waits on the provider.
      *
      * The key is validated first: measuring with one that fails validation would send it
-     * to the provider and bury its own message under a Dimensions error.
+     * to the provider and bury its own message under an Embedding model error.
      *
-     * @return bool false, with the reason on the key or on `dimensions`, when the model could not be measured
+     * @return bool false, with the reason on the key or on `embeddingModel`, when the model could not be measured
      */
     private function warmEmbeddingModel(Settings $settings): bool
     {
@@ -202,7 +202,7 @@ class SettingsController extends BaseCpController
         try {
             $settings->provider()->warmEmbeddingModel($settings->embeddingModel, $apiKey);
         } catch (Throwable $e) {
-            $settings->addError('dimensions', $this->presentError($e, 'warmEmbeddingModel', ['model' => $settings->embeddingModel]));
+            $settings->addError('embeddingModel', $this->presentError($e, 'warmEmbeddingModel', ['model' => $settings->embeddingModel]));
             return false;
         }
 

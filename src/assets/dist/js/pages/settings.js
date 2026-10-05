@@ -93,11 +93,7 @@
         select.value = next;
     }
 
-    /**
-     * Widths are a property of the embedding model, not of the site: Voyage returns 512 or
-     * 1024 and refuses 1536, so the list has to follow whatever model is selected. A
-     * provider without a width choice hides the field and the server picks the width.
-     */
+    /** Shows the Dimensions field and its widths for the selected provider and model. */
     function syncDimensions(models) {
         DOM.find('dimensions-field').hidden = !models.offersWidthChoice;
 

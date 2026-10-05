@@ -308,35 +308,8 @@ class OpenRouterProvider implements AiProvider
     }
 
     /**
-     * The widths this model verifiably honours, ascending. Empty means none it will answer
-     * at is usable, so the model cannot be offered at all.
-     *
-     * Measured rather than read because there is nowhere to read it from: the catalogue
-     * carries no width field, and the widths quoted in a model's prose description say
-     * nothing about whether the `dimensions` request parameter is honoured.
-     *
-     * Every candidate is asked for by name, including the model's own native width, and
-     * counted on the way back. That one check catches all three ways a model can be
-     * unusable here:
-     *
-     * - it rejects the parameter outright, which is an error at index time, since
-     *   EmbeddingService always sends the parameter
-     * - it ignores the parameter and answers at its native width regardless
-     * - it answers 1024 to a request for 512 without complaint
-     *
-     * The last is the dangerous one: a silent width mismatch fills the store with vectors
-     * the scan cannot read.
-     *
-     * A width the model will only answer at when nobody asks is no use, which is why the
-     * native width is confirmed the same way as the rest rather than trusted. Its only
-     * privilege is being discovered, since a model that is narrower than anything on the
-     * standard list would otherwise have no candidate at all.
-     *
-     * Nothing above the Standard engine's ceiling is offered, since it scores every stored
-     * vector in PHP and the cost of a search is linear in the width.
-     *
-     * A failed call throws before anything is cached, so an outage or a bad key cannot
-     * mark a good model unusable.
+     * The narrowest width the model returns when asked for it, as a one-item list, or empty
+     * when it returns none. Cached per model.
      *
      * @return list<int>
      */
@@ -350,22 +323,16 @@ class OpenRouterProvider implements AiProvider
 
         $http = new GuzzleClient(['connect_timeout' => 3.0, 'timeout' => 20.0]);
         $ceiling = max(Settings::DIMENSION_CHOICES);
-        $candidates = Settings::DIMENSION_CHOICES;
         $widths = [];
 
-        $native = $this->probeWidth($http, $apiKey, $model, null);
+        foreach (Settings::DIMENSION_CHOICES as $width) {
+            $returned = $this->probeWidth($http, $apiKey, $model, $width);
 
-        if ($native !== null && !in_array($native, $candidates, true)) {
-            $candidates[] = $native;
-        }
-
-        foreach ($candidates as $width) {
-            if ($width <= $ceiling && $this->probeWidth($http, $apiKey, $model, $width) === $width) {
-                $widths[] = $width;
+            if ($returned !== null) {
+                $widths = $returned <= $ceiling ? [$returned] : [];
+                break;
             }
         }
-
-        sort($widths);
 
         Craft::$app->getCache()->set(
             self::WIDTHS_CACHE_PREFIX . md5($model),

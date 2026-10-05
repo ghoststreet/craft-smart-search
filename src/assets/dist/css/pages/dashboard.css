@@ -6,7 +6,7 @@
     margin: 0;
 }
 
-/* Craft paints panes inside #content with --secondary-pane-bg; pointing it at the white pane color wins without a specificity fight. */
+/* White background for a pane inside #content. */
 .ss-white-pane-bg {
     --secondary-pane-bg: var(--pane-bg);
 }

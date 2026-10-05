@@ -31,7 +31,7 @@ abstract class BaseEngine implements SearchEngine
         return Entry::find()->id($entryId)->siteId($siteId)->status(null)->one();
     }
 
-    /** A site's name can be an empty string (an unset env var), which is no use as a label. */
+    /** The site's name, or its handle when the name is empty. */
     public static function siteName(int $siteId): string
     {
         $site = Craft::$app->getSites()->getSiteById($siteId);

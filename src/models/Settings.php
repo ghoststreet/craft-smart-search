@@ -192,7 +192,7 @@ class Settings extends Model
                 'when' => fn(self $model, string $attribute): bool => $attribute === $model->provider()->keyAttribute(),
             ],
 
-            // A provider that offers no width choice gets the narrowest width its model returns.
+            // Without a width choice, the narrowest width the model returns.
             [['dimensions'], 'filter', 'filter' => fn($value) => $this->provider()->offersWidthChoice() ? $value : $this->dimensionChoices()[0], 'on' => $connections],
             [['dimensions'], 'in', 'range' => fn(self $model): array => $model->dimensionChoices(), 'on' => $connections],
 

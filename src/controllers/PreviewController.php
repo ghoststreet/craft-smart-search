@@ -34,10 +34,7 @@ class PreviewController extends BaseCpController
     /**
      * Craft's native keyword search, used as the Preview page's baseline column.
      * Admin-only on purpose: this is a comparison, not a plugin search mode, so it
-     * stays off the public API and out of search history.
-     *
-     * Every Preview search runs this column, so it is also where the dashboard learns
-     * this user has tried the Preview.
+     * stays off the public API and out of search history. Marks the Preview step done.
      */
     public function actionCraftSearch(): Response
     {

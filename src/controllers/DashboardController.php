@@ -18,10 +18,10 @@ class DashboardController extends BaseCpController
 {
     private const RANGE_DAYS = 30;
 
-    /** Set once this user has run a search in the Preview, which ticks the dashboard step. */
+    /** User preference: has run a Preview search. */
     public const PREVIEW_TRIED_PREFERENCE = 'smartSearchPreviewTried';
 
-    /** Set once this user has opened the AI Answer settings, which ticks the prompt step. */
+    /** User preference: has opened the AI Answer settings. */
     public const PROMPT_SEEN_PREFERENCE = 'smartSearchPromptSeen';
 
     /** Days of real traffic needed before the burn rate is trustworthy enough to project an ETA. */
@@ -71,7 +71,7 @@ class DashboardController extends BaseCpController
         ]);
     }
 
-    /** Tick a recommended step for the current user, writing only the first time. */
+    /** Marks a recommended step done for the current user. */
     public static function markStepDone(string $preference): void
     {
         $user = Craft::$app->getUser()->getIdentity();

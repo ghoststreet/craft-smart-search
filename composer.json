@@ -2,7 +2,6 @@
   "name": "ghoststreet/craft-smart-search",
   "description": "Smart Search: hybrid semantic and keyword search for Craft CMS, indexed in your own database using OpenAI embeddings.",
   "type": "craft-plugin",
-  "version": "0.9.0",
   "license": "proprietary",
   "support": {
     "email": "dev@ghost.st"
