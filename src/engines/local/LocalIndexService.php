@@ -42,10 +42,13 @@ class LocalIndexService
     /** IN-list chunking for the dictionary refresh. */
     private const TERM_BATCH = 500;
 
+    /** IN-list chunking for bulk entry deletes. */
+    private const DELETE_BATCH = 500;
+
     /** Width of the postings and dictionary term columns. */
     private const TERM_MAX_LENGTH = 100;
 
-    /** Index one entry on one site, or prune it when it is disabled or gone. */
+    /** Index one entry on one site, or prune it when it is disabled, in a section that isn't indexed, or gone. */
     public function syncOrPrune(int $entryId, int $siteId): void
     {
         $entry = BaseEngine::findEntry($entryId, $siteId);
@@ -55,8 +58,10 @@ class LocalIndexService
             return;
         }
 
-        if ($entry->getStatus() === Entry::STATUS_DISABLED) {
-            $this->deleteForEntry($entryId, $siteId);
+        if ($entry->getStatus() === Entry::STATUS_DISABLED
+            || !in_array((int)$entry->sectionId, SmartSearch::getInstance()->getSettings()->indexedSectionIds(), true)
+        ) {
+            $this->deleteForEntries([$entryId], $siteId);
             return;
         }
 
@@ -69,7 +74,7 @@ class LocalIndexService
         $siteId = (int)$element->siteId;
 
         if (SmartSearch::getInstance()->exclusionService->isExcluded($elementId, $siteId)) {
-            $this->deleteForEntry($elementId, $siteId);
+            $this->deleteForEntries([$elementId], $siteId);
             return;
         }
 
@@ -482,24 +487,36 @@ class LocalIndexService
         return true;
     }
 
-    /** Remove an entry from every local table. */
-    public function deleteForEntry(int $elementId, int $siteId): void
+    /**
+     * Remove entries on one site from every local table.
+     *
+     * @param list<int> $elementIds
+     */
+    public function deleteForEntries(array $elementIds, int $siteId): void
     {
-        $condition = ['elementId' => $elementId, 'siteId' => $siteId];
-        $db = Craft::$app->getDb();
-
-        $terms = (new Query())
-            ->select(['term'])
-            ->distinct()
-            ->from(LocalSchema::POSTINGS_TABLE)
-            ->where($condition)
-            ->column();
-
-        foreach (array_diff(LocalSchema::ALL, [LocalSchema::TERMS_TABLE]) as $table) {
-            $db->createCommand()->delete($table, $condition)->execute();
+        if ($elementIds === []) {
+            return;
         }
 
-        $this->refreshDictionaryTerms($siteId, $terms);
+        $db = Craft::$app->getDb();
+        $terms = [];
+
+        foreach (array_chunk($elementIds, self::DELETE_BATCH) as $batch) {
+            $condition = ['elementId' => $batch, 'siteId' => $siteId];
+
+            array_push($terms, ...(new Query())
+                ->select(['term'])
+                ->distinct()
+                ->from(LocalSchema::POSTINGS_TABLE)
+                ->where($condition)
+                ->column());
+
+            foreach (array_diff(LocalSchema::ALL, [LocalSchema::TERMS_TABLE]) as $table) {
+                $db->createCommand()->delete($table, $condition)->execute();
+            }
+        }
+
+        $this->refreshDictionaryTerms($siteId, array_values(array_unique($terms)));
 
         $this->bumpCacheToken();
     }

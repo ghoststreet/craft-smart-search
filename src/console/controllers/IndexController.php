@@ -46,8 +46,15 @@ class IndexController extends Controller
 
     public function actionIndex(): int
     {
-        if ($this->section !== null && Craft::$app->getEntries()->getSectionByHandle($this->section) === null) {
+        $section = $this->section !== null ? Craft::$app->getEntries()->getSectionByHandle($this->section) : null;
+
+        if ($this->section !== null && $section === null) {
             $this->stderr("Unknown section \"{$this->section}\".\n", Console::FG_RED);
+            return ExitCode::USAGE;
+        }
+
+        if ($section !== null && !in_array((int)$section->id, SmartSearch::getInstance()->getSettings()->indexedSectionIds(), true)) {
+            $this->stderr("Section \"{$this->section}\" is turned off in the Indexing settings.\n", Console::FG_RED);
             return ExitCode::USAGE;
         }
 

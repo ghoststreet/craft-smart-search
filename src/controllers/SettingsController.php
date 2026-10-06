@@ -3,6 +3,8 @@
 namespace ghoststreet\craftsmartsearch\controllers;
 
 use Craft;
+use craft\elements\Entry;
+use craft\models\Section_SiteSettings;
 use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\models\Settings;
@@ -72,6 +74,7 @@ class SettingsController extends BaseCpController
         $settings = $plugin->getSettings();
 
         $before = self::embeddingIdentity($settings);
+        $sectionsBefore = $settings->indexedSectionIds();
 
         $settings->setScenario($scenario);
         $settings->setAttributes($posted);
@@ -85,9 +88,13 @@ class SettingsController extends BaseCpController
 
         CacheTag::invalidateResults();
 
-        $message = self::embeddingIdentity($settings) === $before
-            ? Craft::t('smart-search', 'Settings saved.')
-            : $this->reindexForNewEmbeddings();
+        if (self::embeddingIdentity($settings) !== $before) {
+            $message = $this->reindexForNewEmbeddings();
+        } elseif ($settings->indexedSectionIds() !== $sectionsBefore) {
+            $message = Craft::t('smart-search', 'Settings saved. The index is updating for the sections you changed.');
+        } else {
+            $message = Craft::t('smart-search', 'Settings saved.');
+        }
 
         Craft::$app->getSession()->setNotice($message);
         return $this->redirect('smart-search/settings/' . $scenario);
@@ -128,6 +135,44 @@ class SettingsController extends BaseCpController
         return Craft::t('smart-search', 'Settings saved. Reindexing with the new model has started, and search keeps working while it runs.');
     }
 
+    /**
+     * One row per section for the Indexing tab's Sections table.
+     *
+     * @return list<array{uid: string, name: string, type: string, urls: string, entries: int, indexed: bool}>
+     */
+    private function sectionRows(Settings $settings): array
+    {
+        $indexed = $settings->indexedSectionIds();
+        $counts = array_count_values(array_map('intval', Entry::find()
+            ->section('*')
+            ->site('*')
+            ->unique()
+            ->status(Entry::STATUS_ENABLED)
+            ->select(['entries.sectionId'])
+            ->column()));
+        $rows = [];
+
+        foreach (Craft::$app->getEntries()->getAllSections() as $section) {
+            $siteSettings = $section->getSiteSettings();
+            $withUrls = count(array_filter($siteSettings, static fn(Section_SiteSettings $site): bool => $site->hasUrls));
+
+            $rows[] = [
+                'uid' => (string)$section->uid,
+                'name' => $section->name,
+                'type' => $section->type,
+                'urls' => match (true) {
+                    $withUrls === 0 => 'no',
+                    $withUrls === count($siteSettings) => 'yes',
+                    default => 'some',
+                },
+                'entries' => $counts[(int)$section->id] ?? 0,
+                'indexed' => in_array((int)$section->id, $indexed, true),
+            ];
+        }
+
+        return $rows;
+    }
+
     private function renderScenario(string $scenario, Settings $settings): Response
     {
         $plugin = SmartSearch::getInstance();
@@ -143,6 +188,7 @@ class SettingsController extends BaseCpController
             'hasIndex' => $plugin->engine()->hasIndex(),
             'providers' => ProviderRegistry::options(),
             'providerModels' => $this->providerModels(),
+            'sectionRows' => $scenario === Settings::SCENARIO_INDEXING ? $this->sectionRows($settings) : [],
         ]);
     }
 

@@ -39,4 +39,37 @@
     }) }}
 {% endif %}
 
+<hr>
+
+<h2>Sections</h2>
+<p class="light">Choose which sections Smart Search indexes. Sections without URLs start off because their results have no page to link to. Turn one on if its content should still feed AI answers. <a href="{{ wikiUrl }}/Indexing-Your-Content#choosing-sections" target="_blank" rel="noopener">Learn more</a>.</p>
+
+    {% set urlLabels = { yes: 'Yes', some: 'Some sites', no: 'No' } %}
+    {% embed 'smart-search/_components/data-table' with { columns: [
+        { label: 'Section' },
+        { label: 'Type', class: 'thin' },
+        { label: 'Has URLs', class: 'thin' },
+        { label: 'Indexed', class: 'thin' },
+    ] } %}
+        {% block rows %}
+            {% import '_includes/forms.twig' as forms %}
+            {% for row in sectionRows %}
+                <tr>
+                    <td><span id="section-{{ row.uid }}">{{ row.name }}</span> <span class="light">({{ row.entries|number }})</span></td>
+                    <td class="thin">{{ row.type|capitalize }}</td>
+                    <td class="thin">{{ urlLabels[row.urls] }}</td>
+                    <td class="thin">
+                        {{ forms.lightswitch({
+                            name: 'indexedSections[' ~ row.uid ~ ']',
+                            on: row.indexed,
+                            small: true,
+                            labelledBy: 'section-' ~ row.uid,
+                        }) }}
+                    </td>
+                </tr>
+            {% endfor %}
+        {% endblock %}
+    {% endembed %}
+<p class="light">Turning a section off removes its entries from the index when you save. Turning one on queues them for indexing.</p>
+
 {% endnamespace %}

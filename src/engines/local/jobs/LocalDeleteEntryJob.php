@@ -7,22 +7,23 @@ use craft\queue\BaseJob;
 use ghoststreet\craftsmartsearch\engines\local\LocalIndexService;
 
 /**
- * Queue job to remove a single entry from the local store.
+ * Queue job to remove entries on one site from the local store.
  */
 class LocalDeleteEntryJob extends BaseJob
 {
-    public int $entryId;
+    /** @var list<int> */
+    public array $entryIds;
     public int $siteId;
 
     public function execute($queue): void
     {
-        LocalIndexService::instance()->deleteForEntry($this->entryId, $this->siteId);
+        LocalIndexService::instance()->deleteForEntries($this->entryIds, $this->siteId);
     }
 
     protected function defaultDescription(): ?string
     {
-        return Translation::prep('smart-search', 'Smart Search: removing entry #{id} from the local index', [
-            'id' => $this->entryId,
-        ]);
+        return count($this->entryIds) === 1
+            ? Translation::prep('smart-search', 'Smart Search: removing entry #{id} from the local index', ['id' => $this->entryIds[0]])
+            : Translation::prep('smart-search', 'Smart Search: removing {count} entries from the local index', ['count' => count($this->entryIds)]);
     }
 }

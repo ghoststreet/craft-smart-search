@@ -2,7 +2,10 @@
 
 namespace ghoststreet\craftsmartsearch\models;
 
+use Craft;
 use craft\base\Model;
+use craft\db\Query;
+use craft\db\Table;
 use craft\helpers\App;
 use ghoststreet\craftsmartsearch\providers\AiProvider;
 use ghoststreet\craftsmartsearch\providers\ProviderRegistry;
@@ -41,6 +44,9 @@ class Settings extends Model
     public int $chunkThresholdTokens = 500;
 
     public int $embeddingCacheTtlDays = 7;
+
+    /** @var array<string, bool> Section uid => indexed, only for sections switched away from their default. */
+    public array $indexedSections = [];
 
     public float $minSemanticThreshold = 0.65;
     public int $maxSemanticResults = 100;
@@ -103,7 +109,7 @@ class Settings extends Model
             'label' => 'Indexing',
             'attributes' => [
                 'minChunkTokens', 'targetChunkTokens', 'maxChunkTokens', 'overlapTokens', 'chunkThresholdTokens',
-                'embeddingCacheTtlDays',
+                'embeddingCacheTtlDays', 'indexedSections',
             ],
             'partial' => 'smart-search/_settings/_indexing',
         ],
@@ -204,6 +210,7 @@ class Settings extends Model
             [['minChunkTokens', 'targetChunkTokens', 'overlapTokens'], 'validateChunkSizing', 'on' => $indexing],
 
             [['embeddingCacheTtlDays'], 'integer', 'min' => 0, 'max' => 30, 'on' => $indexing],
+            [['indexedSections'], 'filter', 'filter' => fn($value): array => self::sectionOverrides($value), 'on' => $indexing],
 
             [['embeddingModel'], 'required', 'on' => $connections],
             [['embeddingModel'], 'in', 'range' => fn(self $model): array => array_keys($model->provider()->embeddingModels()), 'on' => $connections],
@@ -397,5 +404,72 @@ class Settings extends Model
         }
 
         return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    /**
+     * Ids of the sections Smart Search indexes: the admin's choice, or by default the
+     * sections with URLs on at least one site.
+     *
+     * @return list<int>
+     */
+    public function indexedSectionIds(): array
+    {
+        return self::sectionIdsFor($this->indexedSections);
+    }
+
+    /**
+     * Ids of the sections a given override map indexes, for comparing two versions of it.
+     *
+     * @param array<string, mixed> $overrides Section uid => indexed
+     * @return list<int>
+     */
+    public static function sectionIdsFor(array $overrides): array
+    {
+        $withUrls = self::sectionIdsWithUrls();
+        $ids = [];
+
+        foreach (Craft::$app->getEntries()->getAllSections() as $section) {
+            if ((bool)($overrides[$section->uid] ?? in_array((int)$section->id, $withUrls, true))) {
+                $ids[] = (int)$section->id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /** @return list<int> */
+    private static function sectionIdsWithUrls(): array
+    {
+        return array_map('intval', (new Query())
+            ->select(['sectionId'])
+            ->distinct()
+            ->from(Table::SECTIONS_SITES)
+            ->where(['hasUrls' => true])
+            ->column());
+    }
+
+    /**
+     * Keeps only the posted switches that differ from their section's default.
+     *
+     * @return array<string, bool>
+     */
+    private static function sectionOverrides(mixed $posted): array
+    {
+        $posted = is_array($posted) ? $posted : [];
+        $withUrls = self::sectionIdsWithUrls();
+        $overrides = [];
+
+        foreach (Craft::$app->getEntries()->getAllSections() as $section) {
+            if (!array_key_exists($section->uid, $posted)) {
+                continue;
+            }
+
+            $on = (bool)$posted[$section->uid];
+            if ($on !== in_array((int)$section->id, $withUrls, true)) {
+                $overrides[$section->uid] = $on;
+            }
+        }
+
+        return $overrides;
     }
 }

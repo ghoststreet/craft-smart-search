@@ -44,10 +44,7 @@ class IndexInspectionService extends Component
      */
     public function getEntryRows(int $siteId, ?string $section, ?string $status, int $page): array
     {
-        $query = BaseEngine::indexableEntries()->siteId($siteId);
-        if ($section !== null) {
-            $query->section($section);
-        }
+        $query = BaseEngine::indexableEntries($section)->siteId($siteId);
 
         $summary = SmartSearch::getInstance()->engine()->indexedSummary($siteId);
 

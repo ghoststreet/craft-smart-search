@@ -124,3 +124,9 @@
     min-width: 24px;
     height: 4px;
 }
+
+.ss-preview-result-card__title:not([href]),
+.ss-preview-col__cite:not([href]) {
+    color: var(--text-color);
+    text-decoration: none;
+}

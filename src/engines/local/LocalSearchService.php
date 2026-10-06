@@ -71,15 +71,18 @@ class LocalSearchService
      * No site means every site Craft lists for this request, so a disabled site is left
      * out of a visitor's search the way Craft leaves it out of their pages.
      *
-     * @param list<int>|null $sectionIds null means every section, [] means none
+     * @param list<int>|null $sectionIds null means every indexed section, [] means none
      */
     public function search(string $query, int $limit, ?int $siteId, ?array $sectionIds): array
     {
+        $settings = SmartSearch::getInstance()->getSettings();
+        $indexed = $settings->indexedSectionIds();
+        $sectionIds = $sectionIds === null ? $indexed : array_values(array_intersect($sectionIds, $indexed));
+
         if ($sectionIds === []) {
             return [];
         }
 
-        $settings = SmartSearch::getInstance()->getSettings();
         $source = SmartSearch::getInstance()->vectorSource();
         $model = $source->handle();
         $sites = $siteId !== null ? [$siteId] : Craft::$app->getSites()->getAllSiteIds();
@@ -90,7 +93,7 @@ class LocalSearchService
             implode(',', $sites),
             $model,
             (string)$settings->dimensions,
-            $sectionIds === null ? '' : implode(',', $sectionIds),
+            implode(',', $sectionIds),
             Ranker::settingsFingerprint($settings),
             LocalIndexService::instance()->cacheToken(),
         ]));
@@ -103,7 +106,7 @@ class LocalSearchService
 
         $finalResults = TimingProfiler::profile(
             'Load elements',
-            fn() => Ranker::loadElements($scoredResults, $limit, $siteId)
+            fn() => Ranker::loadElements($scoredResults, $limit, $siteId, $sectionIds)
         );
 
         $finalResults = TimingProfiler::profile(

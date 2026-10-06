@@ -45,7 +45,12 @@ interface SearchEngine
     /** @return string|null the queue job id, when the engine queued one */
     public function queueIndex(Entry $entry): ?string;
 
-    public function queueDelete(int $elementId, int $siteId): void;
+    /**
+     * One job removing these entries from the index on one site.
+     *
+     * @param list<int> $elementIds
+     */
+    public function queueDelete(array $elementIds, int $siteId): void;
 
     /** One batched sync job per site (or just $siteId), optionally limited to one section handle. */
     public function queueSync(?int $siteId, ?string $section = null): void;

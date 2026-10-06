@@ -29,16 +29,12 @@ abstract class BaseSyncIndexJob extends BaseBatchedJob
 
     protected function loadData(): Batchable
     {
-        $query = BaseEngine::indexableEntries()
+        $query = BaseEngine::indexableEntries($this->section)
             ->siteId($this->siteId ?? '*')
             ->unique(false)
             ->select(['elements.id', 'elements_sites.siteId'])
             ->orderBy(['elements.id' => SORT_ASC, 'elements_sites.siteId' => SORT_ASC])
             ->asArray();
-
-        if ($this->section !== null) {
-            $query->section($this->section);
-        }
 
         return new QueryBatcher($query);
     }

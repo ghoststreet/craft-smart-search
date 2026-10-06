@@ -13,6 +13,7 @@ use craft\events\RegisterGqlQueriesEvent;
 use craft\events\RegisterGqlSchemaComponentsEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\TemplateEvent;
+use craft\helpers\ProjectConfig as ProjectConfigHelper;
 use craft\helpers\UrlHelper;
 use craft\services\Elements;
 use craft\services\Gql;
@@ -33,6 +34,7 @@ use ghoststreet\craftsmartsearch\embeddings\VectorSourceRegistry;
 use ghoststreet\craftsmartsearch\engines\EngineRegistry;
 use ghoststreet\craftsmartsearch\engines\SearchEngine;
 use ghoststreet\craftsmartsearch\gql\SmartSearchGql;
+use ghoststreet\craftsmartsearch\helpers\CacheTag;
 use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\models\Settings;
 use ghoststreet\craftsmartsearch\providers\ProviderRegistry;
@@ -217,6 +219,37 @@ class SmartSearch extends Plugin
         );
     }
 
+    /**
+     * Removes the entries of sections turned off and queues the sections turned on.
+     *
+     * @param list<int> $before
+     * @param list<int> $after
+     */
+    private function queueSectionChanges(array $before, array $after): void
+    {
+        $off = array_values(array_diff($before, $after));
+        $on = array_values(array_diff($after, $before));
+
+        if ($off === [] && $on === []) {
+            return;
+        }
+
+        if ($off !== []) {
+            foreach (Craft::$app->getSites()->getAllSiteIds(true) as $siteId) {
+                $entryIds = array_map('intval', Entry::find()->sectionId($off)->siteId($siteId)->status(null)->ids());
+                $this->engine()->queueDelete($entryIds, (int)$siteId);
+            }
+        }
+
+        foreach ($on as $sectionId) {
+            $this->engine()->queueSync(null, Craft::$app->getEntries()->getSectionById($sectionId)->handle);
+        }
+
+        $this->indexInspectionService->invalidateCoverage();
+        CacheTag::invalidateResults();
+        Logger::info('Indexed sections changed', ['off' => $off, 'on' => $on]);
+    }
+
     private function attachEventHandlers(): void
     {
         $queueIndex = function(ElementEvent $event): void {
@@ -252,13 +285,24 @@ class SmartSearch extends Plugin
             }
         );
 
+        // Turning sections on or off, from the Indexing tab or a deploy.
+        Craft::$app->getProjectConfig()->onUpdate(
+            ProjectConfig::PATH_PLUGINS . '.' . $this->handle . '.settings',
+            function(ConfigEvent $event): void {
+                $this->queueSectionChanges(
+                    Settings::sectionIdsFor(ProjectConfigHelper::unpackAssociativeArrays($event->oldValue)['indexedSections'] ?? []),
+                    Settings::sectionIdsFor(ProjectConfigHelper::unpackAssociativeArrays($event->newValue)['indexedSections'] ?? []),
+                );
+            }
+        );
+
         Event::on(
             Elements::class,
             Elements::EVENT_AFTER_DELETE_ELEMENT,
             function(ElementEvent $event) {
                 $element = $event->element;
                 if ($element instanceof Entry) {
-                    $this->engine()->queueDelete((int)$element->id, (int)$element->siteId);
+                    $this->engine()->queueDelete([(int)$element->id], (int)$element->siteId);
                 }
             }
         );

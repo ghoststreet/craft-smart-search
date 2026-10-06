@@ -252,9 +252,12 @@ final class Ranker
      * or for a boost-only hit the site whose rules matched), so an entry that only exists
      * on another site is kept and links to that site's page.
      *
+     * Also scoped to the searched sections, which boost-only hits skip on the way in.
+     *
      * @param array<int, ScoredEntry> $scoredResults Sorted best-first
+     * @param list<int> $sectionIds
      */
-    public static function loadElements(array $scoredResults, int $limit, ?int $siteId = null): array
+    public static function loadElements(array $scoredResults, int $limit, ?int $siteId, array $sectionIds): array
     {
         $allIds = array_keys($scoredResults);
 
@@ -270,7 +273,7 @@ final class Ranker
 
             $elements = [];
             foreach ($bySite as $site => $ids) {
-                $elements += Entry::find()->id($ids)->siteId($site)->indexBy('id')->all();
+                $elements += Entry::find()->id($ids)->siteId($site)->sectionId($sectionIds)->indexBy('id')->all();
             }
             $loadedCount += count($elements);
 

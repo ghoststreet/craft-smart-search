@@ -6,6 +6,7 @@ use Craft;
 use craft\elements\db\EntryQuery;
 use craft\elements\Entry;
 use craft\queue\BaseJob;
+use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
  * Queue plumbing every engine shares. Engines differ in their jobs, not in how those
@@ -19,10 +20,16 @@ abstract class BaseEngine implements SearchEngine
     /** @return class-string<BaseJob> */
     abstract protected function deleteJobClass(): string;
 
-    /** Every entry a search can return: enabled and in a section, so Matrix blocks stay out. Callers add the site and select. */
-    public static function indexableEntries(): EntryQuery
+    /** Every entry a search can return: enabled and in an indexed section, optionally one by handle, so Matrix blocks stay out. Callers add the site and select. */
+    public static function indexableEntries(?string $section = null): EntryQuery
     {
-        return Entry::find()->section('*')->status(Entry::STATUS_ENABLED);
+        $sectionIds = SmartSearch::getInstance()->getSettings()->indexedSectionIds();
+
+        if ($section !== null) {
+            $sectionIds = array_values(array_intersect($sectionIds, [Craft::$app->getEntries()->getSectionByHandle($section)?->id]));
+        }
+
+        return Entry::find()->sectionId($sectionIds)->status(Entry::STATUS_ENABLED);
     }
 
     /** One entry on one site, whatever its status, so a disabled entry can be pruned. */
@@ -48,10 +55,14 @@ abstract class BaseEngine implements SearchEngine
         return (string)Craft::$app->getQueue()->push(new $class(['entryId' => $entry->id, 'siteId' => $entry->siteId]));
     }
 
-    public function queueDelete(int $elementId, int $siteId): void
+    public function queueDelete(array $elementIds, int $siteId): void
     {
+        if ($elementIds === []) {
+            return;
+        }
+
         $class = $this->deleteJobClass();
-        Craft::$app->getQueue()->push(new $class(['entryId' => $elementId, 'siteId' => $siteId]));
+        Craft::$app->getQueue()->push(new $class(['entryIds' => $elementIds, 'siteId' => $siteId]));
     }
 
     public function queueSync(?int $siteId, ?string $section = null): void

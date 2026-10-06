@@ -34,7 +34,10 @@ class IndexController extends BaseCpController
         return $this->renderTemplate('smart-search/index-mgmt/entries', [
             'filters' => $filters,
             'hasActiveFilters' => $filters['section'] !== null || $filters['status'] !== null || $filters['siteId'] !== $currentSiteId,
-            'sections' => Craft::$app->getEntries()->getAllSections(),
+            'sections' => array_map(
+                static fn(int $id) => Craft::$app->getEntries()->getSectionById($id),
+                SmartSearch::getInstance()->getSettings()->indexedSectionIds(),
+            ),
             'sites' => Craft::$app->getSites()->getAllSites(),
             'result' => $inspection->getEntryRows($filters['siteId'], $filters['section'], $filters['status'], $filters['page']),
             'activeJob' => $inspection->syncJobs()[$filters['siteId']] ?? null,

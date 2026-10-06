@@ -31,7 +31,7 @@ class ExclusionService extends Component
     {
         Db::upsert(ExcludedEntryRecord::tableName(), ['elementId' => $elementId, 'siteId' => $siteId], false);
 
-        SmartSearch::getInstance()->engine()->queueDelete($elementId, $siteId);
+        SmartSearch::getInstance()->engine()->queueDelete([$elementId], $siteId);
         Logger::info('Excluded entry from index', ['elementId' => $elementId, 'siteId' => $siteId]);
     }
 
