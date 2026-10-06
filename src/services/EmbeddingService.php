@@ -210,9 +210,12 @@ class EmbeddingService extends Component
                 }
             } while ($active);
 
+            // A multi transfer's error code comes from here: curl_errno() stays 0 until it is read.
+            $info = curl_multi_info_read($mh);
+
             $body = curl_multi_getcontent($ch);
             $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-            $errno = curl_errno($ch);
+            $errno = $info === false ? 0 : $info['result'];
             $error = curl_error($ch);
         } finally {
             curl_multi_remove_handle($mh, $ch);

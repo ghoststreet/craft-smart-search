@@ -19,10 +19,10 @@ abstract class BaseEngine implements SearchEngine
     /** @return class-string<BaseJob> */
     abstract protected function deleteJobClass(): string;
 
-    /** Every entry a search can return: enabled, with a URL. Callers add the site and select. */
+    /** Every entry a search can return: enabled and in a section, so Matrix blocks stay out. Callers add the site and select. */
     public static function indexableEntries(): EntryQuery
     {
-        return Entry::find()->status(Entry::STATUS_ENABLED)->uri(':notempty:');
+        return Entry::find()->section('*')->status(Entry::STATUS_ENABLED);
     }
 
     /** One entry on one site, whatever its status, so a disabled entry can be pruned. */

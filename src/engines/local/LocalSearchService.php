@@ -326,10 +326,13 @@ class LocalSearchService
      * Scores are squashed to 0..1 as `s / (s + 1)`, the scale Ranker::fuse()'s absolute
      * strong-hit threshold is set against; raw BM25 has no upper bound.
      *
+     * `coverage` is the share of the query's words the entry contains anywhere, across all
+     * its chunks. A typo correction counts for the word it corrects.
+     *
      * @param string[] $lexemes Query lexemes, in order
      * @param array<string, string> $variants lexeme => typo-corrected lexeme
      * @param int[]|null $sectionIds
-     * @return list<array{elementId: int, siteId: int, keywordScore: float, chunk: array{0: int, 1: int, 2: int}}>
+     * @return list<array{elementId: int, siteId: int, keywordScore: float, coverage: float, chunk: array{0: int, 1: int, 2: int}}>
      */
     private function keywordScores(array $lexemes, array $variants, array $sites, ?array $sectionIds, Settings $settings): array
     {
@@ -400,6 +403,7 @@ class LocalSearchService
         $fieldWeights = ['title' => self::TITLE_WEIGHT, 'body' => self::BODY_WEIGHT];
 
         $chunkScores = [];
+        $entryTerms = [];
         foreach ($query->all() as $row) {
             $key = $row['elementId'] . '-' . $row['siteId'] . '-' . $row['chunkIndex'];
             $tf = (int)$row['tf'];
@@ -422,6 +426,7 @@ class LocalSearchService
             ];
             $chunkScores[$key]['score'] += $idf * $tfNorm * $weight;
             $chunkScores[$key]['matched'][(string)$row['term']] = true;
+            $entryTerms[(int)$row['elementId']][(string)$row['term']] = true;
         }
 
         $queryTermCount = max(1, count($original));
@@ -445,6 +450,7 @@ class LocalSearchService
                 'elementId' => $chunk['elementId'],
                 'siteId' => $chunk['siteId'],
                 'keywordScore' => $chunk['score'] / ($chunk['score'] + 1),
+                'coverage' => min(1.0, count($entryTerms[$chunk['elementId']]) / $queryTermCount),
                 'chunk' => [$chunk['elementId'], $chunk['siteId'], $chunk['chunkIndex']],
             ],
             array_slice($best, 0, $settings->maxSemanticResults),

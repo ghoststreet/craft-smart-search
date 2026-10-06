@@ -429,7 +429,7 @@ PROMPT;
      *
      * @param array $results Filtered search results containing elements
      * @param int $limit Maximum number of sources to include
-     * @return array<int, array{element: mixed, id: int, url: string, content: string, aiAnswerRank: int}>
+     * @return array<int, array{element: mixed, id: int, url: ?string, content: string, aiAnswerRank: int}>
      */
     private function buildSourceList(array $results, int $limit): array
     {

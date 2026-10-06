@@ -57,18 +57,14 @@ class PreviewController extends BaseCpController
             $query->siteId($params['siteId']);
         }
 
-        $results = array_values(array_filter(array_map(
-            static function(Entry $entry): ?array {
-                $url = $entry->getUrl();
-
-                return $url === null ? null : [
-                    'id' => $entry->id,
-                    'title' => $entry->title,
-                    'url' => $url,
-                ];
-            },
+        $results = array_map(
+            static fn(Entry $entry): array => [
+                'id' => $entry->id,
+                'title' => $entry->title,
+                'url' => $entry->getUrl(),
+            ],
             $query->all()
-        )));
+        );
 
         return $this->asJson([
             'success' => true,

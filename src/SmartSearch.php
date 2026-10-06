@@ -225,7 +225,7 @@ class SmartSearch extends Plugin
             if ($element instanceof Entry &&
                 !$element->getIsDraft() &&
                 !$element->getIsRevision() &&
-                $element->getUrl() !== null) {
+                $element->sectionId !== null) {
                 $this->engine()->queueIndex($element);
             }
         };

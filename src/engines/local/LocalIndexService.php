@@ -102,6 +102,12 @@ class LocalIndexService
         $now = Db::prepareDateForDb(new DateTime());
         $db = Craft::$app->getDb();
 
+        // Every vector is fetched before anything is written, so a failed call leaves the stored entry untouched.
+        $vectors = array_map(
+            static fn(string $chunkText): array => self::normalise($source->generate(FieldPrefix::forEmbedding($chunkText), $siteId)),
+            $chunks,
+        );
+
         foreach ($chunks as $index => $chunkText) {
             $db->createCommand()->upsert(LocalSchema::CHUNKS_TABLE, [
                 'elementId' => $elementId,
@@ -118,7 +124,7 @@ class LocalIndexService
                 'dateUpdated' => $now,
             ])->execute();
 
-            $vector = self::normalise($source->generate(FieldPrefix::forEmbedding($chunkText), $siteId));
+            $vector = $vectors[$index];
             if ($vector === []) {
                 $db->createCommand()->delete(LocalSchema::VECTORS_TABLE, [
                     'elementId' => $elementId,

@@ -12,7 +12,7 @@ use ghoststreet\craftsmartsearch\SmartSearch;
  * the boost merge, and the element hydration that turns a scored id map into results.
  *
  * @phpstan-type ChunkKey array{0: int, 1: int, 2: int}
- * @phpstan-type SignalEntry array{score: float, rank: int, chunk: ChunkKey}
+ * @phpstan-type SignalEntry array{score: float, rank: int, chunk: ChunkKey, coverage?: float}
  * @phpstan-type ScoredEntry array{rrfScore: float, semanticScore: float, semanticRank: ?int, keywordScore: float, keywordRank: ?int, chunk: ?ChunkKey, siteId: int}
  * @phpstan-type BoostHit array{weight: float, siteId: int}
  */
@@ -30,9 +30,12 @@ final class Ranker
     /** A keyword score at or above this (on the 0..1 squashed scale) earns a strong-hit bonus. */
     private const STRONG_KEYWORD_SCORE = 0.5;
 
+    /** A word match alone must cover more than this share of the query's words: both of two, three of four. */
+    private const MIN_KEYWORD_COVERAGE = 0.5;
+
     /**
      * Spare candidates hydrated alongside each page of $limit, covering the few
-     * dropped for being deleted or URL-less. If more than this are dropped, the
+     * dropped for being deleted. If more than this are dropped, the
      * next window is fetched; correct either way, just one more query.
      */
     public const ELEMENT_WINDOW_SLACK = 5;
@@ -113,8 +116,8 @@ final class Ranker
     /**
      * Reciprocal Rank Fusion over the two ranked signal lookups.
      *
-     * Per-signal contribution: weight / (RANK_OFFSET + rank). Entries below
-     * minSemanticThreshold that lack a keyword hit are dropped as semantic noise.
+     * Per-signal contribution: weight / (RANK_OFFSET + rank). An entry is kept when its
+     * meaning match reaches minSemanticThreshold or its word match covers most of the query.
      *
      * @param array<int, SignalEntry> $semanticLookup
      * @param array<int, SignalEntry> $keywordLookup
@@ -131,7 +134,9 @@ final class Ranker
             $hasKeyword = isset($keywordLookup[$id]);
             $semanticScore = $hasSemantic ? $semanticLookup[$id]['score'] : 0.0;
 
-            if ($hasSemantic && !$hasKeyword && $semanticScore < $settings->minSemanticThreshold) {
+            $semanticPasses = $hasSemantic && $semanticScore >= $settings->minSemanticThreshold;
+            $keywordPasses = $hasKeyword && $keywordLookup[$id]['coverage'] > self::MIN_KEYWORD_COVERAGE;
+            if (!$semanticPasses && !$keywordPasses) {
                 continue;
             }
 
@@ -229,6 +234,7 @@ final class Ranker
                     'score' => $score['keywordScore'],
                     'rank' => $rank++,
                     'chunk' => $score['chunk'],
+                    'coverage' => $score['coverage'],
                 ];
             }
         }
@@ -253,7 +259,6 @@ final class Ranker
         $allIds = array_keys($scoredResults);
 
         $missingCount = 0;
-        $noUrlCount = 0;
         $loadedCount = 0;
         $results = [];
 
@@ -276,17 +281,11 @@ final class Ranker
                 }
 
                 $element = $elements[$id];
-                $url = $element->getUrl();
-                if ($url === null) {
-                    $noUrlCount++;
-                    continue;
-                }
-
                 $data = $scoredResults[$id];
 
                 $results[] = [
                     'element' => $element,
-                    'url' => $url,
+                    'url' => $element->getUrl(),
                     'score' => $data['rrfScore'],
                     'semanticScore' => $data['semanticScore'],
                     'semanticRank' => $data['semanticRank'],
@@ -307,7 +306,6 @@ final class Ranker
             'scoredCandidates' => count($allIds),
             'elementsLoadedFromCraft' => $loadedCount,
             'missingInCraft' => $missingCount,
-            'noUrl' => $noUrlCount,
             'finalResults' => count($results),
             'limit' => $limit,
         ]);

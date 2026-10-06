@@ -87,7 +87,7 @@ class IndexInspectionService extends Component
     }
 
     /**
-     * Pair each entry that has a URL with its summary row and status.
+     * Pair each entry with its summary row and status.
      *
      * @param Entry[] $entries
      * @param array<string, array{chunkCount: int, lastIndexed: string}> $summary
@@ -98,9 +98,6 @@ class IndexInspectionService extends Component
         $excludedKeys = SmartSearch::getInstance()->exclusionService->getExcludedKeys($siteId);
 
         foreach ($entries as $entry) {
-            if ($entry->getUrl() === null) {
-                continue;
-            }
             $key = $entry->id . '-' . $entry->siteId;
             $indexed = $summary[$key] ?? null;
 

@@ -16,8 +16,8 @@ use yii\helpers\StringHelper;
 final class SearchResultFormatter
 {
     /**
-     * Format a run of service rows, deriving each excerpt from the matched chunk. Every row
-     * has a URL: Ranker::loadElements() drops the entries without one.
+     * Format a run of service rows, deriving each excerpt from the matched chunk. `url` is
+     * null for an entry without a page.
      *
      * @param array<int, array<string, mixed>> $results
      * @return list<array<string, mixed>>

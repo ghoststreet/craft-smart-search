@@ -48,7 +48,7 @@ class Settings extends Model
     public int $excerptLength = 200;
 
     /** Put Smart Search behind Craft's own `search` param on the front end and GraphQL. See NativeSearch. */
-    public bool $enhanceNativeSearch = true;
+    public bool $enhanceNativeSearch = false;
 
     public ?string $allowedOrigins = null;
 

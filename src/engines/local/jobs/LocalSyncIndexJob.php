@@ -7,45 +7,17 @@ use craft\i18n\Translation;
 use ghoststreet\craftsmartsearch\engines\BaseEngine;
 use ghoststreet\craftsmartsearch\engines\BaseSyncIndexJob;
 use ghoststreet\craftsmartsearch\engines\local\LocalIndexService;
-use ghoststreet\craftsmartsearch\helpers\Logger;
 use ghoststreet\craftsmartsearch\SmartSearch;
-use Throwable;
 
+/**
+ * A failed entry fails the job, so it shows as failed in the queue. Retrying is cheap:
+ * entries already indexed are skipped by their content hash.
+ */
 class LocalSyncIndexJob extends BaseSyncIndexJob
 {
-    /**
-     * High enough that neighbouring bad entries cannot trip it, low enough that a cause
-     * affecting every entry fails immediately rather than grinding through the site.
-     */
-    private const FAILURE_ABORT_THRESHOLD = 5;
-
-    private int $consecutiveFailures = 0;
-
     protected function indexEntry(int $entryId, int $siteId): void
     {
-        try {
-            LocalIndexService::instance()->syncOrPrune($entryId, $siteId);
-            $this->consecutiveFailures = 0;
-        } catch (Throwable $e) {
-            $this->consecutiveFailures++;
-
-            if ($this->consecutiveFailures >= self::FAILURE_ABORT_THRESHOLD) {
-                Logger::error('Sync aborted: {count} entries failed in a row, so the cause is not the entry', [
-                    'count' => $this->consecutiveFailures,
-                    'entryId' => $entryId,
-                    'siteId' => $siteId,
-                    'error' => $e->getMessage(),
-                ]);
-
-                throw $e;
-            }
-
-            Logger::error('Sync skipped one entry and continued', [
-                'entryId' => $entryId,
-                'siteId' => $siteId,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        LocalIndexService::instance()->syncOrPrune($entryId, $siteId);
     }
 
     /**

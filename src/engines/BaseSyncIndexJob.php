@@ -8,7 +8,7 @@ use craft\queue\BaseBatchedJob;
 use ghoststreet\craftsmartsearch\SmartSearch;
 
 /**
- * Walks every enabled entry that has a URI and hands each one to the engine. Unchanged
+ * Walks every indexable entry and hands each one to the engine. Unchanged
  * entries short-circuit inside the engine's index service, so the per-item cost is one
  * read of the stored hash.
  *

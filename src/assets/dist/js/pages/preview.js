@@ -14,7 +14,7 @@
 
     function cloneCite(src) {
         var a = DOM.find('field-url', cloneTemplate('cite-tpl'));
-        a.href = src.url || '#';
+        if (src.url) a.href = src.url;
         a.textContent = src.title || 'Source';
         return a;
     }
@@ -53,7 +53,7 @@
         var card = DOM.find('result-card', cloneTemplate('result-card-tpl'));
         var titleEl = DOM.find('field-url', card);
         var excerptEl = DOM.find('field-excerpt', card);
-        titleEl.href = r.url || '#';
+        if (r.url) titleEl.href = r.url;
         titleEl.textContent = r.title || 'Untitled';
         if (r.excerpt) excerptEl.textContent = r.excerpt;
         else excerptEl.remove();
