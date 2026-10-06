@@ -10,6 +10,7 @@
         id: 'apiToken', name: 'apiToken',
         value: settings.apiToken, suggestEnvVars: true,
         errors: settings.getErrors('apiToken'),
+        disabled: readOnly,
     }) }}
 
 {% if settings.getApiToken() and not settings.allowedOrigins %}
@@ -25,5 +26,6 @@
         value: settings.allowedOrigins, suggestEnvVars: true,
         placeholder: 'https://app.example.com',
         errors: settings.getErrors('allowedOrigins'),
+        disabled: readOnly,
     }) }}
 {% endnamespace %}

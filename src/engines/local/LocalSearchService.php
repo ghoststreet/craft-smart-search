@@ -38,11 +38,11 @@ class LocalSearchService
     /** A correction scores at half weight, so a wrong guess cannot outrank a literal match. */
     private const CORRECTION_WEIGHT = 0.5;
 
-    /** BM25 term-frequency saturation and length normalisation, at the standard values. */
+    /** BM25F term-frequency saturation and per-field length normalisation, at the standard values. */
     private const BM25_K1 = 1.2;
     private const BM25_B = 0.75;
 
-    /** Field weights: a title hit is worth five body hits. */
+    /** BM25F field weights, applied to term frequency before saturation: a title occurrence counts as five body occurrences. */
     private const TITLE_WEIGHT = 1.0;
     private const BODY_WEIGHT = 0.2;
 
@@ -324,10 +324,10 @@ class LocalSearchService
     }
 
     /**
-     * BM25 over the inverted index, collapsed to each entry's best-scoring chunk.
+     * BM25F over the inverted index, collapsed to each entry's best-scoring chunk.
      *
      * Scores are squashed to 0..1 as `s / (s + 1)`, the scale Ranker::fuse()'s absolute
-     * strong-hit threshold is set against; raw BM25 has no upper bound.
+     * strong-hit threshold is set against; raw BM25F has no upper bound.
      *
      * `coverage` is the share of the query's words the entry contains anywhere, across all
      * its chunks. A typo correction counts for the word it corrects.
@@ -345,7 +345,7 @@ class LocalSearchService
             return [];
         }
 
-        [$totalChunks, $avgLength] = $this->corpusStats($sites);
+        [$totalChunks, $avgLengths] = $this->corpusStats($sites);
         if ($totalChunks === 0) {
             return [];
         }
@@ -383,7 +383,8 @@ class LocalSearchService
                 'p.term',
                 'p.field',
                 'p.tf',
-                'c.tokenCount',
+                'c.titleLength',
+                'c.bodyLength',
                 'df' => 't.df',
                 'isOriginal' => $isOriginal,
             ])
@@ -401,45 +402,61 @@ class LocalSearchService
             ->andWhere(['p.siteId' => $sites])
             ->andFilterWhere(['c.sectionId' => $sectionIds]);
 
-        $k1 = self::BM25_K1;
-        $b = self::BM25_B;
+        return array_slice(
+            self::rankChunks($query->all(), $totalChunks, $avgLengths, max(1, count($original))),
+            0,
+            $settings->maxSemanticResults,
+        );
+    }
+
+    /**
+     * BM25F over the matched postings rows, collapsed to each entry's best-scoring chunk,
+     * best first.
+     *
+     * Each term's frequency is normalised by its own field's length, weighted, summed
+     * across fields, then saturated once.
+     *
+     * @param array<array<string, mixed>> $rows Postings joined with their chunk's lengths and the term's df
+     * @param array{title: float, body: float} $avgLengths
+     * @return list<array{elementId: int, siteId: int, keywordScore: float, coverage: float, chunk: array{0: int, 1: int, 2: int}}>
+     */
+    private static function rankChunks(array $rows, int $totalChunks, array $avgLengths, int $queryTermCount): array
+    {
         $fieldWeights = ['title' => self::TITLE_WEIGHT, 'body' => self::BODY_WEIGHT];
 
-        $chunkScores = [];
+        $chunks = [];
         $entryTerms = [];
-        foreach ($query->all() as $row) {
+        foreach ($rows as $row) {
             $key = $row['elementId'] . '-' . $row['siteId'] . '-' . $row['chunkIndex'];
-            $tf = (int)$row['tf'];
-            $length = max(1, (int)$row['tokenCount']);
+            $term = (string)$row['term'];
+            $field = (string)$row['field'];
+            $lengthNorm = 1 - self::BM25_B + self::BM25_B * (int)$row[$field . 'Length'] / $avgLengths[$field];
 
-            $idf = LocalContextVectors::idf($totalChunks, (int)$row['df']);
-            $tfNorm = ($tf * ($k1 + 1)) / ($tf + $k1 * (1 - $b + $b * ($length / $avgLength)));
-            $weight = $fieldWeights[$row['field']] ?? 0.0;
-
-            if ((int)$row['isOriginal'] === 0) {
-                $weight *= self::CORRECTION_WEIGHT;
-            }
-
-            $chunkScores[$key] ??= [
+            $chunks[$key] ??= [
                 'elementId' => (int)$row['elementId'],
                 'siteId' => (int)$row['siteId'],
                 'chunkIndex' => (int)$row['chunkIndex'],
-                'score' => 0.0,
-                'matched' => [],
+                'terms' => [],
             ];
-            $chunkScores[$key]['score'] += $idf * $tfNorm * $weight;
-            $chunkScores[$key]['matched'][(string)$row['term']] = true;
-            $entryTerms[(int)$row['elementId']][(string)$row['term']] = true;
-        }
-
-        $queryTermCount = max(1, count($original));
-        foreach ($chunkScores as $key => $chunk) {
-            $coverage = min(1.0, count($chunk['matched']) / $queryTermCount);
-            $chunkScores[$key]['score'] = $chunk['score'] * ($coverage ** self::COVERAGE_WEIGHT);
+            $chunks[$key]['terms'][$term] ??= [
+                'tf' => 0.0,
+                'idf' => LocalContextVectors::idf($totalChunks, (int)$row['df']),
+                'weight' => (int)$row['isOriginal'] === 1 ? 1.0 : self::CORRECTION_WEIGHT,
+            ];
+            $chunks[$key]['terms'][$term]['tf'] += $fieldWeights[$field] * (int)$row['tf'] / $lengthNorm;
+            $entryTerms[(int)$row['elementId']][$term] = true;
         }
 
         $best = [];
-        foreach ($chunkScores as $chunk) {
+        foreach ($chunks as $chunk) {
+            $score = 0.0;
+            foreach ($chunk['terms'] as ['tf' => $tf, 'idf' => $idf, 'weight' => $weight]) {
+                $score += $idf * $weight * $tf * (self::BM25_K1 + 1) / (self::BM25_K1 + $tf);
+            }
+
+            $coverage = min(1.0, count($chunk['terms']) / $queryTermCount);
+            $chunk['score'] = $score * ($coverage ** self::COVERAGE_WEIGHT);
+
             $current = $best[$chunk['elementId']] ?? null;
             if ($current === null || $chunk['score'] > $current['score']) {
                 $best[$chunk['elementId']] = $chunk;
@@ -456,7 +473,7 @@ class LocalSearchService
                 'coverage' => min(1.0, count($entryTerms[$chunk['elementId']]) / $queryTermCount),
                 'chunk' => [$chunk['elementId'], $chunk['siteId'], $chunk['chunkIndex']],
             ],
-            array_slice($best, 0, $settings->maxSemanticResults),
+            $best,
         );
     }
 
@@ -668,10 +685,10 @@ class LocalSearchService
     }
 
     /**
-     * Chunk count and mean chunk length for the sites, which BM25 needs as N and avgdl.
-     * Cached against the local store's token, so a write refreshes it.
+     * Chunk count and each field's mean length for the sites, which BM25F needs as N and
+     * the per-field avgdl. Cached against the local store's token, so a write refreshes it.
      *
-     * @return array{0: int, 1: float}
+     * @return array{0: int, 1: array{title: float, body: float}}
      */
     private function corpusStats(array $sites): array
     {
@@ -683,12 +700,19 @@ class LocalSearchService
         $stats = $cache->get($key);
         if (!is_array($stats)) {
             $row = (new Query())
-                ->select(['total' => 'COUNT(*)', 'meanLength' => 'AVG([[tokenCount]])'])
+                ->select([
+                    'total' => 'COUNT(*)',
+                    'title' => 'AVG([[titleLength]])',
+                    'body' => 'AVG([[bodyLength]])',
+                ])
                 ->from(LocalSchema::CHUNKS_TABLE)
                 ->where(['siteId' => $sites])
                 ->one();
 
-            $stats = [(int)($row['total'] ?? 0), max(1.0, (float)($row['meanLength'] ?? 1))];
+            $stats = [(int)($row['total'] ?? 0), [
+                'title' => max(1.0, (float)($row['title'] ?? 1)),
+                'body' => max(1.0, (float)($row['body'] ?? 1)),
+            ]];
             $cache->set($key, $stats, Ranker::RANKING_CACHE_TTL_SECONDS, CacheTag::dependency());
         }
 

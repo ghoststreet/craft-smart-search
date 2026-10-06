@@ -2,14 +2,20 @@
 
 {% set title = 'Settings' %}
 {% set selectedSubnavItem = 'settings' %}
-{% set fullPageForm = true %}
+{% set fullPageForm = not readOnly %}
 
 {% set tabs = scenarios|map((s, slug) => { label: s.label, url: cpUrl('smart-search/settings/' ~ slug) }) %}
 {% set selectedTab = scenario %}
 
+{% if readOnly %}
+    {% set contentNotice = readOnlyNotice() %}
+{% endif %}
+
 {% block content %}
-    {{ actionInput('smart-search/settings/save') }}
-    {{ hiddenInput('scenario', scenario) }}
+    {% if not readOnly %}
+        {{ actionInput('smart-search/settings/save') }}
+        {{ hiddenInput('scenario', scenario) }}
+    {% endif %}
 
     {% include partial %}
 {% endblock %}

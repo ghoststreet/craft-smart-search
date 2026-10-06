@@ -91,6 +91,7 @@ class SmartSearch extends Plugin
 
     public string $schemaVersion = '1.0.0';
     public bool $hasCpSettings = true;
+    public bool $hasReadOnlyCpSettings = true;
     public bool $hasCpSection = true;
 
     /** The engine serving this site, chosen by what its database can do. */
@@ -203,9 +204,7 @@ class SmartSearch extends Plugin
             $subNav['preview'] = ['label' => 'Preview', 'url' => 'smart-search/preview'];
         }
 
-        if (Craft::$app->getConfig()->general->allowAdminChanges) {
-            $subNav['settings'] = ['label' => 'Settings', 'url' => 'smart-search/settings'];
-        }
+        $subNav['settings'] = ['label' => 'Settings', 'url' => 'smart-search/settings'];
 
         $item['subnav'] = $subNav;
 
@@ -217,6 +216,11 @@ class SmartSearch extends Plugin
         return Craft::$app->controller->redirect(
             UrlHelper::cpUrl('smart-search')
         );
+    }
+
+    public function getReadOnlySettingsResponse(): Response
+    {
+        return $this->getSettingsResponse();
     }
 
     /**

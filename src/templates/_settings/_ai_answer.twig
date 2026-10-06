@@ -12,6 +12,7 @@
         id: 'maxPromptTokens', name: 'maxPromptTokens',
         value: settings.maxPromptTokens, type: 'number', min: '500', max: '100000',
         required: true, errors: settings.getErrors('maxPromptTokens'),
+        disabled: readOnly,
     }) }}
 
     {{ forms.textareaField({
@@ -19,5 +20,6 @@
         instructions: 'Optional. Appended to the built-in prompt as Site Context. Use it for tone, persona, or domain vocabulary. Cannot override grounding, citation, or scope rules.',
         id: 'aiAnswerCustomPrompt', name: 'aiAnswerCustomPrompt', value: settings.aiAnswerCustomPrompt, rows: 5,
         errors: settings.getErrors('aiAnswerCustomPrompt'),
+        disabled: readOnly,
     }) }}
 {% endnamespace %}

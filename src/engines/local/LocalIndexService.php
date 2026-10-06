@@ -263,8 +263,9 @@ class LocalIndexService
      * Rebuild the entry's postings, then refresh the dictionary for exactly the terms
      * the change could have moved.
      *
-     * Title postings are written for every chunk, not just the first, so each chunk
-     * carries its entry's title weight.
+     * Each chunk is one BM25F document with two fields: the entry's title and the chunk's
+     * body. So title postings are written for every chunk, and each chunk stores both
+     * field lengths for the per-field length normalisation.
      *
      * @param string[] $chunks
      */
@@ -284,17 +285,31 @@ class LocalIndexService
             ['elementId' => $elementId, 'siteId' => $siteId],
         )->execute();
 
-        $titlePairs = Stemmer::terms($title, $language);
+        $titleTerms = self::countTerms(Stemmer::terms($title, $language));
 
         $rows = [];
         $newTerms = [];
         foreach ($chunks as $index => $chunkText) {
-            foreach (['title' => $titlePairs, 'body' => Stemmer::terms(FieldPrefix::forEmbedding($chunkText), $language)] as $field => $pairs) {
-                foreach (self::countTerms($pairs) as $term => $counted) {
+            $fields = [
+                'title' => $titleTerms,
+                'body' => self::countTerms(Stemmer::terms(FieldPrefix::forEmbedding($chunkText), $language)),
+            ];
+
+            foreach ($fields as $field => $terms) {
+                foreach ($terms as $term => $counted) {
                     $rows[] = [$siteId, $elementId, $index, $term, $counted['raw'], $field, $counted['tf']];
                     $newTerms[$term] = true;
                 }
             }
+
+            $db->createCommand()->update(
+                LocalSchema::CHUNKS_TABLE,
+                [
+                    'titleLength' => array_sum(array_column($fields['title'], 'tf')),
+                    'bodyLength' => array_sum(array_column($fields['body'], 'tf')),
+                ],
+                ['elementId' => $elementId, 'siteId' => $siteId, 'chunkIndex' => $index],
+            )->execute();
         }
 
         if ($rows !== []) {

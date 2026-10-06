@@ -10,7 +10,7 @@
 - **AI Answer:** a short summary with citations, as JSON or streamed, with a daily spend cap and per-visitor limits.
 - **Templates, HTTP API and GraphQL:** `craft.smartSearch.search()` and `aiAnswer()` in Twig, JSON and streaming endpoints for headless front ends, and GraphQL queries with per-schema permissions.
 - **Control panel tools:** a Dashboard with usage and spend, Insights reports (top, zero-result and trending queries), an Index page with per-entry inspect, exclude and re-index, and a Preview that compares Craft's search, Smart Search and AI Answer side by side.
-- **Runs in production:** settings live in project config, secrets are environment variables, and admins can use the Dashboard, Index, Insights and Preview where admin changes are off.
+- **Runs in production:** settings live in project config, secrets are environment variables, and admins can use the Dashboard, Index, Insights and Preview and view settings read-only where admin changes are off.
 
 ## Requirements
 

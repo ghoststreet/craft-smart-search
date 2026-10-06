@@ -15,6 +15,7 @@ related even when your site never writes them together, and it is what AI Answer
         options: providers,
         required: true, errors: settings.getErrors('aiProvider'),
         inputAttributes: { 'data-smart-search-target': 'ai-provider' },
+        disabled: readOnly,
     }) }}
 
     <div data-smart-search-provider="openai"{{ settings.aiProvider != 'openai' ? ' hidden' : '' }}>
@@ -25,6 +26,7 @@ related even when your site never writes them together, and it is what AI Answer
             value: settings.openaiApiKey, suggestEnvVars: true,
             errors: settings.getErrors('openaiApiKey'),
             inputAttributes: { 'data-smart-search-target': 'api-key' },
+            disabled: readOnly,
         }) }}
     </div>
 
@@ -36,6 +38,7 @@ related even when your site never writes them together, and it is what AI Answer
             value: settings.openrouterApiKey, suggestEnvVars: true,
             errors: settings.getErrors('openrouterApiKey'),
             inputAttributes: { 'data-smart-search-target': 'api-key' },
+            disabled: readOnly,
         }) }}
     </div>
 
@@ -64,6 +67,7 @@ related even when your site never writes them together, and it is what AI Answer
         value: settings.embeddingModel,
         options: providerModels[settings.aiProvider].embedding,
         inputAttributes: { 'data-smart-search-target': 'smart-embedding-model' },
+        disabled: readOnly,
     }) ~ embeddingWarning) }}
 
     {{ forms.selectizeField({
@@ -74,6 +78,7 @@ related even when your site never writes them together, and it is what AI Answer
         options: providerModels[settings.aiProvider].answer,
         required: true, errors: settings.getErrors('aiAnswerModel'),
         inputAttributes: { 'data-smart-search-target': 'ai-answer-model' },
+        disabled: readOnly,
     }) }}
 
     {{ forms.selectField({
@@ -85,6 +90,7 @@ related even when your site never writes them together, and it is what AI Answer
         errors: settings.getErrors('dimensions'),
         inputAttributes: { 'data-smart-search-target': 'dimensions' },
         fieldAttributes: { 'data-smart-search-target': 'dimensions-field', hidden: not providerModels[settings.aiProvider].offersWidthChoice },
+        disabled: readOnly,
     }) }}
 
 {% endnamespace %}

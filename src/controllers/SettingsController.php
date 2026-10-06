@@ -19,21 +19,6 @@ use yii\web\Response;
 
 class SettingsController extends BaseCpController
 {
-    public function beforeAction($action): bool
-    {
-        if (!parent::beforeAction($action)) {
-            return false;
-        }
-
-        if (!Craft::$app->getConfig()->getGeneral()->allowAdminChanges) {
-            Craft::$app->getSession()->setNotice(Craft::t('smart-search', 'Settings can only be changed where admin changes are allowed.'));
-            $this->redirect('smart-search')->send();
-            return false;
-        }
-
-        return true;
-    }
-
     /**
      * One settings tab, by its slug. Every tab renders settings/_page; only the fields
      * partial differs. With no tab, the first one.
@@ -58,6 +43,7 @@ class SettingsController extends BaseCpController
     public function actionSave(): Response
     {
         $this->requirePostRequest();
+        $this->requireAdmin();
 
         $request = Craft::$app->getRequest();
         $scenario = (string)$request->getBodyParam('scenario', '');
@@ -180,6 +166,7 @@ class SettingsController extends BaseCpController
         return $this->renderTemplate('smart-search/settings/_page', [
             'settings' => $settings,
             'scenario' => $scenario,
+            'readOnly' => !Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
             'scenarios' => Settings::SCENARIOS,
             'partial' => Settings::SCENARIOS[$scenario]['partial'],
             'defaults' => new Settings(),

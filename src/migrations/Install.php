@@ -99,6 +99,8 @@ class Install extends Migration
             'language' => $this->string(32)->notNull(),
             'contentHash' => $this->string(64)->null(),
             'tokenCount' => $this->integer()->notNull()->defaultValue(0),
+            'titleLength' => $this->smallInteger()->notNull()->defaultValue(0),
+            'bodyLength' => $this->integer()->notNull()->defaultValue(0),
             'dateCreated' => $this->dateTime()->notNull(),
             'dateUpdated' => $this->dateTime()->notNull(),
             'uid' => $this->uid(),
