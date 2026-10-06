@@ -42,7 +42,7 @@ class Settings extends Model
 
     public int $embeddingCacheTtlDays = 7;
 
-    public float $minSemanticThreshold = 0.15;
+    public float $minSemanticThreshold = 0.65;
     public int $maxSemanticResults = 100;
 
     public int $excerptLength = 200;
