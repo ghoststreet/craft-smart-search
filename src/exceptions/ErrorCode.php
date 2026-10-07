@@ -74,7 +74,7 @@ enum ErrorCode : string
             self::AUTH_CSRF_INVALID => 'Missing or invalid CSRF token.',
             self::AUTH_TOKEN_INVALID => 'Invalid API token.',
             self::AUTH_ORIGIN_DENIED => 'Requests from this origin are not allowed.',
-            self::UNKNOWN => 'Something went wrong. The administrator can find details in the Smart Search log.',
+            self::UNKNOWN => 'Something went wrong. Please try again.',
         };
     }
 }

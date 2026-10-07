@@ -5,6 +5,7 @@ namespace ghoststreet\craftsmartsearch\helpers;
 use craft\web\Controller;
 use ghoststreet\craftsmartsearch\exceptions\ErrorCode;
 use ghoststreet\craftsmartsearch\exceptions\RateLimitException;
+use ghoststreet\craftsmartsearch\exceptions\SmartSearchException;
 use ghoststreet\craftsmartsearch\services\SearchRunner;
 use Throwable;
 use yii\web\Response;
@@ -13,9 +14,9 @@ use yii\web\Response;
  * Helper for creating standardized API responses.
  *
  * Strict error shape: { success: false, code, message, requestId?, retryAfter? }.
- * `message` is always the curated string from ErrorCode::message(); raw exception
- * text, HTTP client errors, and stack traces never appear in API responses; they
- * go to smart-search.log only.
+ * `message` is the exception's public message, always the plugin's own words; raw
+ * exception text, provider errors and stack traces never appear in API responses;
+ * they go to smart-search.log only.
  */
 final class ApiResponseHelper
 {
@@ -24,8 +25,6 @@ final class ApiResponseHelper
 
     /**
      * Build a strict error body. Always logs the exception with full trace.
-     * The `message` field is the curated, user-facing string from ErrorCode::message();
-     * raw exception messages are NEVER serialized to clients; they go to the log only.
      *
      * @return array{success: false, code: string, message: string, requestId?: string, retryAfter?: int}
      */
@@ -35,9 +34,6 @@ final class ApiResponseHelper
         $message = self::present($e, $operation, $context);
 
         $requestId = !empty($context['requestId']) ? (string)$context['requestId'] : null;
-        if ($requestId !== null) {
-            $message .= " (Reference: {$requestId})";
-        }
 
         $body = [
             'success' => false,
@@ -57,15 +53,15 @@ final class ApiResponseHelper
     }
 
     /**
-     * Log the exception and return its curated message, for surfaces that render a
-     * string rather than a body: CP flashes, Twig views, GraphQL errors.
+     * Log the exception and return its public message, for surfaces that render a string
+     * rather than a body: CP flashes, Twig views, GraphQL errors.
      */
     public static function present(Throwable $e, string $operation, array $context = []): string
     {
         $code = ErrorCode::for($e);
         Logger::exception($e, $operation, $context + ['code' => $code->value]);
 
-        return $code->translated();
+        return $e instanceof SmartSearchException ? $e->publicMessage() : $code->translated();
     }
 
     /**

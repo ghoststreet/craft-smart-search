@@ -20,15 +20,23 @@ abstract class SmartSearchException extends RuntimeException
 
     protected ErrorCode $errorCode = ErrorCode::UNKNOWN;
 
+    private ?string $publicMessage = null;
+
     public function errorCode(): ErrorCode
     {
         return $this->errorCode;
     }
 
-    protected static function build(?string $message, ErrorCode $code, ?Throwable $previous = null): static
+    public function publicMessage(): string
+    {
+        return $this->publicMessage ?? $this->errorCode->translated();
+    }
+
+    protected static function build(?string $message, ErrorCode $code, ?Throwable $previous = null, ?string $publicMessage = null): static
     {
         $e = new static($message ?? $code->message(), 0, $previous);
         $e->errorCode = $code;
+        $e->publicMessage = $publicMessage;
         return $e;
     }
 }

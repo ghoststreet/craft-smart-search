@@ -43,7 +43,7 @@ abstract class BaseApiController extends Controller
     }
 
     /**
-     * Log the exception and return its curated message, for the non-JSON
+     * Log the exception and return its public message, for the non-JSON
      * surfaces (CP flashes, Twig views) that render a string rather than a body.
      */
     protected function presentError(Throwable $e, string $operation, array $context = []): string

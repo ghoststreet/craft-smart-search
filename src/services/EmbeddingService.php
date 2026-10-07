@@ -133,7 +133,7 @@ class EmbeddingService extends Component
             $provider,
         );
 
-        return fn(): array => $this->collectEmbedding($handles, $model, $requestCacheKey, $persistentCacheKey);
+        return fn(): array => $this->collectEmbedding($handles, $provider, $model, $requestCacheKey, $persistentCacheKey);
     }
 
     /**
@@ -197,7 +197,7 @@ class EmbeddingService extends Component
      * @param array{0: CurlMultiHandle, 1: CurlHandle} $handles
      * @throws EmbeddingException
      */
-    private function collectEmbedding(array $handles, string $model, string $requestCacheKey, string $persistentCacheKey): array
+    private function collectEmbedding(array $handles, AiProvider $provider, string $model, string $requestCacheKey, string $persistentCacheKey): array
     {
         [$mh, $ch] = $handles;
 
@@ -217,6 +217,7 @@ class EmbeddingService extends Component
             $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             $errno = $info === false ? 0 : $info['result'];
             $error = curl_error($ch);
+            $elapsedSeconds = max(1, (int)round(curl_getinfo($ch, CURLINFO_TOTAL_TIME)));
         } finally {
             curl_multi_remove_handle($mh, $ch);
             curl_close($ch);
@@ -224,7 +225,10 @@ class EmbeddingService extends Component
         }
 
         if ($errno !== 0) {
-            $e = EmbeddingException::apiError('transport: ' . $error, new RuntimeException($error));
+            $publicMessage = $errno === CURLE_OPERATION_TIMEDOUT
+                ? self::failureMessage('The embedding request to {provider} for {model} timed out after {seconds} seconds.', $provider, $model, ['seconds' => $elapsedSeconds])
+                : self::failureMessage('The embedding request to {provider} for {model} could not connect.', $provider, $model);
+            $e = EmbeddingException::apiError($publicMessage, new RuntimeException($error));
             Logger::exception($e, 'dispatchEmbedding', ['model' => $model, 'curlErrno' => $errno]);
             throw $e;
         }
@@ -232,14 +236,17 @@ class EmbeddingService extends Component
         $decoded = json_decode((string)$body, true);
 
         if ($status !== 200 || !is_array($decoded)) {
-            $e = $this->mapHttpError($status, is_array($decoded) ? $decoded : []);
+            $e = $this->mapHttpError($status, is_array($decoded) ? $decoded : [], $provider, $model);
             Logger::exception($e, 'dispatchEmbedding', ['model' => $model, 'status' => $status]);
             throw $e;
         }
 
         $embedding = $decoded['data'][0]['embedding'] ?? null;
         if (!is_array($embedding)) {
-            $e = EmbeddingException::apiError('response contained no embedding', new RuntimeException('malformed response'));
+            $e = EmbeddingException::apiError(
+                self::failureMessage('The embedding request to {provider} for {model} returned no embedding.', $provider, $model),
+                new RuntimeException('malformed response'),
+            );
             Logger::exception($e, 'dispatchEmbedding', ['model' => $model]);
             throw $e;
         }
@@ -272,23 +279,31 @@ class EmbeddingService extends Component
      *
      * @param array<string, mixed> $decoded
      */
-    private function mapHttpError(int $status, array $decoded): EmbeddingException
+    private function mapHttpError(int $status, array $decoded, AiProvider $provider, string $model): EmbeddingException
     {
         $code = (string)($decoded['error']['code'] ?? '');
-        $message = (string)($decoded['error']['message'] ?? 'HTTP ' . $status);
-        $previous = new RuntimeException($message);
+        $previous = new RuntimeException((string)($decoded['error']['message'] ?? 'HTTP ' . $status));
 
         if ($status === 429) {
-            return EmbeddingException::rateLimited($previous);
+            return EmbeddingException::rateLimited(self::failureMessage('{provider} rate-limited the embedding request for {model}. Please retry shortly.', $provider, $model), $previous);
         }
         if ($status === 401 || $code === 'invalid_api_key') {
-            return EmbeddingException::invalidApiKey($previous);
+            return EmbeddingException::invalidApiKey(self::failureMessage('{provider} rejected the API key for the embedding request.', $provider, $model), $previous);
         }
         if ($code === 'insufficient_quota') {
-            return EmbeddingException::quotaExceeded($previous);
+            return EmbeddingException::quotaExceeded(self::failureMessage('{provider} refused the embedding request for {model}: the account is out of quota.', $provider, $model), $previous);
         }
 
-        return EmbeddingException::apiError($message, $previous);
+        return EmbeddingException::apiError(
+            self::failureMessage('The embedding request to {provider} for {model} failed with HTTP {status}.', $provider, $model, ['status' => $status]),
+            $previous,
+        );
+    }
+
+    /** A failure sentence in the plugin's own words, naming the provider and model. */
+    private static function failureMessage(string $message, AiProvider $provider, string $model, array $params = []): string
+    {
+        return Craft::t('smart-search', $message, ['provider' => $provider::label(), 'model' => $model] + $params);
     }
 
     /**

@@ -73,9 +73,11 @@ final class Logger
         self::error("{$operation} failed: {$e->getMessage()}", $context);
     }
 
-    /** Renders a message plus its context array as `message [k=v, k=v]`. */
+    /** Renders a message plus its context array as `message [k=v, k=v]`, on one line. */
     private static function formatMessage(string $message, array $context): string
     {
+        $message = preg_replace('/\s*\R\s*/', ' ', $message);
+
         if ($context === []) {
             return $message;
         }
