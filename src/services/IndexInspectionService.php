@@ -98,7 +98,7 @@ class IndexInspectionService extends Component
             $key = $entry->id . '-' . $entry->siteId;
             $indexed = $summary[$key] ?? null;
 
-            yield [$entry, $indexed, $this->statusFor($entry, $indexed, isset($excludedKeys[$key]))];
+            yield [$entry, $indexed, $this->statusFor($entry->dateUpdated, $indexed, isset($excludedKeys[$key]))];
         }
     }
 
@@ -109,7 +109,7 @@ class IndexInspectionService extends Component
      *
      * @param array{lastIndexed: string}|null $summaryRow
      */
-    private function statusFor(Entry $entry, ?array $summaryRow, bool $isExcluded): string
+    private function statusFor(?DateTime $entryUpdatedAt, ?array $summaryRow, bool $isExcluded): string
     {
         if ($isExcluded) {
             return self::STATUS_EXCLUDED;
@@ -122,7 +122,7 @@ class IndexInspectionService extends Component
             return self::STATUS_STALE;
         }
 
-        $entryUpdated = $entry->dateUpdated ? $entry->dateUpdated->getTimestamp() : 0;
+        $entryUpdated = $entryUpdatedAt ? $entryUpdatedAt->getTimestamp() : 0;
         return $entryUpdated > $indexedAt->getTimestamp()
             ? self::STATUS_STALE
             : self::STATUS_INDEXED;
@@ -132,18 +132,33 @@ class IndexInspectionService extends Component
      * Aggregate index coverage per site for dashboard charts. Returns one row
      * per Craft site with indexed / stale / not-indexed counts.
      *
+     * Reads only each entry's id and dateUpdated, unordered, instead of building full
+     * entries: Craft's default entry query selects the JSON content column and sorts on
+     * it, which on MySQL 8 fails with "Out of sort memory" (1038) once entries are large.
+     *
      * @return list<array{siteId: int, site: string, indexed: int, stale: int, notIndexed: int, total: int}>
      */
     public function getCoverageBySite(): array
     {
+        $plugin = SmartSearch::getInstance();
+
         $out = [];
         foreach (Craft::$app->getSites()->getAllSites() as $site) {
             $siteId = (int)$site->id;
-            $summary = SmartSearch::getInstance()->engine()->indexedSummary($siteId);
+            $summary = $plugin->engine()->indexedSummary($siteId);
+            $excludedKeys = $plugin->exclusionService->getExcludedKeys($siteId);
+
+            $dateUpdatedById = BaseEngine::indexableEntries()
+                ->siteId($siteId)
+                ->select(['elements.id', 'elements.dateUpdated'])
+                ->orderBy(null)
+                ->pairs();
 
             $tally = [self::STATUS_INDEXED => 0, self::STATUS_STALE => 0, self::STATUS_NOT_INDEXED => 0, self::STATUS_EXCLUDED => 0];
-            foreach ($this->classify(BaseEngine::indexableEntries()->siteId($siteId)->all(), $siteId, $summary) as [, , $status]) {
-                $tally[$status]++;
+            foreach ($dateUpdatedById as $id => $dateUpdated) {
+                $key = $id . '-' . $siteId;
+                $updatedAt = DateTimeHelper::toDateTime($dateUpdated) ?: null;
+                $tally[$this->statusFor($updatedAt, $summary[$key] ?? null, isset($excludedKeys[$key]))]++;
             }
 
             $out[] = [
@@ -251,7 +266,7 @@ class IndexInspectionService extends Component
 
         return [
             'entry' => $entry,
-            'status' => $this->statusFor($entry, $summaryRow, $isExcluded),
+            'status' => $this->statusFor($entry->dateUpdated, $summaryRow, $isExcluded),
             'lastIndexed' => $summaryRow ? DateTimeHelper::toDateTime($summaryRow['lastIndexed']) : null,
             'fields' => $this->markStoredFields($fields, self::normalize(self::storedText($chunks))),
             'chunks' => array_map(
