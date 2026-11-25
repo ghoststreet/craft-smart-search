@@ -273,7 +273,16 @@ final class Ranker
 
             $elements = [];
             foreach ($bySite as $site => $ids) {
-                $elements += Entry::find()->id($ids)->siteId($site)->sectionId($sectionIds)->indexBy('id')->all();
+                // orderBy(null) skips Craft's default ORDER BY (structure lft, postDate):
+                // results are re-ordered by score below, and sorting rows that carry the
+                // full `content` JSON column can exhaust MySQL's sort buffer.
+                $elements += Entry::find()
+                    ->id($ids)
+                    ->siteId($site)
+                    ->sectionId($sectionIds)
+                    ->orderBy(null)
+                    ->indexBy('id')
+                    ->all();
             }
             $loadedCount += count($elements);
 
