@@ -50,21 +50,38 @@ class PreviewController extends BaseCpController
 
         $query = Entry::find()
             ->status(Entry::STATUS_ENABLED)
-            ->search($params['query'])
             ->limit($params['limit']);
 
         if ($params['siteId'] !== null) {
             $query->siteId($params['siteId']);
         }
 
-        $results = array_map(
-            static fn(Entry $entry): array => [
-                'id' => $entry->id,
-                'title' => $entry->title,
-                'url' => $entry->getUrl(),
-            ],
-            $query->all()
-        );
+        // Rank with a narrow ids() query, then load the entries unsorted and restore
+        // the order in PHP: sorting full rows (with the `content` JSON column) in
+        // MySQL can exhaust its sort buffer.
+        $ids = (clone $query)
+            ->search($params['query'])
+            ->orderBy(['score' => SORT_DESC])
+            ->ids();
+
+        $entries = $ids === [] ? [] : (clone $query)
+            ->id($ids)
+            ->limit(null)
+            ->orderBy(null)
+            ->indexBy('id')
+            ->all();
+
+        $results = [];
+        foreach ($ids as $id) {
+            if (isset($entries[$id])) {
+                $entry = $entries[$id];
+                $results[] = [
+                    'id' => $entry->id,
+                    'title' => $entry->title,
+                    'url' => $entry->getUrl(),
+                ];
+            }
+        }
 
         return $this->asJson([
             'success' => true,
